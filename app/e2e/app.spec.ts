@@ -1,22 +1,24 @@
 import { fileURLToPath } from 'node:url';
-import { expect, LIEUSAINT, lineBounds, locate, mapReady, openApp, pkValue, placeAt, pointAtPk, test } from './helpers';
+import { expect, LIEUSAINT, lineBounds, locate, mapReady, openApp, pkValue, placeAt, pointAtPk, test, toCarte } from './helpers';
 
 const KML = fileURLToPath(new URL('./fixtures/acces-test.kml', import.meta.url));
 const PHOTO = fileURLToPath(new URL('./fixtures/photo-vegetation.jpg', import.meta.url));
 
 test.describe.configure({ mode: 'parallel' });
 
-test('premier lancement : avertissement, puis écran d’accueil', async ({ page }) => {
+test('premier lancement : avertissement, puis accueil et carte', async ({ page }) => {
   await openApp(page, { firstRun: true });
   const accept = page.getByRole('button', { name: /J.ai compris/ });
   await expect(accept).toBeVisible();
   await expect(page.getByText('Aide à la préparation, jamais une référence de sécurité.')).toBeVisible();
   await accept.click();
+  await expect(page.getByRole('heading', { name: 'Prépare ton chantier' })).toBeVisible();
+  await toCarte(page);
   await expect(page.locator('.hint-card')).toContainText('Me repérer');
   await expect(page.getByRole('button', { name: 'Suivre le PK' })).toBeVisible();
-  // Accepté une fois pour toutes.
+  // Accepté une fois pour toutes ; l'appli rouvre sur l'accueil.
   await page.reload();
-  await expect(page.locator('.hint-card')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Prépare ton chantier' })).toBeVisible();
   await expect(accept).toBeHidden();
 });
 
@@ -134,6 +136,7 @@ test('couches et fond de carte : les choix restent après un rechargement', asyn
   await sheet.getByRole('button', { name: 'Aucun (hors-ligne)' }).click();
   await sheet.getByRole('button', { name: 'Fermer' }).click();
   await page.reload();
+  await toCarte(page);
   await page.getByRole('button', { name: 'Couches et fond de carte' }).click();
   await expect(sheet.getByRole('checkbox', { name: /Avertissements, mirlitons/ })).toBeChecked();
   await expect(sheet.getByRole('checkbox', { name: /Bornes kilométriques/ })).toHaveCount(0);
@@ -330,6 +333,7 @@ test('signaler : type, gravité, commentaire, photo, envoi et liste de mes signa
 
   // Gardé sur le téléphone, même après rechargement.
   await page.reload();
+  await toCarte(page);
   await page.getByRole('button', { name: /^Menu/ }).first().click();
   await page.getByRole('dialog', { name: 'Menu' }).getByRole('button', { name: 'Mes signalements (1)' }).click();
   const list = page.getByRole('dialog', { name: 'Mes signalements' });
@@ -460,6 +464,7 @@ test('fiche « Autour de toi » : se réduit (bouton ou glisser vers le bas), le
 
   // Le choix reste après un rechargement.
   await page.reload();
+  await toCarte(page);
   await locate(page);
   await expect(mini).toBeVisible();
   await expect(card).toHaveCount(0);

@@ -15,19 +15,20 @@ avec en plus l'espace ASP.
 > ouvertes (SNCF Réseau, OpenStreetMap) : ils peuvent être faux, incomplets ou périmés. Vérifie toujours sur le
 > terrain. L'ASP reste responsable de son dispositif.
 
-## Espace ASP (bouton « ASP » sur la carte, ou Menu)
+## Comment l'appli est rangée
 
-| Fonction | Ce qu'elle fait |
+Quatre onglets en bas, comme les applis du téléphone : **Accueil**, **Carte**, **Calcul**, **Réviser**. Une seule
+action principale par écran, en bas sous le pouce ; le bouton retour du téléphone ferme l'écran ouvert. L'affichage
+suit le téléphone : clair le jour, sombre la nuit (réglable dans le menu).
+
+| Écran | Ce qu'il fait |
 | --- | --- |
-| Mes chantiers | Un chantier part de ta position (ligne, PK, vitesse de la ligne proposée) ou se remplit à la main. Fixe, mobile (longueur sous annonce, PK de l'équipe) ou itinérant ; de jour ou de nuit. Gardé uniquement sur le téléphone. |
-| Annonce | Plateforme (double voie, voie unique, banalisées, 4 voies…), sens des circulations par rapport aux PK, place de chaque voie (travail, contiguë, à traverser, hors annonce), vitesse, voie interdite. Outillage (aucun, 1re, 2e, 3e catégorie), délai de dégagement, particularités (nuit, soudage/meulage, obstacle masquant, annonceur pour 2 sens, ASP qui annonce lui-même, clôtures, bruit…). |
-| Résultat | DD + MS = DA, avec les raisons de la marge ; 10 s au moins au-delà de 160 km/h ; distance arrondie à la dizaine de mètres supérieure ; point d'annonce (PK) pour chaque voie et chaque sens ; alertes (DFV obligatoire, exemptions, LGV, agent seul, bruit, rupture de vitesse sur la ligne…). |
-| Dispositif | ASP, annonceurs, répétiteurs, sentinelles : position (PK), voies et sens surveillés, distance à voir jusqu'au point d'annonce. « Un annonceur par sens » en un toucher. Contrôles : voie non surveillée, annonceur 2 sens, ASP annonceur (chantier mobile, plus de 3 agents), mixité d'entreprises… |
-| Carte | Zone de travail, points d'annonce et agents dessinés sur la carte des voies ; « Y aller » vers un point d'annonce. |
-| Fiches | Fiche CADA en PDF et résumé par message (WhatsApp, SMS, mail…), check-lists (documents, ligne, avant de commencer, briefing, pendant, fin de chantier). |
-| Calcul rapide | Distance d'annonce selon la vitesse et le délai, et le tableau complet (30 à 300 km/h, 5 à 60 s). |
-| Mémo ASP | Les règles du support, reformulées : rôle de l'ASP, documents, outillage, DFV, DD, MS, DA, placement et chaîne d'annonce, bruit, cumul, agent seul, chantier mobile, PN, AAn, briefing, DMVC, zone dangereuse, signaux, sigles. |
-| Quiz et cas pratiques | Questions avec explications (série de 10, par thème, « mes erreurs ») et les 7 exercices « Terrain et CADA » du support, corrigés par le même moteur de calcul. |
+| Accueil | « Mon chantier du jour » : délai d'annonce, distance et PK du point d'annonce pour chaque voie et chaque sens (un toucher : y aller sur la carte), état « Prêt » ou « à régler ». Gros bouton « Nouveau chantier », raccourcis (Où suis-je ?, calcul, mémo, quiz) et les autres chantiers. |
+| Nouveau chantier, pas à pas | Une question par écran, de gros choix et des valeurs par défaut : lieu (position GPS en un toucher, ou ligne et PK), type et horaire, voies (plateformes types dessinées), vitesses (celle de la ligne proposée), outillage, délai de dégagement, cas particuliers. Puis le résultat : DD + MS = DA, distances, points d'annonce, alertes, et « Placer un annonceur par sens ». |
+| Fiche chantier | Le résultat en haut ; ce qui reste à régler (avec la correction en un toucher quand l'interdiction de circulation est obligatoire) ; le dispositif (ASP, annonceurs, répétiteurs, sentinelles, chacun dans une feuille) ; check-lists ; équipe et notes ; chaque réglage rouvre son étape. En bas : Partager (fiche CADA en PDF, résumé par message) et Carte. |
+| Carte | Le repérage de PK Rail, plus la zone de travail, les points d'annonce et les agents du chantier. |
+| Calcul | Distance d'annonce selon la vitesse, le dégagement et la marge, avec le tableau complet (30 à 300 km/h, 5 à 60 s). |
+| Réviser | Mémo des règles du support (avec recherche), quiz avec explications (série de 10, par thème, « mes erreurs »), et les 7 exercices « Terrain et CADA » corrigés par le même moteur de calcul. |
 
 ## Repérage (repris de PK Rail)
 
@@ -73,8 +74,9 @@ le navigateur ne peut pas lire Google directement.
 `npm run e2e` (après `npm run build`) ouvre l'appli construite dans Chrome, en téléphone simulé avec un GPS simulé
 le long de la ligne 830 000 à Lieusaint. Repérage : premier lancement, Me repérer, suivi du PK, recherche, Aller au
 PK, couches, mes accès, signalements, menu, GPS refusé, petit écran, sans réseau. ASP : code d'accès (refusé,
-accepté, gardé, coupé, lien reçu), espace administrateur, chantier depuis la position (vitesse de la ligne, délai,
-points d'annonce, dispositif, check-list, résumé, PDF, carte), calcul rapide, mémo, quiz, cas pratique, petit écran.
+accepté, gardé, coupé, lien reçu), espace administrateur, nouveau chantier pas à pas (position, vitesse de la ligne,
+résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
+obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran.
 Internet est coupé pendant les tests (le serveur du code est simulé). `SHOTS=1` enregistre des captures dans
 `app/e2e-shots/`.
 

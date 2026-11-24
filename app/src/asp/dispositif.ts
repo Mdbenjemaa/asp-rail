@@ -3,7 +3,7 @@
  * d'annonce, chaîne d'annonce, et règles sur le rôle de l'ASP.
  */
 import { fmtDist, fmtPk } from '../lib/format';
-import { ROLE_COURT, ROLE_LABEL, type Agent, type Chantier, cleSens, SENS_TEXTE } from './chantier';
+import { ROLE_COURT, ROLE_LABEL, type Agent, type Chantier, cleSens, newId, SENS_TEXTE } from './chantier';
 import type { Alerte, Resultat } from './rules';
 
 /** Nom court de chaque agent : ASP, A1, A2, R1, S1… dans l'ordre de la liste. */
@@ -149,4 +149,33 @@ export function controlesDispositif(c: Chantier, r: Resultat): Alerte[] {
 /** Libellé d'un agent pour les listes : « A1 · Annonceur · Karim ». */
 export function libelleAgent(a: Agent, codes: Map<string, string>): string {
   return [codes.get(a.id), ROLE_LABEL[a.role], a.nom.trim()].filter(Boolean).join(' · ');
+}
+
+/**
+ * Un annonceur par sens de circulation, placé au point d'annonce et qui surveille toutes les voies de ce sens.
+ * L'ASP est gardé (sans surveillance) ; les autres agents sont remplacés.
+ */
+export function annonceurParSens(c: Chantier, r: Resultat): Chantier {
+  const asp = c.agents.filter((a) => a.role === 'asp').map((a) => ({ ...a, surveille: [] }));
+  const sensPresents = (['croissant', 'decroissant'] as const).filter((s) => r.voies.some((v) => v.sens === s));
+  const annonceurs: Agent[] = sensPresents.map((s) => {
+    const vs = r.voies.filter((v) => v.sens === s);
+    const pa = vs.find((v) => v.pointAnnonce !== null)?.pointAnnonce ?? null;
+    return { id: newId(), role: 'annonceur', nom: '', entreprise: c.entreprise, pk: pa, surveille: vs.map((v) => cleSens(v.voieId, v.sens)) };
+  });
+  return { ...c, agents: [...asp, ...annonceurs], p: { ...c.p, annonceur2Sens: false } };
+}
+
+/** Ce qu'un agent surveille, en peu de mots : « surveille V1 ▲, V2 ▼ ». */
+export function surveilleTexteCourt(c: Chantier, a: Agent): string {
+  if (a.role === 'repetiteur') return 'répète l’annonce';
+  const noms = a.surveille
+    .map((k) => {
+      const [id, sens] = k.split(':');
+      const v = c.voies.find((x) => x.id === id);
+      return v ? `${v.nom} ${sens === 'croissant' ? '▲' : '▼'}` : null;
+    })
+    .filter(Boolean);
+  if (noms.length) return `surveille ${noms.join(', ')}`;
+  return a.role === 'asp' ? '' : 'ne surveille encore rien';
 }

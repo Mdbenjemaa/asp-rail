@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Root } from './access/Root';
 import './styles.css';
 import './asp/asp.css';
+import './design.css';
 import { registerSW } from 'virtual:pwa-register';
 import { captureInstallPrompt } from './lib/install';
 import { updateReady } from './lib/update';

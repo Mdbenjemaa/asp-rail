@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, fakeShare, fmtPkTest, locate, openApp, pkValue, shot, showPoint, test } from './helpers';
+import { expect, fakeShare, fmtPkTest, openApp, pkValue, shot, showPoint, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -38,7 +38,8 @@ test('code d’accès : mauvais code refusé, bon code gardé sur le téléphone
   await page.reload();
   await expect(page.locator('.map canvas')).toBeVisible();
   await expect.poll(() => appels.filter((c) => c === 'ABCDEF23').length).toBeGreaterThanOrEqual(3);
-  await page.getByRole('button', { name: /^Menu/ }).first().click();
+  await expect(page.getByRole('heading', { name: /Équipe/ })).toBeVisible();
+  await page.getByRole('button', { name: /^Réglages/ }).click();
   await expect(page.getByRole('dialog', { name: 'Menu' })).toContainText('ABCD-EF23 · Équipe test');
 
   // Coupé par l'administrateur : à la vérification suivante, l'appli se ferme.
@@ -140,82 +141,95 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
   await expect(page.getByRole('textbox', { name: 'Code d’accès' })).toBeVisible();
 });
 
-test('chantier depuis ma position : vitesse de la ligne, délai et points d’annonce, dispositif, check-list, résumé, PDF et carte', async ({ page }) => {
+/** Les questions du nouveau chantier, en gardant les choix proposés sauf ceux indiqués. */
+async function creerChantier(page: Page, choix: { nuit?: boolean; outillage?: RegExp } = {}) {
+  await page.getByRole('button', { name: 'Nouveau chantier' }).first().click();
+  const ecran = page.getByRole('dialog', { name: 'Nouveau chantier' });
+  await expect(ecran.getByRole('heading', { name: 'Où est le chantier ?' })).toBeVisible();
+  await expect(ecran.getByRole('button', { name: 'Continuer' })).toBeDisabled();
+  await ecran.getByRole('button', { name: /Utiliser ma position GPS/ }).click();
+  await expect(ecran.getByText('Position prise')).toBeVisible({ timeout: 20_000 });
+  await expect(ecran.getByText('Ligne de Paris-Lyon à Marseille-St-Charles')).toBeVisible();
+  const debut = pkValue((await ecran.getByText(/^Ligne 830 000 · PK/).innerText()) ?? '');
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  await expect(ecran.getByRole('heading', { name: 'Comment se passe le chantier ?' })).toBeVisible();
+  if (choix.nuit) await ecran.getByRole('radio', { name: /De nuit/ }).click();
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  await expect(ecran.getByRole('radio', { name: /Double voie/ })).toHaveAttribute('aria-checked', 'true');
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  // Vitesse de la ligne à Lieusaint (données ouvertes), proposée pour toutes les voies.
+  await expect(ecran.getByText('160 km/h d’après la ligne')).toBeVisible();
+  await expect(ecran.getByRole('textbox', { name: 'Vitesse maximale' })).toHaveValue('160');
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  if (choix.outillage) await ecran.getByRole('radio', { name: choix.outillage }).click();
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  await expect(ecran.getByRole('radio', { name: '5 s', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  await expect(ecran.getByRole('heading', { name: 'Un cas particulier ?' })).toBeVisible();
+  await ecran.getByRole('button', { name: 'Voir le résultat' }).click();
+  await expect(ecran.getByRole('heading', { name: 'Ton annonce' })).toBeVisible();
+  return { ecran, debut };
+}
+
+test('nouveau chantier pas à pas : position, vitesse de la ligne, résultat, annonceurs, fiche, partage et carte', async ({ page }) => {
   page.on('dialog', (d) => void d.accept());
   await fakeShare(page);
-  await openApp(page);
-  await locate(page);
-  await page.getByRole('button', { name: /^Espace ASP/ }).click();
-  const hub = page.getByRole('dialog', { name: 'Espace ASP' });
-  await expect(hub).toContainText('Il partira de ta position : ligne 830 000');
-  await shot(page, '03-hub');
-  await hub.getByRole('button', { name: '+ Nouveau chantier' }).click();
-
-  const fiche = page.getByRole('dialog', { name: /^Fiche chantier/ });
-  await expect(fiche.getByRole('tab', { name: 'Annonce' })).toHaveAttribute('aria-selected', 'true');
-  // Vitesse de la ligne à Lieusaint (données ouvertes) proposée aux deux voies.
-  const vitesses = fiche.getByRole('textbox', { name: 'Vitesse maximale' });
-  await expect(vitesses).toHaveCount(2);
-  await expect(vitesses.nth(0)).toHaveValue('160');
-  await expect(vitesses.nth(1)).toHaveValue('160');
-
-  // Zone de 50 m à partir de ma position ; 1re catégorie, DD 5 s, marge 5 s : 10 s → 450 m à 160 km/h.
-  const debut = pkValue(await fiche.locator('.screen-title small').innerText());
+  await openApp(page, { home: true });
+  await expect(page.getByRole('heading', { name: 'Prépare ton chantier' })).toBeVisible();
+  await shot(page, '01-accueil');
+  const { ecran, debut } = await creerChantier(page, { outillage: /^1re catégorie/ });
   const fin = debut + 0.05;
-  const bar = page.getByRole('button', { name: 'Voir le résultat du calcul' });
-  await expect(bar).toContainText('10 s');
-  const pa = fiche.locator('.asp-pa');
+
+  // 1re catégorie, DD 5 s, marge 5 s : 10 s → 450 m à 160 km/h, de chaque côté de la zone.
+  await expect(ecran.getByLabel('Délai d’annonce 10 secondes')).toBeVisible();
+  const pa = ecran.locator('.ds-pa');
   await expect(pa).toHaveCount(2);
   await expect(pa.nth(0)).toContainText('450 m');
   await expect(pa.nth(0)).toContainText(`PK ${fmtPkTest(debut - 0.45)}`);
-  await expect(pa.nth(1)).toContainText('450 m');
   await expect(pa.nth(1)).toContainText(`PK ${fmtPkTest(fin + 0.45)}`);
-  // Barre du bas : distance et point d'annonce de chaque voie, lisibles en entier sur un téléphone courant.
-  await expect(bar.locator('.asp-bar-voies > span').first()).toContainText(`450 m PK ${fmtPkTest(debut - 0.45)}`);
-  expect(await bar.locator('.asp-bar-voies > span').evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).length)).toBe(0);
-  await shot(page, '04-annonce');
+  await expect(ecran.locator('.ds-status')).toHaveText('Prêt');
+  await shot(page, '02-resultat');
+  await ecran.getByRole('button', { name: 'Placer un annonceur par sens' }).click();
 
-  // 2e catégorie : marge 15 s → 20 s → 890 m.
-  await fiche.getByRole('radiogroup', { name: 'Catégorie d’outillage' }).getByRole('radio', { name: '2e' }).click();
-  await expect(bar).toContainText('20 s');
-  await expect(pa.nth(0)).toContainText('890 m');
-  await expect(pa.nth(0)).toContainText(`PK ${fmtPkTest(debut - 0.89)}`);
-  // DD nul sans raison : à régler.
-  await fiche.getByRole('button', { name: 'Nul', exact: true }).click();
-  await expect(bar).toContainText('à régler');
-  await fiche.getByRole('button', { name: '5 s', exact: true }).click();
-  await expect(bar).toContainText('20 s');
-  await fiche.locator('#asp-resultat').scrollIntoViewIfNeeded();
-  await shot(page, '05-resultat');
+  // La fiche : prête, avec un annonceur par sens placé au point d'annonce.
+  const fiche = page.getByRole('dialog', { name: /^Fiche chantier/ });
+  await expect(fiche.locator('.ds-hero .ds-status')).toHaveText('Prêt');
+  await expect(fiche.getByRole('button', { name: /^A1 : Annonceur/ })).toContainText(`PK ${fmtPkTest(debut - 0.45)}`);
+  await expect(fiche.getByRole('button', { name: /^A2 : Annonceur/ })).toContainText('surveille V2 ▼');
+  await shot(page, '03-fiche');
 
-  // Dispositif : sans annonceur, les deux sens ne sont pas surveillés ; un annonceur par sens règle ça.
-  await fiche.getByRole('tab', { name: 'Dispositif' }).click();
-  const controles = fiche.locator('.asp-bloc', { hasText: 'Contrôles' });
-  await expect(controles).toContainText('À régler');
-  await fiche.getByRole('button', { name: 'Proposer un annonceur par sens' }).click();
-  await expect(fiche.locator('.asp-agent')).toHaveCount(3);
-  await expect(fiche.locator('.asp-code')).toHaveText(['ASP', 'A1', 'A2']);
-  await expect(controles).not.toContainText('À régler');
-  await expect(fiche.getByRole('textbox', { name: 'Position : kilomètres' }).nth(1)).toHaveValue(String(Math.floor(debut - 0.89)));
-  await shot(page, '06-dispositif');
+  // Modifier une étape : 2e catégorie → marge 15 s → 20 s → 890 m.
+  await fiche.getByRole('button', { name: 'Modifier : Outillage' }).click();
+  const modif = page.getByRole('dialog', { name: 'Modifier : Outillage' });
+  await modif.getByRole('radio', { name: /^2e catégorie/ }).click();
+  await modif.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(fiche.getByLabel('Délai d’annonce 20 secondes')).toBeVisible();
+  await expect(fiche.locator('.ds-pa').nth(0)).toContainText('890 m');
+  // Le dispositif ne suit pas tout seul : A1 est resté à l'ancien point d'annonce.
+  await fiche.getByRole('button', { name: /^A1 : Annonceur/ }).click();
+  const agent = page.getByRole('dialog', { name: 'A1 · Annonceur' });
+  await agent.getByRole('button', { name: /Au point d’annonce V1/ }).click();
+  await agent.getByRole('button', { name: 'OK' }).click();
+  await expect(fiche.getByRole('button', { name: /^A1 : Annonceur/ })).toContainText(`PK ${fmtPkTest(debut - 0.89)}`);
 
-  // Fiches : une case cochée est gardée.
-  await fiche.getByRole('tab', { name: 'Fiches' }).click();
-  const premiere = fiche.locator('.asp-check-item input').first();
-  await premiere.check();
-  await expect(fiche.locator('.asp-check-count').first()).toContainText(/^1\//);
-  await shot(page, '07-fiches');
+  // Check-list : une case cochée est gardée.
+  await fiche.getByRole('button', { name: /^Check-lists/ }).click();
+  const checks = page.getByRole('dialog', { name: 'Check-lists' });
+  await checks.locator('.ds-check input').first().check();
+  await checks.getByRole('button', { name: 'Retour' }).click();
+  await expect(fiche.getByRole('button', { name: /^Check-lists/ })).toContainText(/^.*1\/\d+/);
 
-  // Résumé par message, puis fiche PDF : envoyés par le partage du téléphone.
-  await fiche.getByRole('button', { name: /^Résumé par message/ }).click();
-  await expect(page.locator('.asp-toast')).toContainText('Résumé envoyé');
+  // Partager : résumé par message, puis fiche PDF.
+  await fiche.getByRole('button', { name: 'Partager' }).click();
+  await page.getByRole('dialog', { name: 'Partager' }).getByRole('button', { name: /Résumé par message/ }).click();
+  await expect(page.locator('.ds-snack')).toContainText('Résumé envoyé');
   const resume = await page.evaluate(() => (window as unknown as { __partages: ShareData[] }).__partages[0].text ?? '');
   expect(resume).toContain('Ligne 830 000');
   expect(resume).toContain('DD 5 s · MS 15 s · DA 20 s');
   expect(resume).toContain(`890 m → point d’annonce PK ${fmtPkTest(debut - 0.89)}`);
-  expect(resume).toContain('A1 annonceur');
-  await fiche.getByRole('button', { name: 'Fiche CADA en PDF' }).click();
-  await expect(page.locator('.asp-toast')).toContainText('PDF envoyé');
+  await fiche.getByRole('button', { name: 'Partager' }).click();
+  await page.getByRole('dialog', { name: 'Partager' }).getByRole('button', { name: /Fiche CADA en PDF/ }).click();
+  await expect(page.locator('.ds-snack')).toContainText('PDF envoyé');
   const pdf = await page.evaluate(async () => {
     const f = (window as unknown as { __partages: ShareData[] }).__partages[1].files![0];
     return { name: f.name, type: f.type, size: f.size, head: await f.slice(0, 5).text() };
@@ -225,9 +239,16 @@ test('chantier depuis ma position : vitesse de la ligne, délai et points d’an
   expect(pdf.head).toBe('%PDF-');
   expect(pdf.size).toBeGreaterThan(5000);
 
-  // Carte : zone, points d'annonce et annonceurs ; un point ouvre sa fiche.
-  await fiche.getByRole('button', { name: 'Voir le chantier sur la carte' }).click();
-  await expect(fiche).toBeHidden();
+  // Retour à l'accueil : c'est le chantier du jour, avec ses points d'annonce.
+  await fiche.getByRole('button', { name: 'Retour' }).click();
+  const hero = page.getByRole('region', { name: 'Mon chantier' });
+  await expect(hero).toContainText('Chantier du jour');
+  await expect(hero.locator('.ds-pa').nth(0)).toContainText('890 m');
+  await shot(page, '04-accueil');
+
+  // Carte : zone, points d'annonce et annonceurs ; un point rouvre la fiche.
+  await hero.getByRole('button', { name: 'Voir sur la carte' }).click();
+  await expect(page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Carte' })).toHaveAttribute('aria-current', 'page');
   const point = await page.waitForFunction(
     () => {
       type M = import('maplibre-gl').Map;
@@ -238,58 +259,93 @@ test('chantier depuis ma position : vitesse de la ligne, délai et points d’an
     undefined,
     { timeout: 15_000 },
   );
-  await shot(page, '08-carte');
+  await shot(page, '05-carte');
   const [longitude, latitude] = (await point.jsonValue())!;
   const { x, y } = await showPoint(page, { longitude, latitude });
   await page.mouse.click(x, y);
   await page.locator('.card').getByRole('button', { name: 'Ouvrir le chantier' }).click();
   await expect(page.getByRole('dialog', { name: /^Fiche chantier/ })).toBeVisible();
 
-  // Gardé sur le téléphone : après rechargement, le chantier et la case cochée sont là.
+  // Gardé sur le téléphone : après rechargement, l'accueil le montre, la case cochée est là.
   await page.reload();
-  await page.getByRole('button', { name: /^Espace ASP/ }).click();
-  await page.getByRole('dialog', { name: 'Espace ASP' }).locator('.asp-chantiers .result').first().click();
-  await page.getByRole('tab', { name: 'Fiches' }).click();
-  await expect(page.locator('.asp-check-item input').first()).toBeChecked();
+  await page.getByRole('region', { name: 'Mon chantier' }).getByRole('button', { name: 'Ouvrir la fiche' }).click();
+  await page.getByRole('button', { name: /^Check-lists/ }).click();
+  await expect(page.locator('.ds-check input').first()).toBeChecked();
 });
 
-test('calcul rapide, mémo, quiz et cas pratique', async ({ page }) => {
-  await openApp(page);
-  await page.getByRole('button', { name: /^Espace ASP/ }).click();
-  const hub = page.getByRole('dialog', { name: 'Espace ASP' });
+test('interdiction obligatoire : signalée, puis réglée en un toucher', async ({ page }) => {
+  await openApp(page, { home: true });
+  const { ecran } = await creerChantier(page, { nuit: true, outillage: /^2e catégorie/ });
+  // 2e catégorie de nuit : interdiction de circulation obligatoire sur la voie de travail.
+  await expect(ecran.locator('.ds-alert.stop')).toContainText('Interdiction de circulation obligatoire');
+  await expect(ecran.locator('.ds-status')).toHaveText('1 à régler');
+  await ecran.getByRole('button', { name: 'J’ai l’avis de voie interdite pour V1' }).click();
+  // V1 sort de l'annonce : on annonce V2 dans son sens, et la marge passe à 5 s (voie interdite).
+  await expect(ecran.locator('.ds-alert.stop')).toHaveCount(0);
+  await expect(ecran.locator('.ds-pa')).toHaveCount(1);
+  await expect(ecran.locator('.ds-pa').first()).toContainText('V2');
+  await expect(ecran.getByLabel('Délai d’annonce 10 secondes')).toBeVisible();
+});
 
-  await hub.getByRole('button', { name: /^Calcul rapide/ }).click();
-  const calcul = page.getByRole('dialog', { name: 'Calcul rapide' });
-  await calcul.getByRole('textbox', { name: 'Vitesse maximale' }).fill('170');
-  await calcul.getByRole('button', { name: '5 s', exact: true }).first().click();
-  await calcul.locator('.chips').nth(2).getByRole('button', { name: '5 s', exact: true }).click();
+test('bouton retour du téléphone : étape précédente, puis fermeture, puis accueil', async ({ page }) => {
+  await openApp(page, { home: true });
+  await page.getByRole('button', { name: 'Nouveau chantier' }).first().click();
+  const ecran = page.getByRole('dialog', { name: 'Nouveau chantier' });
+  await ecran.getByRole('textbox', { name: 'Ligne (code à 6 chiffres)' }).fill('830000');
+  await ecran.getByRole('textbox', { name: 'PK de début : kilomètres' }).fill('28');
+  await ecran.getByRole('button', { name: 'Continuer' }).click();
+  await expect(ecran.getByRole('heading', { name: 'Comment se passe le chantier ?' })).toBeVisible();
+  await page.goBack();
+  await expect(ecran.getByRole('heading', { name: 'Où est le chantier ?' })).toBeVisible();
+  await page.goBack();
+  await expect(ecran).toBeHidden();
+  // Chantier commencé : gardé en brouillon ; on reste dans l'appli.
+  await expect(page.getByRole('region', { name: 'Mon chantier' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Calcul' }).click();
+  await expect(page.getByRole('region', { name: 'Calcul rapide' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('main', { name: 'Accueil' })).toBeVisible();
+  // Ouvert puis refermé sans rien toucher : pas de chantier vide.
+  await page.getByRole('button', { name: 'Nouveau chantier' }).first().click();
+  await page.getByRole('dialog', { name: 'Nouveau chantier' }).getByRole('button', { name: 'Fermer' }).click();
+  await expect(page.locator('.asp-chantiers .ds-row')).toHaveCount(0);
+});
+
+test('onglets Calcul et Réviser : distance, mémo, quiz et cas pratique', async ({ page }) => {
+  await openApp(page, { home: true });
+  const nav = page.getByRole('navigation', { name: 'Navigation principale' });
+  await nav.getByRole('button', { name: 'Calcul' }).click();
+  const calcul = page.getByRole('region', { name: 'Calcul rapide' });
+  await calcul.getByRole('textbox', { name: 'Autre vitesse' }).fill('170');
   // 170 km/h, 10 s : 480 m (le tableau du support arrondit ici à 470 m, par erreur).
-  await expect(calcul.locator('.asp-kpi-main b')).toHaveText('480');
-  await calcul.getByRole('textbox', { name: 'Vitesse maximale' }).fill('200');
-  await expect(calcul.locator('.asp-kpi-main b')).toHaveText('560');
-  await shot(page, '09-calcul');
-  await calcul.getByRole('button', { name: 'Retour' }).click();
+  await expect(calcul.locator('.ds-calc-num b')).toHaveText('480');
+  await calcul.getByRole('radiogroup', { name: 'Vitesse maximale' }).getByRole('radio', { name: '200' }).click();
+  await expect(calcul.locator('.ds-calc-num b')).toHaveText('560');
+  await calcul.getByRole('radiogroup', { name: 'Marge de sécurité' }).getByRole('radio', { name: '15 s' }).click();
+  await expect(calcul.locator('.ds-calc-num b')).toHaveText('1120');
+  await shot(page, '06-calcul');
 
-  await hub.getByRole('button', { name: /^Mémo ASP/ }).click();
+  await nav.getByRole('button', { name: 'Réviser' }).click();
+  const reviser = page.getByRole('main', { name: 'Réviser' });
+  await reviser.getByRole('button', { name: /^Mémo ASP/ }).click();
   const memo = page.getByRole('dialog', { name: 'Mémo ASP' });
-  await memo.getByRole('textbox', { name: 'Chercher dans le mémo' }).fill('Gérard');
-  await memo.locator('.result').first().click();
+  await memo.getByRole('searchbox', { name: 'Chercher dans le mémo' }).fill('Gérard');
+  await memo.locator('.ds-row').first().click();
   await expect(page.locator('.asp-screen')).toContainText('Saint-Dizier');
-  await shot(page, '10-memo');
-  await page.getByRole('button', { name: 'Retour au mémo' }).click();
+  await page.goBack();
+  await expect(page.getByRole('dialog', { name: 'Mémo ASP' })).toBeVisible();
   await page.getByRole('dialog', { name: 'Mémo ASP' }).getByRole('button', { name: 'Retour' }).click();
 
-  await hub.getByRole('button', { name: /^Quiz/ }).click();
+  await reviser.getByRole('button', { name: /^Quiz/ }).click();
   await page.getByRole('button', { name: /^Série de 10 questions/ }).click();
   await page.locator('.asp-reponse').first().click();
   await expect(page.locator('.asp-explication')).toContainText(/Bonne réponse|Pas tout à fait/);
-  await shot(page, '11-quiz');
   await page.getByRole('button', { name: 'Question suivante' }).click();
   await expect(page.getByRole('dialog', { name: 'Quiz' }).locator('.screen-title b')).toHaveText('Question 2/10');
   await page.getByRole('button', { name: 'Arrêter la série' }).click();
   await page.getByRole('dialog', { name: 'Quiz' }).getByRole('button', { name: 'Retour' }).click();
 
-  await hub.getByRole('button', { name: /^Cas pratiques/ }).click();
+  await reviser.getByRole('button', { name: /^Cas pratiques/ }).click();
   await page.getByRole('button', { name: /^Exercice 1/ }).click();
   const cas = page.getByRole('dialog', { name: /^Exercice 1/ });
   await cas.getByRole('radio', { name: 'Oui' }).click();
@@ -299,36 +355,42 @@ test('calcul rapide, mémo, quiz et cas pratique', async ({ page }) => {
   await expect(cas.locator('.asp-verdict.juste').first()).toBeVisible();
   await cas.getByRole('button', { name: 'Voir la correction' }).click();
   await expect(cas.locator('.asp-correction')).toContainText('450 m');
-  await shot(page, '12-cas');
   await cas.getByRole('button', { name: 'Ouvrir ce cas comme un chantier' }).click();
   await expect(page.getByRole('dialog', { name: /^Fiche chantier/ })).toBeVisible();
-  await expect(page.locator('.asp-toast')).toContainText('Cas pratique ouvert');
+  await expect(page.locator('.ds-snack')).toContainText('Cas pratique ouvert');
 });
 
-test('petit écran (320 × 568) : les écrans de l’ASP ne débordent pas', async ({ page }) => {
+test('petit écran (320 × 568) : accueil, parcours, fiche et onglets ne débordent pas', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
-  await openApp(page);
-  await locate(page);
+  await openApp(page, { home: true });
   const deborde = () =>
     page.evaluate(() => {
-      const bad = [...document.querySelectorAll<HTMLElement>('.asp-screen *')].filter((e) => {
+      const scope = document.querySelectorAll<HTMLElement>('.ds-page *, .ds-screen:not([hidden]) *, .ds-nav *');
+      const bad = [...scope].filter((e) => {
+        if (e.closest('.ds-chips.scroll, .asp-table-wrap')) return false;
         const r = e.getBoundingClientRect();
         return r.width > 0 && (r.right > innerWidth + 1 || r.left < -1);
       });
-      return { sw: document.documentElement.scrollWidth, bad: bad.slice(0, 5).map((e) => `${e.tagName}.${e.className} « ${e.textContent?.slice(0, 40)} » ${Math.round(e.getBoundingClientRect().right)}`) };
+      return { sw: document.documentElement.scrollWidth, bad: bad.slice(0, 5).map((e) => `${e.tagName}.${e.className} « ${e.textContent?.slice(0, 40)} »`) };
     });
-  await page.getByRole('button', { name: /^Espace ASP/ }).click();
   expect(await deborde()).toEqual({ sw: 320, bad: [] });
-  await page.getByRole('button', { name: '+ Nouveau chantier' }).click();
-  for (const tab of ['Chantier', 'Annonce', 'Dispositif', 'Fiches']) {
-    await page.getByRole('tab', { name: tab }).click();
-    expect(await deborde(), tab).toEqual({ sw: 320, bad: [] });
-    if (process.env.SHOTS) await shot(page, `13-petit-${tab}`);
+  await page.getByRole('button', { name: 'Nouveau chantier' }).first().click();
+  const ecran = page.getByRole('dialog', { name: 'Nouveau chantier' });
+  await ecran.getByRole('button', { name: /Utiliser ma position GPS/ }).click();
+  await expect(ecran.getByText('Position prise')).toBeVisible({ timeout: 20_000 });
+  for (let k = 0; k < 7; k++) {
+    expect(await deborde(), `étape ${k + 1}`).toEqual({ sw: 320, bad: [] });
+    const btn = ecran.getByRole('button', { name: /^(Continuer|Voir le résultat)$/ });
+    const box = (await btn.boundingBox())!;
+    expect(box.y + box.height, `bouton de l’étape ${k + 1} sous le pouce`).toBeLessThanOrEqual(568);
+    await btn.click();
   }
-  const bar = (await page.getByRole('button', { name: 'Voir le résultat du calcul' }).boundingBox())!;
-  expect(bar.y + bar.height).toBeLessThanOrEqual(568);
-  // Barre du résultat : la distance de chaque voie se lit en entier.
-  await expect(page.locator('.asp-bar-voies > span').first()).toContainText('450 m');
-  const tronques = await page.locator('.asp-bar-voies > span').evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).length);
-  expect(tronques).toBe(0);
+  expect(await deborde(), 'résultat').toEqual({ sw: 320, bad: [] });
+  await ecran.getByRole('button', { name: 'Placer un annonceur par sens' }).click();
+  expect(await deborde(), 'fiche').toEqual({ sw: 320, bad: [] });
+  await page.getByRole('dialog', { name: /^Fiche chantier/ }).getByRole('button', { name: 'Retour' }).click();
+  for (const tab of ['Calcul', 'Réviser', 'Accueil']) {
+    await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: tab }).click();
+    expect(await deborde(), tab).toEqual({ sw: 320, bad: [] });
+  }
 });

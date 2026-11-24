@@ -113,6 +113,13 @@ export interface AppOptions {
   gate?: boolean;
   /** Adresse ouverte (par défaut l'accueil), par exemple « ./#code=ABCD-EF23 ». */
   path?: string;
+  /** Rester sur l'accueil (sinon on passe sur l'onglet Carte, pour les tests du repérage). */
+  home?: boolean;
+}
+
+/** Onglet « Carte » de la barre du bas. */
+export async function toCarte(page: Page) {
+  await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: 'Carte' }).click();
 }
 
 /** Coupe tout ce qui sort de la machine : les tests ne dépendent pas d'Internet. */
@@ -143,6 +150,7 @@ export async function openApp(page: Page, opts: AppOptions = {}) {
   }, storage);
   await page.goto(opts.path ?? './');
   if (!opts.gate) await expect(page.locator('.map canvas')).toBeVisible();
+  if (!opts.gate && !opts.firstRun && !opts.home) await toCarte(page);
 }
 
 /** « Me repérer » puis « Utiliser cette position » dès la première mesure. */

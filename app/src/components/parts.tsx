@@ -9,6 +9,69 @@ import { signalImage, SIGNAL_ICONS } from '../lib/signaux';
 const STROKE = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.3, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 const PATHS: Record<string, ReactNode> = {
+  home: <path d="M3.5 10.8 12 4l8.5 6.8V19a1.5 1.5 0 0 1-1.5 1.5h-4.2v-6h-5.6v6H5A1.5 1.5 0 0 1 3.5 19z" {...STROKE} />,
+  map: <path d="M9 4.5 3.5 6.5v13l5.5-2 6 2 5.5-2v-13l-5.5 2zM9 4.5v13M15 6.5v13" {...STROKE} />,
+  calc: (
+    <>
+      <rect x="5" y="2.8" width="14" height="18.4" rx="2.6" {...STROKE} />
+      <path d="M8.6 7.2h6.8M8.8 11.6h.01M12 11.6h.01M15.2 11.6h.01M8.8 15.4h.01M12 15.4h.01M15.2 15.4h.01M8.8 18.2h.01M12 18.2h.01M15.2 18.2h.01" {...STROKE} strokeWidth={2.6} />
+    </>
+  ),
+  book: <path d="M5 5a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 2h12v-4M9 7.5h6" {...STROKE} />,
+  plus: <path d="M12 5v14M5 12h14" {...STROKE} strokeWidth={2.6} />,
+  share: <path d="M12 3.5v11M7.8 7.7 12 3.5l4.2 4.2M5.5 12.5v6a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-6" {...STROKE} />,
+  check: <path d="M5 12.6 9.6 17 19 7.5" {...STROKE} strokeWidth={2.6} />,
+  edit: <path d="M4.5 19.5h3.8L19 8.8 15.2 5 4.5 15.7zM13.4 6.8l3.8 3.8" {...STROKE} />,
+  people: (
+    <>
+      <circle cx="9" cy="8.2" r="3.4" {...STROKE} />
+      <path d="M2.8 20a6.2 6.2 0 0 1 12.4 0M15.8 4.9a3.4 3.4 0 0 1 0 6.6M18 14.3a6 6 0 0 1 3.2 5.7" {...STROKE} />
+    </>
+  ),
+  list: <path d="M10 6.5h10M10 12h10M10 17.5h10M3.8 6.4l1.4 1.4 2.4-2.6M3.8 11.9l1.4 1.4 2.4-2.6M3.8 17.4l1.4 1.4 2.4-2.6" {...STROKE} />,
+  sliders: (
+    <>
+      <path d="M4 7h9M19 7h1M4 17h3M13 17h7" {...STROKE} />
+      <circle cx="16" cy="7" r="2.6" {...STROKE} />
+      <circle cx="10" cy="17" r="2.6" {...STROKE} />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8.5" {...STROKE} />
+      <path d="M12 7.5V12l3 2" {...STROKE} />
+    </>
+  ),
+  tool: <path d="M14.6 3.6a4.6 4.6 0 0 0-5.3 6.1L3.8 15.2a1.9 1.9 0 0 0 0 2.7l2.3 2.3a1.9 1.9 0 0 0 2.7 0l5.5-5.5a4.6 4.6 0 0 0 6.1-5.3l-2.9 2.9-2.8-.6-.6-2.8z" {...STROKE} />,
+  speed: (
+    <>
+      <path d="M4.2 17.5a8.5 8.5 0 1 1 15.6 0" {...STROKE} />
+      <path d="m12 14.5 4.2-4.6" {...STROKE} />
+      <circle cx="12" cy="14.5" r="1.4" fill="currentColor" />
+    </>
+  ),
+  moon: <path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z" {...STROKE} />,
+  trash: <path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5L17.5 7" {...STROKE} />,
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="12" height="12" rx="2.2" {...STROKE} />
+      <path d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3" {...STROKE} />
+    </>
+  ),
+  file: <path d="M6.5 3h7.5l4.5 4.5V20a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM13.5 3v5h5M8.5 13h7M8.5 16.5h5" {...STROKE} />,
+  message: <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v10a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17h0A1.5 1.5 0 0 1 4 15.5zM8 9h8M8 12.5h5" {...STROKE} />,
+  flag: <path d="M5.5 21V3.8M5.5 4.5h11.2l-2.2 4 2.2 4H5.5" {...STROKE} />,
+  nav: <path d="M12 3.2 19 20.5l-7-4-7 4z" {...STROKE} />,
+  go: <path d="M5.5 19.5V14a4.5 4.5 0 0 1 4.5-4.5h9M15 5.5l4 4-4 4" {...STROKE} strokeWidth={2.5} />,
+  arrow: <path d="M4 12h15M13.5 6.5 19 12l-5.5 5.5" {...STROKE} strokeWidth={2.5} />,
+  tracks: <path d="M4 8h16M4 16h16M7 5v14M12 5v14M17 5v14" {...STROKE} strokeWidth={2} />,
+  sparkle: <path d="M12 3.5 13.9 10 20.5 12l-6.6 2L12 20.5 10.1 14 3.5 12l6.6-2z" {...STROKE} />,
+  warn: (
+    <>
+      <circle cx="12" cy="12" r="8.8" {...STROKE} />
+      <path d="M12 7.5v5.2M12 15.8v.3" {...STROKE} strokeWidth={2.6} />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="7" {...STROKE} />

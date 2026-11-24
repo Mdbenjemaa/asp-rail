@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FeatureCollection } from 'geojson';
 import type { MapGeoJSONFeature } from 'maplibre-gl';
 import { ActionBar } from './components/ActionBar';
@@ -40,15 +40,16 @@ import { loadPref, meFeatures, savePref } from './lib/me';
 import { MapView, type FocusRequest } from './map/MapView';
 import { PREVIEW } from './lib/env';
 import type { Basemap } from './map/style';
-import type { AspView } from './asp/AspScreen';
 import { chantierFeatures, emprise } from './asp/carte';
-import { calculChantier, type Chantier } from './asp/chantier';
-import { definirActif, useActif } from './asp/store';
+import { calculChantier, nouveauChantier, type Chantier } from './asp/chantier';
+import type { Ctx, Here, Vue } from './asp/contexte';
+import { Couche } from './asp/Couche';
+import { aRegler, chantierDuJour } from './asp/etat';
+import { definirActif, enregistrer, useActif, useChantiers } from './asp/store';
+import { BottomNav, type Onglet } from './components/BottomNav';
+import { useRetour } from './lib/back';
 
-// L'espace ASP (fiches, mémo, quiz) ne se charge qu'à la première ouverture.
-const AspScreen = lazy(() => import('./asp/AspScreen'));
-
-type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements' | 'asp';
+type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements';
 
 const darkQuery = () => (typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null);
 
@@ -86,9 +87,11 @@ export default function App() {
   useEffect(() => {
     void listSignalements().then(setSignals);
   }, []);
-  /** Espace ASP : écran à ouvrir (un chantier touché sur la carte, par exemple). */
-  const [aspView, setAspView] = useState<AspView | undefined>(undefined);
+  /** Onglet ouvert (l'appli s'ouvre sur l'accueil) et écrans ouverts par-dessus. */
+  const [tab, setTab] = useState<Onglet>('accueil');
+  const [pile, setPile] = useState<Vue[]>([]);
   const actif = useActif();
+  const chantiers = useChantiers();
   const [aspFC, setAspFC] = useState<FeatureCollection | null>(null);
   const [awake, setAwake] = useState<AwakeStatus | null>(null);
   const [me, setMe] = useState<FeatureCollection | null>(null);
@@ -580,9 +583,15 @@ export default function App() {
     }
   };
 
-  const openAsp = (view?: AspView) => {
-    setAspView(view);
-    setPanel('asp');
+  /** Va sur la carte (les écrans ouverts par-dessus se ferment). */
+  const toMap = () => {
+    setPile([]);
+    setTab('carte');
+  };
+  const nouveau = () => {
+    const c = nouveauChantier();
+    enregistrer(c);
+    setPile((s) => [...s, { k: 'assistant', id: c.id }]);
   };
 
   /** « Mes accès » : fichier KML/KMZ/GeoJSON ou lien Google My Maps ; gardés sur ce téléphone. */
@@ -651,8 +660,40 @@ export default function App() {
 
   // Nouvelle version de l'appli : rechargement seulement au repos (jamais pendant un suivi ou un repérage).
   const updateBusy = following || loc.phase === 'acquiring' || !!importStatus?.busy;
-  const updateIdle = panel === 'none' && !target && !picked && (loc.phase === 'idle' || loc.phase === 'error');
+  const updateIdle = panel === 'none' && !pile.length && !target && !picked && (loc.phase === 'idle' || loc.phase === 'error');
   useEffect(() => setUpdateGate({ busy: updateBusy, idle: updateIdle }), [updateBusy, updateIdle]);
+
+  const here = useMemo<Here | null>(
+    () => (chosen && herePk !== null ? { code: chosen.code, pk: herePk, ligneNom: manifest?.lines[chosen.code]?.n ?? null } : null),
+    [chosen, herePk, manifest],
+  );
+  const ctx: Ctx = {
+    manifest,
+    here,
+    locating: loc.phase === 'acquiring',
+    locError: loc.phase === 'error' ? loc.message : null,
+    onLocate: locate,
+    onToast: showToast,
+    onGoPk: (code, pk) => {
+      toMap();
+      void goToPk(code, pk);
+    },
+    onShowMap: (c) => {
+      toMap();
+      void showChantier(c);
+    },
+    open: (v) => setPile((s) => [...s, v]),
+    back: () => setPile((s) => s.slice(0, -1)),
+    replace: (v) => setPile((s) => [...s.slice(0, -1), v]),
+  };
+  // Bouton retour du téléphone : ferme la fenêtre ouverte, sinon revient à l'accueil.
+  useRetour(tab !== 'accueil', () => setTab('accueil'));
+  useRetour(panel !== 'none', () => setPanel('none'));
+  useRetour(!!openSignal, () => setOpenSignal(null));
+  const showNav = !pile.length && !following;
+  const mapShown = tab === 'carte' && !pile.length;
+  const jour = chantierDuJour(chantiers, actif);
+  const jourARegler = jour ? aRegler(jour, calculChantier(jour)).length > 0 : false;
 
   // Le bandeau du haut, et la fiche du bas selon la situation.
   const bannerShown = following || loc.phase === 'acquiring' || loc.phase === 'result';
@@ -666,7 +707,7 @@ export default function App() {
         manifest={manifest}
         onPlaceHere={placeHere}
         onClose={() => setPicked(null)}
-        onChantier={picked.f.layer.id.startsWith('u-asp') && actif ? () => openAsp({ k: 'chantier', id: actif.id }) : undefined}
+        onChantier={picked.f.layer.id.startsWith('u-asp') && actif ? () => setPile([{ k: 'fiche', id: actif.id }]) : undefined}
       />
     );
   } else if (target) {
@@ -705,7 +746,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${showNav ? 'has-nav' : ''}`}>
       <MapView
         basemap={basemap}
         night={night}
@@ -747,7 +788,7 @@ export default function App() {
           onUseFix={() => acquisition.current?.cancel()}
         />
         {dataError && <div className="toast error">Données indisponibles : {dataError}</div>}
-        {toast && (
+        {toast && mapShown && (
           <div className="toast" role="status" onClick={() => setToast(null)}>
             {toast}
           </div>
@@ -764,10 +805,6 @@ export default function App() {
               <Icon name="dots" size={22} />
             </button>
           )}
-          <button className={`tool-btn tool-asp ${actif ? 'has-chantier' : ''}`} onClick={() => openAsp()} aria-label="Espace ASP : chantiers, calcul d’annonce, mémo">
-            <Icon name="vest" />
-            <span>ASP</span>
-          </button>
           <button className="tool-btn" onClick={() => setPanel('filters')} aria-label="Couches et fond de carte">
             <Icon name="layers" />
             <span>Couches</span>
@@ -793,6 +830,20 @@ export default function App() {
           onStop={stopFollowing}
         />
       </div>
+
+      <Couche
+        tab={tab}
+        pile={pile}
+        ctx={ctx}
+        onNew={nouveau}
+        onMenu={() => setPanel('menu')}
+        onWhere={() => {
+          toMap();
+          if (loc.phase !== 'acquiring') locate();
+        }}
+        onTab={setTab}
+      />
+      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={jourARegler} />}
 
       {panel === 'search' && (
         <SearchScreen
@@ -863,9 +914,14 @@ export default function App() {
           }}
           onInfo={() => setPanel('info')}
           signalements={signals.length}
-          onSignalements={() => setPanel('signalements')}
-          onSignaler={openSignaler}
-          onAsp={() => openAsp()}
+          onSignalements={() => {
+            setTab('carte');
+            setPanel('signalements');
+          }}
+          onSignaler={() => {
+            setTab('carte');
+            openSignaler();
+          }}
           onClose={() => setPanel('none')}
         />
       )}
@@ -906,22 +962,17 @@ export default function App() {
           onClose={() => setOpenSignal(null)}
         />
       )}
-      {panel === 'asp' && (
-        <Suspense fallback={<div className="screen asp-loading">Chargement de l’espace ASP…</div>}>
-          <AspScreen
-            manifest={manifest}
-            here={chosen && herePk !== null ? { code: chosen.code, pk: herePk, ligneNom: manifest?.lines[chosen.code]?.n ?? null } : null}
-            locating={loc.phase === 'acquiring'}
-            onLocate={locate}
-            onShowChantier={(c) => void showChantier(c)}
-            onGoPk={(code, pk) => void goToPk(code, pk)}
-            onClose={() => setPanel('none')}
-            initial={aspView}
-          />
-        </Suspense>
-      )}
       {panel === 'info' && <InfoSheet manifest={manifest} onClose={() => setPanel('none')} />}
-      {ack && !PREVIEW && panel === 'none' && !following && <InstallBanner />}
+      {ack && !PREVIEW && panel === 'none' && !following && !pile.length && (tab === 'carte' || tab === 'accueil') && (
+        <div className={tab === 'accueil' ? 'ib-home' : ''}>
+          <InstallBanner />
+        </div>
+      )}
+      {toast && !mapShown && (
+        <div className={`ds-snack ${showNav ? 'above-nav' : ''}`} role="status" onClick={() => setToast(null)}>
+          {toast}
+        </div>
+      )}
       {!ack && (
         <Disclaimer
           onAccept={() => {

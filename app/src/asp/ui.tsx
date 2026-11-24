@@ -1,20 +1,22 @@
 /** Petits éléments communs aux écrans de l'ASP : saisies (PK, nombres), interrupteurs, choix, alertes. */
 import { useId, useState, type ReactNode } from 'react';
 import { Icon } from '../components/parts';
+import { useRetour } from '../lib/back';
 import { fmtPk } from '../lib/format';
 import type { Alerte } from './rules';
 
-/** En-tête d'un écran plein : retour, titre, sous-titre, action à droite. */
+/** En-tête d'un écran plein : retour, titre, sous-titre, action à droite. Le retour du téléphone fait pareil. */
 export function ScreenHead(p: { title: string; sub?: string; onBack: () => void; backLabel?: string; right?: ReactNode }) {
+  useRetour(true, p.onBack);
   return (
-    <header className="screen-head">
-      <button className="round-btn" onClick={p.onBack} aria-label={p.backLabel ?? 'Retour'}>
-        <Icon name="back" size={22} />
+    <header className="ds-topbar">
+      <button className="ds-iconbtn" onClick={p.onBack} aria-label={p.backLabel ?? 'Retour'}>
+        <Icon name="back" size={24} />
       </button>
-      <div className="screen-title">
+      <h1 className="screen-title">
         <b>{p.title}</b>
         {p.sub && <small>{p.sub}</small>}
-      </div>
+      </h1>
       {p.right && <div className="asp-head-right">{p.right}</div>}
     </header>
   );

@@ -1,4 +1,4 @@
-import { expect, locate, openApp, pkValue, placeAt, pointAtPk, test } from './helpers';
+import { expect, locate, openApp, pkValue, placeAt, pointAtPk, test, toCarte } from './helpers';
 
 // Ici le service worker tourne, comme sur le téléphone.
 test.use({ serviceWorkers: 'allow' });
@@ -22,6 +22,7 @@ test('sans réseau : l’appli s’ouvre, le repérage, la carte des voies et le
   await context.setOffline(true);
   await page.reload();
   await expect(page.locator('.map canvas')).toBeVisible();
+  await toCarte(page);
   await expect(page.locator('.hint-card')).toBeVisible();
   await expect(page.locator('.toast.error')).toHaveCount(0);
 

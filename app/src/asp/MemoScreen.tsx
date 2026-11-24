@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '../components/parts';
 import { signalImage, SIGNAL_ICONS } from '../lib/signaux';
 import { MEMO, type MemoBloc, type MemoSection } from './memo';
+import { useRetour } from '../lib/back';
 import { ScreenHead } from './ui';
 
 const norm = (s: string) =>
@@ -177,32 +178,37 @@ export function MemoScreen({ onBack, section }: { onBack: () => void; section?: 
   const index = useMemo(() => MEMO.map((s) => ({ s, text: norm(`${s.titre} ${s.resume} ${s.blocs.map(texteDe).join(' ')}`) })), []);
   const found = q.trim() ? index.filter((x) => norm(q).split(/\s+/).every((w) => x.text.includes(w))).map((x) => x.s) : MEMO;
   const cur = MEMO.find((s) => s.id === open);
+  useRetour(!cur, onBack);
   if (cur) return <Section s={cur} onBack={() => setOpen(null)} />;
   return (
     <div className="screen asp-screen" role="dialog" aria-label="Mémo ASP">
-      <header className="screen-head search-head">
-        <button className="round-btn" onClick={onBack} aria-label="Retour">
-          <Icon name="back" size={22} />
+      <header className="ds-topbar">
+        <button className="ds-iconbtn" onClick={onBack} aria-label="Retour">
+          <Icon name="back" size={24} />
         </button>
-        <input className="search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher dans le mémo" aria-label="Chercher dans le mémo" />
+        <h1>Mémo ASP</h1>
       </header>
+      <div className="ds-search">
+        <Icon name="search" size={20} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher : bruit, DMVC, PN…" aria-label="Chercher dans le mémo" type="search" />
+      </div>
       <div className="screen-body asp-body">
-        <ul className="results-list">
+        <div className="ds-list">
           {found.map((s) => (
-            <li key={s.id}>
-              <button className="result" onClick={() => setOpen(s.id)}>
-                <span className="result-ico">
-                  <Icon name="info" size={20} />
-                </span>
-                <span className="result-main">
-                  <b>{s.titre}</b>
-                  <small>{s.resume}</small>
-                </span>
+            <button key={s.id} className="ds-row" onClick={() => setOpen(s.id)}>
+              <span className="ds-row-ico">
+                <Icon name="book" size={20} />
+              </span>
+              <span className="ds-row-txt">
+                <b>{s.titre}</b>
+                <small>{s.resume}</small>
+              </span>
+              <span className="ds-row-end">
                 <Icon name="right" size={20} />
-              </button>
-            </li>
+              </span>
+            </button>
           ))}
-        </ul>
+        </div>
         {!found.length && <p className="muted">Rien trouvé pour « {q} ».</p>}
         <p className="muted small">
           Reformulé d’après le support de formation « TES M – compétence ASP » (version du 30/05/2023). Les textes SNCF Réseau en vigueur et les

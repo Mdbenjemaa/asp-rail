@@ -586,8 +586,6 @@ export function MenuSheet(p: {
   onSignalements: () => void;
   /** Nouveau signalement à l'endroit où l'on est. */
   onSignaler: () => void;
-  /** Espace ASP : chantiers, calcul, mémo. */
-  onAsp: () => void;
   onClose: () => void;
 }) {
   const mode = useInstallMode();
@@ -611,11 +609,6 @@ export function MenuSheet(p: {
           <span>Effacer ma position</span>
         </button>
       )}
-      <button className="menu-row" onClick={p.onAsp}>
-        <Icon name="vest" size={20} />
-        <span>Espace ASP : chantiers, calcul, mémo, quiz</span>
-        <Icon name="right" size={18} />
-      </button>
       <button className="menu-row" onClick={p.onSignaler}>
         <Icon name="alert" size={20} />
         <span>Signaler une anomalie</span>
