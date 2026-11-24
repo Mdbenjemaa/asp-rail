@@ -1,0 +1,7 @@
+node_modules
+dist
+*.local
+.DS_Store
+e2e-results
+playwright-report
+e2e-shots

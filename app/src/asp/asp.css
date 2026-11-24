@@ -1,0 +1,282 @@
+/* ASP Rail — écrans de l'ASP (chantiers, calculs, mémo, quiz). Mêmes couleurs que la carte ; jaune « brassard ASP ». */
+:root {
+  --asp: #f5b400;
+  --asp-ink: #3b2a00;
+  --asp-soft: #fff7d6;
+}
+:root.night {
+  --asp-soft: #33290a;
+}
+
+/* Bouton ASP sur la carte : jaune, avec un point quand un chantier est affiché. */
+.tool-btn.tool-asp { background: var(--asp); color: var(--asp-ink); position: relative; }
+.tool-btn.tool-asp.has-chantier::after {
+  content: ''; position: absolute; top: 7px; right: 7px; width: 10px; height: 10px; border-radius: 5px;
+  background: #db2777; box-shadow: 0 0 0 2px #fff;
+}
+.asp-loading { display: grid; place-items: center; font-size: 17px; font-weight: 700; }
+
+.asp-screen .screen-head { padding-bottom: 10px; }
+.asp-head-right { margin-left: auto; display: flex; gap: 8px; }
+.asp-head-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 60px; height: 52px;
+  border: 0; border-radius: var(--r-md); background: var(--asp); color: var(--asp-ink); font-size: 12px; font-weight: 800;
+}
+.asp-head-btn:disabled { opacity: 0.45; }
+.asp-screen .screen-title { flex: 1; }
+.asp-screen .screen-title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asp-body { padding-bottom: calc(var(--bottom) + 110px); }
+.asp-tabs { flex: none; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 10px 12px 2px; }
+.asp-tabs .seg-btn { font-size: 15px; padding: 0 2px; }
+
+/* Blocs, champs, choix */
+.asp-bloc { margin: 0 0 12px; padding: 12px 14px 14px; background: var(--bg); border-radius: var(--r-lg); box-shadow: 0 1px 3px rgba(11, 18, 32, 0.08); }
+.asp-bloc-title { margin: 0 0 8px; font-size: 17px; font-weight: 800; }
+.asp-section { margin-bottom: 18px; }
+.asp-mini-label { margin: 12px 0 6px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.asp-hint { margin: 8px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.asp-hint b { color: var(--ink); }
+.asp-field { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 0; min-width: 0; }
+.asp-field label { font-size: 13.5px; font-weight: 700; color: var(--muted); }
+.asp-input {
+  width: 100%; min-width: 0; height: 50px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: var(--r-md);
+  background: var(--field); color: var(--ink); font: inherit; font-size: 17px; font-weight: 600;
+}
+.asp-input:focus { outline: none; border-color: #fb923c; box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.25); }
+.asp-num-row { display: flex; align-items: center; gap: 8px; }
+.asp-num-row .asp-input { max-width: 140px; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.asp-unit { font-size: 16px; font-weight: 800; color: var(--muted); }
+.asp-pk { display: flex; align-items: center; gap: 6px; }
+.asp-pk .asp-input { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.asp-pk-km { flex: 1.1; text-align: right; }
+.asp-pk-m { flex: 1; max-width: 88px; }
+.asp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.asp-choix { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: var(--r-lg); background: var(--surface-3); }
+.asp-choix-btn { flex: 1 1 0; min-width: max-content; min-height: 44px; padding: 0 10px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--muted); font-size: 15px; font-weight: 800; }
+.asp-choix-btn.on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(11, 18, 32, 0.18); }
+.asp-choix.small .asp-choix-btn { min-height: 40px; font-size: 13.5px; padding: 0 8px; }
+.asp-toggle { gap: 14px; }
+.asp-toggle > span:first-child { flex: 1; line-height: 1.35; }
+.asp-modeles { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.asp-dd-chips { margin-top: 8px; }
+.asp-add-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.asp-add-row .btn { flex: 1 1 auto; min-width: 0; padding-left: 10px; padding-right: 10px; }
+.asp-list { margin: 6px 0; padding-left: 20px; line-height: 1.5; font-size: 15px; }
+.asp-list li { margin: 4px 0; }
+.asp-legend { margin-top: 0; }
+.asp-x { width: 40px; height: 40px; font-size: 22px; }
+
+/* Voies de la plateforme */
+.asp-voie { margin: 10px 0; padding: 10px 12px 4px; border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--bg); }
+.asp-voie.interdite { border-color: #dc2626; background: var(--err-bg); }
+.asp-voie.hors { opacity: 0.75; }
+.asp-voie-top { display: flex; align-items: center; gap: 10px; }
+.asp-voie-nom { max-width: 110px; font-size: 20px; font-weight: 900; }
+.asp-voie-etat { flex: 1; font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.asp-voie.interdite .asp-voie-etat { color: var(--danger); }
+.asp-voie-vitesse { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.asp-voie-vitesse .asp-field { flex: none; }
+.asp-suggest { margin-bottom: 2px; border-color: var(--asp); background: var(--asp-soft); }
+
+/* Alertes */
+.asp-alertes { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.asp-alerte { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 12px; border-left: 6px solid; font-size: 14.5px; line-height: 1.4; }
+.asp-alerte b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.asp-alerte.stop { background: var(--err-bg); border-color: #dc2626; }
+.asp-alerte.stop b { color: var(--danger); }
+.asp-alerte.attention { background: var(--warn-bg); border-color: #f59e0b; }
+.asp-alerte.attention b { color: var(--warn); }
+.asp-alerte.info { background: var(--surface-2); border-color: #94a3b8; }
+.asp-alerte.info b { color: var(--muted); }
+
+/* Résultat du calcul */
+.asp-resultat { border: 2px solid var(--asp); }
+.asp-situation { margin: 0 0 8px; font-size: 14px; font-weight: 800; color: var(--muted); }
+.asp-kpis { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 10px; border-radius: var(--r-md); background: var(--surface-2); }
+.asp-kpis > div { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.asp-kpis small { font-size: 11.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; text-align: center; }
+.asp-kpis b { font-size: 34px; line-height: 1.05; font-weight: 900; font-variant-numeric: tabular-nums; }
+.asp-kpis span { font-size: 13px; font-weight: 800; color: var(--muted); }
+.asp-kpi-main b { color: var(--accent-text); font-size: 42px; }
+.asp-kpi-op { font-size: 24px; font-weight: 900; color: var(--muted); }
+.asp-raisons { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.asp-pa-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.asp-pa { padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); }
+.asp-pa-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.asp-pa-voie { font-size: 19px; font-weight: 900; }
+.asp-pa-sub { font-size: 13px; color: var(--muted); font-weight: 700; }
+.asp-pa-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.asp-pa-dist { font-size: 36px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--accent-text); }
+.asp-pa-pk { display: flex; flex-direction: column; align-items: flex-end; font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: right; }
+.asp-pa-pk b { font-size: 20px; color: #be185d; font-variant-numeric: tabular-nums; }
+:root.night .asp-pa-pk b { color: #f9a8d4; }
+.asp-pa-note { margin: 6px 0 0; font-size: 13px; font-weight: 700; color: var(--warn); }
+.asp-pa-actions { display: flex; gap: 8px; margin-top: 8px; }
+.asp-pa-actions .btn { flex: 1; }
+
+/* Barre du résultat, toujours visible en bas de la fiche */
+.asp-bar {
+  position: absolute; left: 10px; right: 10px; bottom: calc(var(--bottom) + 10px); z-index: 2;
+  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 14px; border: 0; border-radius: 22px;
+  background: var(--banner); color: #fff; box-shadow: var(--shadow-card); text-align: left;
+}
+.asp-bar.has-stop { box-shadow: inset 0 0 0 3px #dc2626, var(--shadow-card); }
+.asp-bar-da { display: flex; flex-direction: column; flex: none; }
+.asp-bar-da small { font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--banner-muted); }
+.asp-bar-da b { font-size: 26px; font-weight: 900; color: var(--asp); font-variant-numeric: tabular-nums; }
+.asp-bar-voies { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-size: 14px; color: var(--banner-sub); }
+.asp-bar-voies > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asp-bar-voies b { color: #fff; font-variant-numeric: tabular-nums; }
+.asp-bar-voies small { color: var(--banner-muted); }
+.asp-bar-stop { flex: none; padding: 5px 9px; border-radius: 10px; background: #dc2626; color: #fff; font-size: 12.5px; font-weight: 900; }
+/* Petit téléphone : la distance passe avant le reste (le PK du point d'annonce est dans la fiche). */
+@media (max-width: 440px) {
+  .asp-bar-stop-txt { display: none; }
+  .asp-bar-stop { min-width: 26px; text-align: center; font-size: 14px; }
+}
+@media (max-width: 370px) {
+  .asp-bar { gap: 8px; padding: 8px 10px; }
+  .asp-bar-da b { font-size: 22px; }
+  .asp-bar-voies small { display: none; }
+  .asp-tabs .seg-btn { font-size: 14px; }
+}
+
+/* Dispositif */
+.asp-agent { margin: 0 0 12px; padding: 12px 14px 14px; background: var(--bg); border-radius: var(--r-lg); box-shadow: 0 1px 3px rgba(11, 18, 32, 0.08); border-left: 6px solid #0f766e; }
+.asp-agent.role-asp { border-left-color: #13305c; }
+.asp-agent.role-sentinelle { border-left-color: #7c3aed; }
+.asp-agent.role-repetiteur { border-left-color: #14b8a6; }
+.asp-agent-top { display: flex; align-items: center; gap: 10px; }
+.asp-agent-top .asp-choix { flex: 1; }
+.asp-agent-role { flex: 1; font-size: 15px; }
+.asp-code { flex: none; min-width: 46px; height: 40px; padding: 0 8px; border-radius: 12px; display: grid; place-items: center; background: #0f766e; color: #fff; font-size: 16px; font-weight: 900; }
+.asp-code.role-asp { background: #13305c; font-size: 13px; }
+.asp-code.role-sentinelle { background: #7c3aed; }
+.asp-code.role-repetiteur { background: #14b8a6; }
+.asp-agent-pos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.asp-vis { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: 13.5px; font-weight: 700; }
+
+/* Check-lists */
+.asp-check-head { display: flex; justify-content: space-between; align-items: center; margin: -4px 0 4px; }
+.asp-check-count { padding: 3px 10px; border-radius: 999px; background: var(--surface-3); font-size: 13px; font-weight: 900; }
+.asp-check-count.done { background: var(--ok-bg); color: var(--ok-ink); }
+.asp-check-list { list-style: none; margin: 0; padding: 0; }
+.asp-check-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 2px; border-top: 1px solid var(--line); font-size: 15.5px; line-height: 1.35; cursor: pointer; }
+.asp-check-item input { width: 24px; height: 24px; flex: none; margin: 0; accent-color: #15803d; }
+.asp-check-item small { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+.asp-check-item.on > span { color: var(--muted); }
+
+/* Accueil ASP */
+.asp-new { min-height: 56px; font-size: 17px; margin-top: 0; }
+.asp-chantiers { margin-top: 10px; }
+.asp-chantiers .result-main small + small { margin-top: 1px; }
+.asp-ico { background: var(--asp-soft); color: var(--asp-ink); }
+:root.night .asp-ico { color: var(--asp); }
+.asp-ico.stop { background: var(--err-bg); color: var(--danger); }
+.asp-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.asp-tile {
+  display: flex; flex-direction: column; gap: 4px; min-height: 108px; padding: 14px; border: 0; border-radius: var(--r-lg);
+  background: var(--bg); color: var(--ink); text-align: left; box-shadow: 0 1px 3px rgba(11, 18, 32, 0.08); border-top: 5px solid var(--asp);
+}
+.asp-tile b { font-size: 17px; }
+.asp-tile small { font-size: 13px; line-height: 1.35; color: var(--muted); }
+.asp-toast { position: fixed; left: 0; right: 0; bottom: calc(var(--bottom) + 90px); z-index: 30; margin: 0 12px; }
+
+/* Tableaux */
+.asp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 8px -4px 4px; padding: 0 4px; }
+.asp-table { border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; min-width: 100%; }
+.asp-table th, .asp-table td { padding: 7px 8px; border: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.asp-table thead th { background: var(--banner); color: #fff; font-weight: 800; position: sticky; top: 0; }
+.asp-table tbody th { background: var(--surface-2); font-weight: 800; position: sticky; left: 0; }
+.asp-table thead th.on { background: #c2410c; }
+.asp-table tr.on th, .asp-table tr.on td { background: var(--asp-soft); }
+.asp-table td.hit { background: var(--asp) !important; color: var(--asp-ink); font-weight: 900; }
+.asp-table-text th, .asp-table-text td { text-align: left; white-space: normal; min-width: 70px; line-height: 1.35; }
+.asp-table-text tbody th { position: static; }
+
+/* Mémo */
+.asp-memo-p { margin: 0 0 12px; font-size: 16px; line-height: 1.55; }
+.asp-memo-warn { font-size: 15px; }
+.asp-kv { margin: 8px 0 14px; }
+.asp-kv dd { font-size: 15.5px; font-weight: 600; }
+.asp-sigs { list-style: none; margin: 8px 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.asp-sigs li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: var(--r-md); background: var(--bg); }
+.asp-sigs li > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.asp-sigs small { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+.asp-sig-img { width: 64px; height: 76px; flex: none; display: grid; place-items: center; border-radius: 12px; background: #cbd5e1; }
+.asp-sig-img img { max-width: 56px; max-height: 68px; object-fit: contain; }
+.asp-schema { margin: 8px 0 14px; padding: 10px; border-radius: var(--r-md); background: var(--bg); color: var(--ink); }
+.asp-schema svg { width: 100%; height: auto; display: block; }
+.asp-schema figcaption { margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+
+/* Quiz et cas pratiques */
+.asp-quiz-start { margin-top: 16px; min-height: 56px; font-size: 17px; }
+.asp-progress { height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; margin-bottom: 14px; }
+.asp-progress > div { height: 100%; background: var(--asp); transition: width 0.3s; }
+.asp-question { margin: 0 0 14px; font-size: 20px; line-height: 1.35; font-weight: 800; }
+.asp-reponses { display: flex; flex-direction: column; gap: 10px; }
+.asp-reponse { min-height: 58px; padding: 12px 14px; border: 2px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--ink); font-size: 16px; font-weight: 700; text-align: left; line-height: 1.35; }
+.asp-reponse.juste { border-color: #15803d; background: var(--ok-bg); }
+.asp-reponse.faux { border-color: #dc2626; background: var(--err-bg); }
+.asp-reponse.grise { opacity: 0.55; }
+.asp-explication { margin: 14px 0 4px; padding: 12px; border-radius: var(--r-md); font-size: 15px; line-height: 1.45; }
+.asp-explication.juste { background: var(--ok-bg); }
+.asp-explication.faux { background: var(--err-bg); }
+.asp-score { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 10px 0 18px; }
+.asp-score b { font-size: 56px; font-weight: 900; color: var(--accent-text); }
+.asp-score span { font-size: 18px; font-weight: 800; }
+.asp-quiz-rate p { margin: 6px 0 0; }
+.asp-verdict { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 900; text-transform: none; letter-spacing: 0; }
+.asp-verdict.juste { background: var(--ok-bg); color: var(--ok-ink); }
+.asp-verdict.faux { background: var(--err-bg); color: var(--err-ink); }
+.asp-verdict-row { display: flex; align-items: flex-end; gap: 10px; }
+.asp-verdict-row .asp-field { flex: 1; }
+.asp-verdict-row .asp-verdict { margin-bottom: 14px; }
+.asp-cas-voie { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+.asp-correction p { margin: 0 0 10px; line-height: 1.5; }
+
+@media (min-width: 900px) {
+  .asp-bar { right: auto; width: 440px; }
+  .asp-toast { right: auto; width: 436px; }
+}
+
+/* Code d'accès et espace administrateur */
+.gate {
+  min-height: var(--app-h, 100vh); height: auto; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: calc(var(--top) + 24px) 16px calc(var(--bottom) + 24px); background: var(--banner); color: #fff;
+}
+.gate-card { width: 100%; max-width: 420px; padding: 24px 20px; border-radius: var(--r-xl); background: var(--bg); color: var(--ink); box-shadow: var(--shadow-card); }
+.gate-logo { display: block; margin: 0 auto 8px; border-radius: 16px; }
+.gate-card h1 { margin: 0 0 6px; text-align: center; font-size: 26px; }
+.gate-sub { margin: 0 0 16px; text-align: center; font-size: 16px; line-height: 1.4; }
+.gate-form { display: flex; flex-direction: column; gap: 8px; }
+.gate-label { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.gate-input {
+  height: 60px; padding: 0 14px; border: 2px solid var(--line); border-radius: var(--r-md); background: var(--field); color: var(--ink);
+  font-size: 28px; font-weight: 900; letter-spacing: 0.12em; text-align: center; font-variant-numeric: tabular-nums;
+}
+.gate-input:focus { outline: none; border-color: var(--asp); }
+.gate-input[aria-invalid='true'] { border-color: #dc2626; }
+.gate-btn { min-height: 56px; font-size: 18px; }
+.gate-error { margin: 8px 0 0; color: var(--danger); font-weight: 700; line-height: 1.4; }
+.gate-help { margin: 14px 0 0; font-size: 13.5px; color: var(--muted); text-align: center; }
+.gate-admin { color: var(--banner-muted); font-size: 14px; font-weight: 700; }
+.admin .gate-card { max-width: 560px; }
+.admin-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.admin-head img { border-radius: 10px; }
+.admin-head h1 { margin: 0; text-align: left; font-size: 22px; }
+.admin-head small { color: var(--muted); }
+.admin-input { font-size: 17px; font-weight: 600; letter-spacing: 0; text-align: left; height: 50px; }
+.admin-msg { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); line-height: 1.4; white-space: pre-line; }
+.admin-new { margin: 14px 0; }
+.admin-new-row { display: flex; gap: 8px; }
+.admin-new-row .gate-input { flex: 1; min-width: 0; }
+.admin-filtre { margin: 0 0 10px; }
+.admin-codes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.admin-codes li { padding: 12px; border: 1.5px solid var(--line); border-radius: var(--r-md); }
+.admin-codes li.coupe { opacity: 0.6; }
+.admin-code-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.admin-code-top code { font-size: 18px; font-weight: 900; letter-spacing: 0.08em; }
+.admin-codes small { color: var(--muted); }
+.admin-code-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.admin-exit { display: block; margin: 18px auto 0; }
