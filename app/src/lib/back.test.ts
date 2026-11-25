@@ -1,20 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-/** Historique du navigateur simulé : `back()` déclenche `popstate` un peu plus tard, comme un vrai téléphone. */
+/**
+ * Historique du navigateur simulé. `back()` arrive un peu plus tard (popstate), vers l'entrée qui précédait au
+ * moment de l'appel, comme Chrome ; `entrees` est la position (1 : la page de l'appli, 0 : on a quitté l'appli).
+ */
 let entrees: number;
+let sorties: number;
 let win: EventTarget;
 beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
   entrees = 1;
+  sorties = 0;
   win = new EventTarget();
   vi.stubGlobal('window', win);
   vi.stubGlobal('history', {
     state: null,
     pushState: () => void entrees++,
     back: () => {
-      entrees--;
-      setTimeout(() => win.dispatchEvent(new Event('popstate')), 5);
+      const cible = entrees - 1;
+      setTimeout(() => {
+        entrees = cible;
+        if (entrees < 1) sorties++;
+        else win.dispatchEvent(new Event('popstate'));
+      }, 5);
     },
   });
 });
@@ -68,5 +77,19 @@ describe('bouton retour du téléphone', () => {
     vi.advanceTimersByTime(100); // le popstate de notre propre history.back() est ignoré
     retourTelephone();
     expect(onRetour).not.toHaveBeenCalled();
+  });
+
+  it('une feuille ouverte juste après une fermeture ne fait jamais quitter l’appli', async () => {
+    const { empiler } = await import('./back');
+    const retirerFiche = empiler(() => undefined);
+    retirerFiche(); // la fiche se ferme…
+    vi.advanceTimersByTime(60); // … l'appli demande le retour de son entrée
+    const retirerOnglet = empiler(() => undefined); // un onglet s'ouvre avant que le retour soit arrivé
+    vi.advanceTimersByTime(100);
+    expect(entrees).toBe(2); // une entrée au-dessus de l'appli, pour l'onglet
+    retirerOnglet(); // retour à l'accueil
+    vi.advanceTimersByTime(200);
+    expect(entrees).toBe(1);
+    expect(sorties).toBe(0);
   });
 });

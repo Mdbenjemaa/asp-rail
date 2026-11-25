@@ -9,19 +9,33 @@ import { useEffect, useRef } from 'react';
 
 const pile: Array<() => void> = [];
 let pushed = false;
-let ignore = 0;
+/** Un `history.back()` de l'appli est en route : rien d'autre ne touche à l'historique avant son arrivée. */
+let enRetour = false;
+let garde: ReturnType<typeof setTimeout> | null = null;
 let installed = false;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function sync() {
+  // Ajouter une entrée pendant un retour en route les décale : au retour suivant, l'appli se fermerait.
+  if (enRetour) return;
   if (pile.length && !pushed) {
     history.pushState({ ...(history.state ?? {}), aspRetour: true }, '');
     pushed = true;
   } else if (!pile.length && pushed) {
     pushed = false;
-    ignore++;
+    enRetour = true;
     history.back();
+    // Filet : si le navigateur ne prévient jamais, on reprend quand même.
+    garde = setTimeout(retourArrive, 1000);
   }
+}
+
+/** Le retour demandé par l'appli est arrivé : on remet l'historique d'accord avec ce qui est ouvert. */
+function retourArrive() {
+  if (garde) clearTimeout(garde);
+  garde = null;
+  enRetour = false;
+  sync();
 }
 
 /** Resynchronise un peu plus tard : le temps que l'écran fermé se retire. */
@@ -37,8 +51,8 @@ function install() {
   if (installed || typeof window === 'undefined') return;
   installed = true;
   window.addEventListener('popstate', () => {
-    if (ignore > 0) {
-      ignore--;
+    if (enRetour) {
+      retourArrive();
       return;
     }
     if (!pushed) return; // un retour qui ne nous concerne pas
