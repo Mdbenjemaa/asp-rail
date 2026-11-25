@@ -1,14 +1,21 @@
 /** Progression au quiz, partagée entre l'écran du quiz, la question du jour et l'accueil. */
 import { useSyncExternalStore } from 'react';
 import { loadPref, savePref } from '../lib/me';
+import { QUESTIONS_PN } from '../pn/quiz';
 import { QUESTIONS, type Question } from './quiz';
 
-export const ERREURS = 'asp-quiz-erreurs';
-const JUSTES = 'asp-quiz-justes';
+/** Banque de questions : annonce (TES M) ou passage à niveau (TES F). */
+export type Banque = 'asp' | 'pn';
+const QS: Record<Banque, Question[]> = { asp: QUESTIONS, pn: QUESTIONS_PN };
+export const questionsDe = (b: Banque) => QS[b];
+export const cleErreurs = (b: Banque) => (b === 'asp' ? 'asp-quiz-erreurs' : 'asp-pn-quiz-erreurs');
+const cleJustes = (b: Banque) => (b === 'asp' ? 'asp-quiz-justes' : 'asp-pn-quiz-justes');
 const EVT = 'asp-quiz';
 
 /** Une bonne réponse sort des erreurs et compte comme sue ; une mauvaise fait l'inverse. */
-export function noterReponse(id: string, juste: boolean): string[] {
+export function noterReponse(b: Banque, id: string, juste: boolean): string[] {
+  const ERREURS = cleErreurs(b);
+  const JUSTES = cleJustes(b);
   const e = new Set(loadPref<string[]>(ERREURS, []));
   const j = new Set(loadPref<string[]>(JUSTES, []));
   if (juste) {
@@ -31,18 +38,21 @@ export interface QuizStats {
   total: number;
 }
 
-let cache: QuizStats | null = null;
-function snapshot(): QuizStats {
-  if (!cache) {
-    const ids = new Set(QUESTIONS.map((q) => q.id));
+const cache: Partial<Record<Banque, QuizStats>> = {};
+function snapshot(b: Banque): QuizStats {
+  let s = cache[b];
+  if (!s) {
+    const ids = new Set(QS[b].map((q) => q.id));
     const n = (k: string) => loadPref<string[]>(k, []).filter((x) => ids.has(x)).length;
-    cache = { justes: n(JUSTES), erreurs: n(ERREURS), total: QUESTIONS.length };
+    s = { justes: n(cleJustes(b)), erreurs: n(cleErreurs(b)), total: QS[b].length };
+    cache[b] = s;
   }
-  return cache;
+  return s;
 }
 function subscribe(cb: () => void) {
   const f = () => {
-    cache = null;
+    delete cache.asp;
+    delete cache.pn;
     cb();
   };
   window.addEventListener(EVT, f);
@@ -53,8 +63,8 @@ function subscribe(cb: () => void) {
   };
 }
 
-export function useQuizStats(): QuizStats {
-  return useSyncExternalStore(subscribe, snapshot);
+export function useQuizStats(b: Banque): QuizStats {
+  return useSyncExternalStore(subscribe, () => snapshot(b));
 }
 
 /** Petit générateur pseudo-aléatoire, stable pour une même graine (la question du jour ne change pas dans la journée). */
@@ -70,9 +80,9 @@ function graine(s: string): () => number {
 }
 
 /** La question du jour, et l'ordre de ses réponses, tirés de la date. */
-export function questionDuJour(jour: string): { q: Question; ordre: number[] } {
-  const r = graine(`asp-${jour}`);
-  const q = QUESTIONS[Math.floor(r() * QUESTIONS.length)];
+export function questionDuJour(b: Banque, jour: string): { q: Question; ordre: number[] } {
+  const r = graine(`${b}-${jour}`);
+  const q = QS[b][Math.floor(r() * QS[b].length)];
   const ordre = q.choix.map((_, i) => i);
   for (let i = ordre.length - 1; i > 0; i--) {
     const j = Math.floor(r() * (i + 1));

@@ -17,9 +17,17 @@ export type Vue =
   | { k: 'fiche'; id: string }
   | { k: 'checklists'; id: string }
   | { k: 'chantiers' }
-  | { k: 'memo'; section?: string }
-  | { k: 'quiz' }
-  | { k: 'cas' };
+  | { k: 'memo'; section?: string; banque?: 'asp' | 'pn' }
+  | { k: 'quiz'; banque?: 'asp' | 'pn' }
+  | { k: 'cas' }
+  | { k: 'pn-nouvelle'; id: string; etape?: EtapePn; seule?: boolean }
+  | { k: 'pn-mission'; id: string }
+  | { k: 'pn-procedure'; id: string; type: 'mobile' | 'lam' }
+  | { k: 'pn-diagnostic'; id?: string }
+  | { k: 'pn-ordre' }
+  | { k: 'pn-missions' };
+
+export type EtapePn = 'role' | 'pn' | 'equipement' | 'chantier';
 
 export interface Ctx {
   manifest: Manifest | null;

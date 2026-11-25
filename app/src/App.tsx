@@ -47,6 +47,8 @@ import { Couche } from './asp/Couche';
 import { aRegler, chantierDuJour } from './asp/etat';
 import { definirActif, enregistrer, useActif, useChantiers } from './asp/store';
 import { BottomNav, type Onglet } from './components/BottomNav';
+import { useActivite } from './asp/activite';
+import { enregistrerMission, nouvelleMission } from './pn/mission';
 import { useRetour } from './lib/back';
 
 type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements';
@@ -593,6 +595,12 @@ export default function App() {
     enregistrer(c);
     setPile((s) => [...s, { k: 'assistant', id: c.id }]);
   };
+  const nouvelleMissionPn = () => {
+    const m = nouvelleMission();
+    enregistrerMission(m);
+    setPile((s) => [...s, { k: 'pn-nouvelle', id: m.id }]);
+  };
+  const activite = useActivite();
 
   /** « Mes accès » : fichier KML/KMZ/GeoJSON ou lien Google My Maps ; gardés sur ce téléphone. */
   const importAcces = async (src: File | string) => {
@@ -836,6 +844,7 @@ export default function App() {
         pile={pile}
         ctx={ctx}
         onNew={nouveau}
+        onNewMission={nouvelleMissionPn}
         onMenu={() => setPanel('menu')}
         onWhere={() => {
           toMap();
@@ -843,7 +852,7 @@ export default function App() {
         }}
         onTab={setTab}
       />
-      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={jourARegler} />}
+      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={activite === 'asp' && jourARegler} pn={activite === 'pn'} />}
 
       {panel === 'search' && (
         <SearchScreen

@@ -8,7 +8,7 @@ import { fmtLine, fmtPk } from '../lib/format';
 import { loadPref, savePref } from '../lib/me';
 import type { Direct, EtatDirect } from './direct';
 import { today } from './etat';
-import { questionDuJour, noterReponse, useQuizStats } from './quizStats';
+import { noterReponse, questionDuJour, useQuizStats, type Banque } from './quizStats';
 import { DA_MIN_GRANDE_VITESSE, distanceAnnonce } from './rules';
 
 /** Un compteur qui avance toutes les `ms` millisecondes (pour faire défiler), arrêté si l'écran est caché. */
@@ -70,6 +70,41 @@ export function CaseOu({ etat, pos, onClick }: { etat: EtatDirect; pos: Direct |
   );
 }
 
+/** PN le plus proche de l'agent, sur sa ligne, en direct. */
+export function CasePn({ etat, pos, onClick }: { etat: EtatDirect; pos: Direct | null; onClick: (code: string, pk: number) => void }) {
+  const pn = etat === 'ok' ? (pos?.pn ?? null) : null;
+  return (
+    <button
+      className={`ds-quick live ${pn ? 'on' : ''}`}
+      onClick={() => (pn && pos ? onClick(pos.code, pn.pk) : undefined)}
+      disabled={!pn}
+      aria-label={pn ? `PN le plus proche : ${pn.nom}, à ${pn.distance} m` : 'PN le plus proche'}
+    >
+      <span className="ds-quick-top">
+        <span className="ds-quick-ico">
+          <Icon name="tracks" />
+        </span>
+        {pn && <EnDirect />}
+      </span>
+      {pn ? (
+        <span className="ds-quick-val">
+          <small>PN le plus proche</small>
+          <b className="ds-quick-big">{pn.nom}</b>
+          <small>
+            {pn.distance < 1000 ? `${pn.distance} m` : `${(pn.distance / 1000).toFixed(1).replace('.', ',')} km`} {pn.devant ? '▲' : '▼'}
+            {pn.lieu ? ` · ${pn.lieu}` : ''}
+          </small>
+        </span>
+      ) : (
+        <span>
+          <b>PN le plus proche</b>
+          <small>{etat === 'recherche' ? 'Recherche du GPS…' : etat === 'ok' ? 'Aucun PN connu sur cette ligne' : 'Avec ta position GPS'}</small>
+        </span>
+      )}
+    </button>
+  );
+}
+
 const DEMO = [100, 140, 160, 200];
 /** Délai d'annonce le plus courant (5 s de dégagement + 5 s de marge), aussi le minimum au-delà de 160 km/h. */
 const DA = DA_MIN_GRANDE_VITESSE;
@@ -113,22 +148,23 @@ const REGLES = [
 ];
 
 /** Mémo : une règle clé qui change toutes les quelques secondes. */
-export function CaseMemo({ onClick }: { onClick: () => void }) {
+export function CaseMemo({ onClick, regles = REGLES, titre = 'Mémo ASP' }: { onClick: () => void; regles?: string[]; titre?: string }) {
   const n = useTic(6000);
-  const regle = REGLES[n % REGLES.length];
+  const REGLES_ = regles;
+  const regle = REGLES_[n % REGLES_.length];
   return (
-    <button className="ds-quick live" onClick={onClick} aria-label="Mémo ASP">
+    <button className="ds-quick live" onClick={onClick} aria-label={titre}>
       <span className="ds-quick-top">
         <span className="ds-quick-ico">
           <Icon name="book" />
         </span>
         <span className="ds-quick-count" aria-hidden="true">
-          {(n % REGLES.length) + 1}/{REGLES.length}
+          {(n % REGLES_.length) + 1}/{REGLES_.length}
         </span>
       </span>
       <span className="ds-quick-val">
-        <small>Mémo ASP</small>
-        <b className="ds-quick-rule" key={n % REGLES.length} aria-live="off">
+        <small>{titre}</small>
+        <b className="ds-quick-rule" key={n % REGLES_.length} aria-live="off">
           {regle}
         </b>
       </span>
@@ -137,8 +173,8 @@ export function CaseMemo({ onClick }: { onClick: () => void }) {
 }
 
 /** Quiz : anneau de progression (questions sues) et erreurs à revoir. */
-export function CaseQuiz({ onClick }: { onClick: () => void }) {
-  const s = useQuizStats();
+export function CaseQuiz({ onClick, banque = 'asp' }: { onClick: () => void; banque?: Banque }) {
+  const s = useQuizStats(banque);
   const pct = s.total ? Math.round((s.justes / s.total) * 100) : 0;
   const r = 17;
   const c = 2 * Math.PI * r;
@@ -164,12 +200,11 @@ export function CaseQuiz({ onClick }: { onClick: () => void }) {
   );
 }
 
-const QDJ = 'asp-question-du-jour';
-
 /** Question du jour : une question par jour, à laquelle on répond depuis l'accueil. */
-export function QuestionDuJour({ onQuiz }: { onQuiz: () => void }) {
+export function QuestionDuJour({ onQuiz, banque = 'asp' }: { onQuiz: () => void; banque?: Banque }) {
+  const QDJ = banque === 'asp' ? 'asp-question-du-jour' : 'asp-pn-question-du-jour';
   const [jour] = useState(today);
-  const { q, ordre } = questionDuJour(jour);
+  const { q, ordre } = questionDuJour(banque, jour);
   const [choix, setChoix] = useState<number | null>(() => {
     const s = loadPref<{ jour: string; choix: number } | null>(QDJ, null);
     return s && s.jour === jour ? s.choix : null;
@@ -194,7 +229,7 @@ export function QuestionDuJour({ onQuiz }: { onQuiz: () => void }) {
               onClick={() => {
                 setChoix(idx);
                 savePref(QDJ, { jour, choix: idx });
-                noterReponse(q.id, idx === q.bonne);
+                noterReponse(banque, q.id, idx === q.bonne);
               }}
             >
               {etat === 'juste' && <Icon name="check" size={18} />}

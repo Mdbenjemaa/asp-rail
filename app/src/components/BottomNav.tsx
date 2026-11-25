@@ -9,11 +9,12 @@ const ONGLETS: [Onglet, string, string][] = [
   ['reviser', 'Réviser', 'book'],
 ];
 
-/** Barre du bas, comme les applis du téléphone : quatre onglets, celui ouvert en jaune. */
-export function BottomNav({ tab, onTab, alerte }: { tab: Onglet; onTab: (t: Onglet) => void; alerte?: boolean }) {
+/** Barre du bas, comme les applis du téléphone : quatre onglets, celui ouvert en jaune. En activité PN, « Calcul » devient « Dérangement ». */
+export function BottomNav({ tab, onTab, alerte, pn }: { tab: Onglet; onTab: (t: Onglet) => void; alerte?: boolean; pn?: boolean }) {
+  const onglets: [Onglet, string, string][] = ONGLETS.map(([id, label, ic]) => (pn && id === 'calcul' ? [id, 'Dérangement', 'alert'] : [id, label, ic]));
   return (
     <nav className="ds-nav" aria-label="Navigation principale">
-      {ONGLETS.map(([id, label, ic]) => (
+      {onglets.map(([id, label, ic]) => (
         <button key={id} className="ds-nav-btn" aria-current={tab === id ? 'page' : undefined} onClick={() => onTab(id)}>
           <span className="ds-nav-ico">
             <Icon name={ic} />

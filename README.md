@@ -1,8 +1,8 @@
 # ASP Rail
 
-Appli web pour l'agent sécurité du personnel (ASP) et les annonceurs : se repérer sur le réseau (ligne et PK), calculer
-le délai et la distance d'annonce, placer les points d'annonce et le dispositif, garder sa fiche et ses check-lists, et
-réviser. Elle s'installe sur l'écran d'accueil (iPhone et Android) et marche sans réseau là où on est déjà passé.
+Appli web pour l'agent sécurité du personnel (ASP) et les annonceurs, et pour l'agent PN : se repérer sur le réseau
+(ligne et PK), calculer le délai et la distance d'annonce, placer les points d'annonce et le dispositif, garder sa fiche
+et ses check-lists, suivre une mission PN pas à pas avec son journal horodaté, et réviser. Elle s'installe sur l'écran d'accueil (iPhone et Android) et marche sans réseau là où on est déjà passé.
 
 Construite sur la base de [PK Rail](https://github.com/Mdbenjemaa/pk-rail) (repérage, suivi du PK, carte des voies),
 avec en plus l'espace ASP.
@@ -10,7 +10,8 @@ avec en plus l'espace ASP.
 **Adresse :** https://mdbenjemaa.github.io/asp-rail/ (accès par code, voir plus bas)
 
 > Aide à la préparation, jamais une référence de sécurité. Le calcul suit les règles du support de formation
-> « TES M – compétence ASP » (S2MIH, v1.3 du 30/05/2023). Il ne remplace ni les textes SNCF Réseau en vigueur, ni les
+> « TES M – compétence ASP » (S2MIH, v1.3 du 30/05/2023) ; l'activité PN suit le support ETF « Formation TES F –
+> intervenant PN ». La fiche de travail, la consigne PN et le livret de service du PN priment. Il ne remplace ni les textes SNCF Réseau en vigueur, ni les
 > consignes et particularités locales, ni le carnet CADA et l'AAn. PK, vitesses et signaux viennent de données
 > ouvertes (SNCF Réseau, OpenStreetMap) : ils peuvent être faux, incomplets ou périmés. Vérifie toujours sur le
 > terrain. L'ASP reste responsable de son dispositif.
@@ -29,6 +30,20 @@ suit le téléphone : clair le jour, sombre la nuit (réglable dans le menu).
 | Carte | Le repérage de PK Rail, plus la zone de travail, les points d'annonce et les agents du chantier. |
 | Calcul | Distance d'annonce selon la vitesse, le dégagement et la marge, avec le tableau complet (30 à 300 km/h, 5 à 60 s). |
 | Réviser | Mémo des règles du support (avec recherche), quiz avec explications (série de 10, par thème, « mes erreurs »), et les 7 exercices « Terrain et CADA » corrigés par le même moteur de calcul. |
+
+### Deux activités : Annonce (TES M) et Agent PN (TES F)
+
+En haut de l'accueil, la bascule **Annonce / Agent PN** choisit l'activité du jour (gardée sur le téléphone). L'accueil,
+les cases en direct, le 3e onglet et « Réviser » suivent l'activité.
+
+| Écran (activité PN) | Ce qu'il fait |
+| --- | --- |
+| Accueil | « Ma mission PN » : l'étape à faire maintenant et l'avancement ; « Nouvelle mission PN » ; « Un PN ne marche pas ? Diagnostic ». Cases en direct : PN le plus proche sur la ligne (numéro, distance, sens), ligne et PK, une règle du mémo PN, la progression au quiz PN ; question du jour PN. |
+| Nouvelle mission PN | Quatre écrans : mission (agent PN en travaux, ou agent franchissement mobile travaux) ; PN (les PN les plus proches trouvés par le GPS dans les données ouvertes, ou saisie numéro, ligne, PK, route) ; équipement (SAL 2, 2B, 4, FC, 0 ; boîtier de commutateurs ou commutateur Marche-Arrêt ; ligne BAL ; voies) ; chantier (horaire, contrat, indice, CCh, RPTx). |
+| Mission PN | L'étape à faire en grand avec son bouton « Fait à 14:32 » (et le n° de dépêche quand il y en a une) ; les phases (avant, vérifications, prise en travaux selon le boîtier, le blocage BAL ou le Marche-Arrêt, fin de mission jusqu'à l'ARF) ; pendant les travaux, « Un mobile travaux arrive » et « Mettre en voie un LAM » ; le journal horodaté (étapes, dépêches, passages, dérangements, notes) à partager par message ou recopier dans le carnet du PN. |
+| Mobile travaux, LAM | Les gestes numérotés dans l'ordre (SAM le plus éloigné retiré d'abord, le plus proche remis d'abord…), puis « Terminé : noter au journal » avec l'heure de début et de fin. |
+| Dérangement (3e onglet) | Deux questions (quand, ce que tu vois) → raté d'ouverture, raté de fermeture ou pas de dérangement ; la conduite à tenir ; noté au journal de la mission si on vient d'une mission. |
+| Réviser | Mémo PN (16 fiches), quiz PN avec explications, et 6 cas pratiques « remets les gestes dans l'ordre ». |
 
 ## Repérage (repris de PK Rail)
 

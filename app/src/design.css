@@ -348,3 +348,59 @@ body { background: var(--page); }
   .ds-quick-big { font-size: 19px; }
   .ds-quick-rule { font-size: 14px; }
 }
+
+/* ---------- Activité Agent PN ---------- */
+.ds-activite-gap { height: 14px; }
+.ds-btn.danger-tonal { background: var(--err-bg); color: var(--err-ink); }
+.ds-meter { height: 8px; margin: 14px 0 4px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.ds-meter i { display: block; height: 100%; border-radius: 4px; background: var(--brand-line); transition: width 0.4s ease; }
+.ds-next { margin-top: 14px; padding: 16px; border-radius: 20px; background: var(--brand-soft); }
+.ds-next.quiet { background: var(--surface-2); }
+.ds-next.compact { padding: 12px 14px; }
+.ds-next-texte { display: block; margin: 6px 0 0; font-size: 20px; line-height: 1.3; font-weight: 850; }
+.ds-next.compact .ds-next-texte { font-size: 16px; }
+.ds-next-aide { margin: 8px 0 0; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+.ds-pendant { margin-top: 14px; }
+.ds-pendant-titre { margin: 0 0 10px; font-size: 15px; font-weight: 800; color: var(--ok-ink); }
+.ds-pendant-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.ds-pendant-btns .ds-btn { background: var(--navy); color: #fff; justify-content: flex-start; padding: 0 20px; }
+.ds-journal { align-items: flex-start; }
+.ds-journal-h { flex: none; min-width: 48px; padding-top: 1px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ds-step { position: relative; }
+.ds-step input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ds-step-n {
+  width: 30px; height: 30px; flex: none; border-radius: 15px; display: grid; place-items: center; background: var(--surface-3); color: var(--ink);
+  font-size: 14px; font-weight: 900;
+}
+.ds-step.on .ds-step-n { background: var(--ok); color: #fff; }
+.ds-step.now { background: var(--brand-soft); }
+.ds-step.now .ds-step-n { background: var(--brand); color: var(--brand-ink); }
+.ds-step:has(input:focus-visible) { outline: 3px solid var(--brand-line); outline-offset: -3px; }
+.ds-verdict { margin: 4px 0 6px; padding: 18px; border-radius: 22px; }
+.ds-verdict h2 { margin: 4px 0 6px; font-size: 26px; line-height: 1.2; font-weight: 900; }
+.ds-verdict p { margin: 0; font-size: 15.5px; line-height: 1.45; }
+.ds-verdict.ouverture { background: var(--warn-bg); color: var(--warn-ink); }
+.ds-verdict.fermeture { background: var(--err-bg); color: var(--err-ink); }
+.ds-verdict.normal { background: var(--ok-bg); color: var(--ok-ink); }
+.ds-verdict .ds-tag { color: inherit; opacity: 0.8; }
+.ds-steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 8px; }
+.ds-steps li { counter-increment: s; position: relative; padding: 14px 14px 14px 52px; border-radius: 18px; background: var(--bg); box-shadow: var(--elev); font-size: 15px; line-height: 1.45; }
+.night .ds-steps li { border: 1px solid var(--line); }
+.ds-steps li::before { content: counter(s); position: absolute; left: 14px; top: 13px; width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 900; }
+.ds-steps b { font-weight: 850; }
+.ds-order { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ds-order-item {
+  width: 100%; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border: 2px solid var(--line); border-radius: 16px;
+  background: var(--bg); color: var(--ink); font-size: 15px; font-weight: 700; text-align: left;
+}
+.ds-order-item.juste { border-color: var(--ok); background: var(--ok-bg); color: var(--ok-ink); }
+.ds-order-item.juste .ds-step-n { background: var(--ok); color: #fff; }
+.ds-order-item.faux { border-color: #dc2626; background: var(--err-bg); color: var(--err-ink); }
+.ds-order-item.faux .ds-step-n { background: #dc2626; color: #fff; }
+.ds-order.solution { margin-top: 8px; }
+.ds-pioche { display: flex; flex-direction: column; gap: 8px; }
+.ds-pioche-item {
+  min-height: 52px; padding: 10px 16px; border: 2px dashed var(--line); border-radius: 16px; background: var(--surface-2); color: var(--ink);
+  font-size: 15px; font-weight: 700; text-align: left;
+}
+.ds-quick:disabled { opacity: 1; }

@@ -13,14 +13,32 @@ import { MemoScreen } from './MemoScreen';
 import { QuizScreen } from './QuizScreen';
 import { Reviser } from './Reviser';
 import { enregistrer } from './store';
+import { useActivite } from './activite';
+import { MEMO_PN } from '../pn/memo';
+import { Diagnostic } from '../pn/Diagnostic';
+import { MissionScreen, MissionsScreen, ProcedureScreen } from '../pn/MissionScreen';
+import { NouvelleMission } from '../pn/NouvelleMission';
+import { OrdreScreen } from '../pn/OrdreScreen';
 
-export function Couche(p: { tab: Onglet; pile: Vue[]; ctx: Ctx; onNew: () => void; onMenu: () => void; onWhere: () => void; onTab: (t: Onglet) => void }) {
+export function Couche(p: {
+  tab: Onglet;
+  pile: Vue[];
+  ctx: Ctx;
+  onNew: () => void;
+  onNewMission: () => void;
+  onMenu: () => void;
+  onWhere: () => void;
+  onTab: (t: Onglet) => void;
+}) {
   const { ctx } = p;
+  const activite = useActivite();
   const top = p.pile.length - 1;
   return (
     <>
-      {p.tab === 'accueil' && <Accueil ctx={ctx} couvert={p.pile.length > 0} onNew={p.onNew} onMenu={p.onMenu} onWhere={p.onWhere} onTab={p.onTab} />}
-      {p.tab === 'calcul' && <CalculRapide />}
+      {p.tab === 'accueil' && (
+        <Accueil ctx={ctx} couvert={p.pile.length > 0} onNew={p.onNew} onNewMission={p.onNewMission} onMenu={p.onMenu} onWhere={p.onWhere} onTab={p.onTab} />
+      )}
+      {p.tab === 'calcul' && (activite === 'pn' ? <Diagnostic ctx={ctx} onglet /> : <CalculRapide />)}
       {p.tab === 'reviser' && <Reviser ctx={ctx} />}
       {p.pile.map((v, k) => {
         const hidden = k < top;
@@ -35,9 +53,25 @@ export function Couche(p: { tab: Onglet; pile: Vue[]; ctx: Ctx; onNew: () => voi
           case 'chantiers':
             return <Chantiers key={key} hidden={hidden} ctx={ctx} onNew={p.onNew} />;
           case 'memo':
-            return <MemoScreen key={key} onBack={ctx.back} section={v.section} />;
+            return v.banque === 'pn' ? (
+              <MemoScreen key={key} onBack={ctx.back} section={v.section} sections={MEMO_PN} titre="Mémo PN" />
+            ) : (
+              <MemoScreen key={key} onBack={ctx.back} section={v.section} />
+            );
           case 'quiz':
-            return <QuizScreen key={key} onBack={ctx.back} />;
+            return <QuizScreen key={key} onBack={ctx.back} banque={v.banque ?? 'asp'} />;
+          case 'pn-nouvelle':
+            return <NouvelleMission key={key} id={v.id} etape={v.etape} seule={v.seule} hidden={hidden} ctx={ctx} />;
+          case 'pn-mission':
+            return <MissionScreen key={key} id={v.id} hidden={hidden} ctx={ctx} />;
+          case 'pn-procedure':
+            return <ProcedureScreen key={key} id={v.id} type={v.type} hidden={hidden} ctx={ctx} />;
+          case 'pn-diagnostic':
+            return <Diagnostic key={key} ctx={ctx} missionId={v.id} hidden={hidden} />;
+          case 'pn-ordre':
+            return <OrdreScreen key={key} ctx={ctx} hidden={hidden} />;
+          case 'pn-missions':
+            return <MissionsScreen key={key} hidden={hidden} ctx={ctx} onNew={p.onNewMission} />;
           case 'cas':
             return (
               <CasScreen

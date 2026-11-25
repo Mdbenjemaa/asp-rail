@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { loadCell, loadLine, loadManifest, type Manifest } from '../lib/data';
 import { follow, type Fix } from '../lib/gps';
 import { cellsAround, matchInCells, pickFollowLine, searchRadius } from '../lib/locate';
+import { pnsProches, type PnProche } from '../pn/mission';
 import { vmaxEntre } from './lignes';
 
 export interface Direct {
@@ -20,6 +21,8 @@ export interface Direct {
   precision: number;
   /** Vitesse de la ligne à cet endroit, d'après les données ouvertes (km/h). */
   vmax: number | null;
+  /** PN de la ligne le plus proche. */
+  pn: PnProche | null;
   t: number;
 }
 
@@ -43,6 +46,7 @@ async function rattacher(fix: Fix, m: Manifest, prefer: string | null): Promise<
     ecart: best.dist,
     precision: fix.accuracy,
     vmax: doc ? vmaxEntre(doc, best.pk, best.pk) : null,
+    pn: doc ? (pnsProches(doc.points, best.pk, 1)[0] ?? null) : null,
   };
 }
 

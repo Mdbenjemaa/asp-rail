@@ -1,8 +1,8 @@
 /** Quiz de révision : séries de questions, explication après chaque réponse, et reprise de ses erreurs. */
 import { useMemo, useState } from 'react';
 import { loadPref } from '../lib/me';
-import { melanger, QUESTIONS, THEMES, type Question } from './quiz';
-import { ERREURS, noterReponse } from './quizStats';
+import { melanger, type Question } from './quiz';
+import { cleErreurs, noterReponse, questionsDe, type Banque } from './quizStats';
 import { ScreenHead } from './ui';
 
 
@@ -14,8 +14,10 @@ interface Tour {
 
 const preparer = (qs: Question[]): Tour[] => melanger(qs).map((q) => ({ q, ordre: melanger(q.choix.map((_, i) => i)) }));
 
-export function QuizScreen({ onBack }: { onBack: () => void }) {
-  const [erreurs, setErreurs] = useState<string[]>(() => loadPref<string[]>(ERREURS, []));
+export function QuizScreen({ onBack, banque = 'asp' }: { onBack: () => void; banque?: Banque }) {
+  const QUESTIONS = questionsDe(banque);
+  const THEMES = Array.from(new Set(QUESTIONS.map((q) => q.theme)));
+  const [erreurs, setErreurs] = useState<string[]>(() => loadPref<string[]>(cleErreurs(banque), []));
   const [serie, setSerie] = useState<Tour[] | null>(null);
   const [i, setI] = useState(0);
   const [choisi, setChoisi] = useState<number | null>(null);
@@ -28,12 +30,12 @@ export function QuizScreen({ onBack }: { onBack: () => void }) {
     setChoisi(null);
     setScore({ ok: 0, rates: [] });
   };
-  const pool = useMemo(() => (theme ? QUESTIONS.filter((q) => q.theme === theme) : QUESTIONS), [theme]);
+  const pool = useMemo(() => (theme ? QUESTIONS.filter((q) => q.theme === theme) : QUESTIONS), [theme, QUESTIONS]);
 
   if (!serie) {
     return (
       <div className="screen asp-screen" role="dialog" aria-label="Quiz">
-        <ScreenHead title="Quiz" sub={`${QUESTIONS.length} questions`} onBack={onBack} />
+        <ScreenHead title="Quiz" sub={`${QUESTIONS.length} questions · ${banque === 'pn' ? 'agent PN, TES F' : 'annonce, TES M'}`} onBack={onBack} />
         <div className="screen-body asp-body">
           <div className="asp-mini-label">Thème</div>
           <div className="chips">
@@ -55,7 +57,7 @@ export function QuizScreen({ onBack }: { onBack: () => void }) {
           <button className="btn wide" disabled={!erreurs.length} onClick={() => lancer(QUESTIONS.filter((q) => erreurs.includes(q.id)))}>
             Revoir mes erreurs ({erreurs.length})
           </button>
-          <p className="muted small">Une question bien répondue sort de « mes erreurs ». D’après le support « TES M – compétence ASP ».</p>
+          <p className="muted small">Une question bien répondue sort de « mes erreurs ». D’après le support {banque === 'pn' ? '« Formation TES F – intervenant PN »' : '« TES M – compétence ASP »'}.</p>
         </div>
       </div>
     );
@@ -96,7 +98,7 @@ export function QuizScreen({ onBack }: { onBack: () => void }) {
     setChoisi(idx);
     if (idx === t.q.bonne) setScore((s) => ({ ...s, ok: s.ok + 1 }));
     else setScore((s) => ({ ...s, rates: [...s.rates, t] }));
-    setErreurs(noterReponse(t.q.id, idx === t.q.bonne));
+    setErreurs(noterReponse(banque, t.q.id, idx === t.q.bonne));
   };
   return (
     <div className="screen asp-screen" role="dialog" aria-label="Quiz">

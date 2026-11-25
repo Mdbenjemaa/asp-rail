@@ -158,10 +158,10 @@ function Bloc({ b }: { b: MemoBloc }) {
   }
 }
 
-function Section({ s, onBack }: { s: MemoSection; onBack: () => void }) {
+function Section({ s, onBack, memo }: { s: MemoSection; onBack: () => void; memo: string }) {
   return (
     <div className="screen asp-screen" role="dialog" aria-label={s.titre}>
-      <ScreenHead title={s.titre} sub="Mémo ASP" onBack={onBack} backLabel="Retour au mémo" />
+      <ScreenHead title={s.titre} sub={memo} onBack={onBack} backLabel="Retour au mémo" />
       <div className="screen-body asp-body asp-memo">
         {s.blocs.map((b, i) => (
           <Bloc key={i} b={b} />
@@ -172,21 +172,31 @@ function Section({ s, onBack }: { s: MemoSection; onBack: () => void }) {
   );
 }
 
-export function MemoScreen({ onBack, section }: { onBack: () => void; section?: string }) {
+export function MemoScreen({
+  onBack,
+  section,
+  sections = MEMO,
+  titre = 'Mémo ASP',
+}: {
+  onBack: () => void;
+  section?: string;
+  sections?: MemoSection[];
+  titre?: string;
+}) {
   const [open, setOpen] = useState<string | null>(section ?? null);
   const [q, setQ] = useState('');
-  const index = useMemo(() => MEMO.map((s) => ({ s, text: norm(`${s.titre} ${s.resume} ${s.blocs.map(texteDe).join(' ')}`) })), []);
-  const found = q.trim() ? index.filter((x) => norm(q).split(/\s+/).every((w) => x.text.includes(w))).map((x) => x.s) : MEMO;
-  const cur = MEMO.find((s) => s.id === open);
+  const index = useMemo(() => sections.map((s) => ({ s, text: norm(`${s.titre} ${s.resume} ${s.blocs.map(texteDe).join(' ')}`) })), [sections]);
+  const found = q.trim() ? index.filter((x) => norm(q).split(/\s+/).every((w) => x.text.includes(w))).map((x) => x.s) : sections;
+  const cur = sections.find((s) => s.id === open);
   useRetour(!cur, onBack);
-  if (cur) return <Section s={cur} onBack={() => setOpen(null)} />;
+  if (cur) return <Section s={cur} memo={titre} onBack={() => setOpen(null)} />;
   return (
-    <div className="screen asp-screen" role="dialog" aria-label="Mémo ASP">
+    <div className="screen asp-screen" role="dialog" aria-label={titre}>
       <header className="ds-topbar">
         <button className="ds-iconbtn" onClick={onBack} aria-label="Retour">
           <Icon name="back" size={24} />
         </button>
-        <h1>Mémo ASP</h1>
+        <h1>{titre}</h1>
       </header>
       <div className="ds-search">
         <Icon name="search" size={20} />
