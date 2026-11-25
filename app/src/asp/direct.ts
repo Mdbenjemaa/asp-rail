@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { loadCell, loadLine, loadManifest, type Manifest } from '../lib/data';
 import { follow, type Fix } from '../lib/gps';
 import { cellsAround, matchInCells, pickFollowLine, searchRadius } from '../lib/locate';
+import { signalProche, type SignalProche } from '../lam/mission';
 import { pnsProches, type PnProche } from '../pn/mission';
 import { vmaxEntre } from './lignes';
 
@@ -23,6 +24,10 @@ export interface Direct {
   vmax: number | null;
   /** PN de la ligne le plus proche. */
   pn: PnProche | null;
+  /** Signal (carré, sémaphore, manœuvre) le plus proche. */
+  signal: SignalProche | null;
+  /** Ligne à grande vitesse (nom de la ligne, ou vitesse au-delà de 220 km/h). */
+  lgv: boolean;
   t: number;
 }
 
@@ -39,14 +44,18 @@ async function rattacher(fix: Fix, m: Manifest, prefer: string | null): Promise<
   const best = pickFollowLine(matchInCells(cells, fix.lonlat, radius).lines, prefer, fix.accuracy);
   if (!best || best.dist > ECART_MAX) return null;
   const doc = await loadLine(best.code).catch(() => null);
+  const nom = m.lines[best.code]?.n ?? null;
+  const vmax = doc ? vmaxEntre(doc, best.pk, best.pk) : null;
   return {
     code: best.code,
-    nom: m.lines[best.code]?.n ?? null,
+    nom,
     pk: best.pk,
     ecart: best.dist,
     precision: fix.accuracy,
-    vmax: doc ? vmaxEntre(doc, best.pk, best.pk) : null,
+    vmax,
     pn: doc ? (pnsProches(doc.points, best.pk, 1)[0] ?? null) : null,
+    signal: doc ? signalProche(doc.points, best.pk) : null,
+    lgv: /\bLGV\b/i.test(nom ?? '') || (vmax ?? 0) > 220,
   };
 }
 

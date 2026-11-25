@@ -35,7 +35,7 @@ export function QuizScreen({ onBack, banque = 'asp' }: { onBack: () => void; ban
   if (!serie) {
     return (
       <div className="screen asp-screen" role="dialog" aria-label="Quiz">
-        <ScreenHead title="Quiz" sub={`${QUESTIONS.length} questions · ${banque === 'pn' ? 'agent PN, TES F' : 'annonce, TES M'}`} onBack={onBack} />
+        <ScreenHead title="Quiz" sub={`${QUESTIONS.length} questions · ${banque === 'pn' ? 'agent PN, TES F' : banque === 'lam' ? 'AP LAM et AP S9' : 'annonce, TES M'}`} onBack={onBack} />
         <div className="screen-body asp-body">
           <div className="asp-mini-label">Thème</div>
           <div className="chips">
@@ -57,7 +57,7 @@ export function QuizScreen({ onBack, banque = 'asp' }: { onBack: () => void; ban
           <button className="btn wide" disabled={!erreurs.length} onClick={() => lancer(QUESTIONS.filter((q) => erreurs.includes(q.id)))}>
             Revoir mes erreurs ({erreurs.length})
           </button>
-          <p className="muted small">Une question bien répondue sort de « mes erreurs ». D’après le support {banque === 'pn' ? '« Formation TES F – intervenant PN »' : '« TES M – compétence ASP »'}.</p>
+          <p className="muted small">Une question bien répondue sort de « mes erreurs ». D’après {banque === 'pn' ? 'le support « Formation TES F – intervenant PN »' : banque === 'lam' ? 'le livret technique AP-LAM / AP-S9' : 'le support « TES M – compétence ASP »'}.</p>
         </div>
       </div>
     );

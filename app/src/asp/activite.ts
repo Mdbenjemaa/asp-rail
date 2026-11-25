@@ -1,13 +1,14 @@
-/** Activité du jour : annonce (ASP, TES M) ou passage à niveau (agent PN, TES F). Gardée sur le téléphone. */
+/** Activité du jour : annonce (ASP, TES M), passage à niveau (agent PN, TES F) ou AP LAM / AP S9. Gardée sur le téléphone. */
 import { useSyncExternalStore } from 'react';
 
-export type Activite = 'asp' | 'pn';
+export type Activite = 'asp' | 'pn' | 'lam';
 const KEY = 'asp-activite';
 const EVT = 'asp-activite';
 
 function lire(): Activite {
   try {
-    return localStorage.getItem(KEY) === 'pn' ? 'pn' : 'asp';
+    const v = localStorage.getItem(KEY);
+    return v === 'pn' || v === 'lam' ? v : 'asp';
   } catch {
     return 'asp';
   }

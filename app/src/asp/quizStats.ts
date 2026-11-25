@@ -1,15 +1,16 @@
 /** Progression au quiz, partagée entre l'écran du quiz, la question du jour et l'accueil. */
 import { useSyncExternalStore } from 'react';
 import { loadPref, savePref } from '../lib/me';
+import { QUESTIONS_LAM } from '../lam/quiz';
 import { QUESTIONS_PN } from '../pn/quiz';
 import { QUESTIONS, type Question } from './quiz';
 
-/** Banque de questions : annonce (TES M) ou passage à niveau (TES F). */
-export type Banque = 'asp' | 'pn';
-const QS: Record<Banque, Question[]> = { asp: QUESTIONS, pn: QUESTIONS_PN };
+/** Banque de questions : annonce (TES M), passage à niveau (TES F) ou AP LAM / AP S9. */
+export type Banque = 'asp' | 'pn' | 'lam';
+const QS: Record<Banque, Question[]> = { asp: QUESTIONS, pn: QUESTIONS_PN, lam: QUESTIONS_LAM };
 export const questionsDe = (b: Banque) => QS[b];
-export const cleErreurs = (b: Banque) => (b === 'asp' ? 'asp-quiz-erreurs' : 'asp-pn-quiz-erreurs');
-const cleJustes = (b: Banque) => (b === 'asp' ? 'asp-quiz-justes' : 'asp-pn-quiz-justes');
+export const cleErreurs = (b: Banque) => (b === 'asp' ? 'asp-quiz-erreurs' : `asp-${b}-quiz-erreurs`);
+const cleJustes = (b: Banque) => (b === 'asp' ? 'asp-quiz-justes' : `asp-${b}-quiz-justes`);
 const EVT = 'asp-quiz';
 
 /** Une bonne réponse sort des erreurs et compte comme sue ; une mauvaise fait l'inverse. */
@@ -53,6 +54,7 @@ function subscribe(cb: () => void) {
   const f = () => {
     delete cache.asp;
     delete cache.pn;
+    delete cache.lam;
     cb();
   };
   window.addEventListener(EVT, f);

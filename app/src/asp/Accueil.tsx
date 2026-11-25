@@ -13,6 +13,7 @@ import { chantierDuJour, jourTexte, today } from './etat';
 import { ListeChantiers } from './Fiche';
 import { choisirActivite, useActivite } from './activite';
 import { usePositionDirecte } from './direct';
+import { AccueilLam } from '../lam/AccueilLam';
 import { AccueilPn } from '../pn/AccueilPn';
 import { Annonce, Bascule, Etat } from './kit';
 import { CaseCalcul, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from './Widgets';
@@ -27,6 +28,7 @@ export function Accueil(p: {
   onWhere: () => void;
   onTab: (t: 'calcul' | 'reviser') => void;
   onNewMission: () => void;
+  onNewMissionLam: () => void;
 }) {
   const activite = useActivite();
   const list = useChantiers();
@@ -60,6 +62,7 @@ export function Accueil(p: {
         options={[
           ['asp', 'Annonce', 'vest'],
           ['pn', 'Agent PN', 'tracks'],
+          ['lam', 'LAM / S9', 'train'],
         ]}
         onChange={choisirActivite}
       />
@@ -67,6 +70,8 @@ export function Accueil(p: {
 
       {activite === 'pn' ? (
         <AccueilPn ctx={p.ctx} direct={direct} onNew={p.onNewMission} onWhere={p.onWhere} />
+      ) : activite === 'lam' ? (
+        <AccueilLam ctx={p.ctx} direct={direct} onNew={p.onNewMissionLam} onWhere={p.onWhere} />
       ) : (
         <>
         {c && r ? (

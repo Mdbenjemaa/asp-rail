@@ -1,4 +1,4 @@
-/** Cas pratiques PN : remettre dans l'ordre les gestes d'une procédure, puis vérifier. */
+/** Cas pratiques (PN, LAM / S9) : remettre dans l'ordre les gestes d'une procédure, puis vérifier. */
 import { useState } from 'react';
 import { Icon } from '../components/parts';
 import { melanger } from '../asp/quiz';
@@ -6,14 +6,15 @@ import type { Ctx } from '../asp/contexte';
 import { Ecran, Ligne, Section } from '../asp/kit';
 import { EXERCICES_ORDRE, type ExerciceOrdre } from './ordre';
 
-export function OrdreScreen(p: { ctx: Ctx; hidden?: boolean }) {
+export function OrdreScreen(p: { ctx: Ctx; hidden?: boolean; exercices?: ExerciceOrdre[]; titre?: string; source?: string }) {
   const [ex, setEx] = useState<ExerciceOrdre | null>(null);
-  if (ex) return <Exercice key={ex.id} ex={ex} hidden={p.hidden} onBack={() => setEx(null)} />;
+  const titre = p.titre ?? 'Cas pratiques PN';
+  if (ex) return <Exercice key={ex.id} ex={ex} hidden={p.hidden} onBack={() => setEx(null)} sous={titre.replace(/^Cas pratiques/, 'Cas pratique')} />;
   return (
-    <Ecran label="Cas pratiques PN" title="Cas pratiques PN" onBack={p.ctx.back} hidden={p.hidden}>
-      <p className="ds-q-help">Remets les gestes dans le bon ordre, comme sur le terrain. D’après le support TES F.</p>
+    <Ecran label={titre} title={titre} onBack={p.ctx.back} hidden={p.hidden}>
+      <p className="ds-q-help">Remets les gestes dans le bon ordre, comme sur le terrain. D’après {p.source ?? 'le support TES F'}.</p>
       <Section>
-        {EXERCICES_ORDRE.map((e) => (
+        {(p.exercices ?? EXERCICES_ORDRE).map((e) => (
           <Ligne key={e.id} icon="list" badgeClass="brand" title={e.titre} sub={`${e.etapes.length} gestes · ${e.contexte}`} onClick={() => setEx(e)} />
         ))}
       </Section>
@@ -21,7 +22,7 @@ export function OrdreScreen(p: { ctx: Ctx; hidden?: boolean }) {
   );
 }
 
-function Exercice({ ex, onBack, hidden }: { ex: ExerciceOrdre; onBack: () => void; hidden?: boolean }) {
+function Exercice({ ex, onBack, hidden, sous }: { ex: ExerciceOrdre; onBack: () => void; hidden?: boolean; sous: string }) {
   const [pioche, setPioche] = useState(() => melanger(ex.etapes.map((_, i) => i)));
   const [ordre, setOrdre] = useState<number[]>([]);
   const [verifie, setVerifie] = useState(false);
@@ -40,7 +41,7 @@ function Exercice({ ex, onBack, hidden }: { ex: ExerciceOrdre; onBack: () => voi
       title={
         <>
           {ex.titre}
-          <small>Cas pratique PN</small>
+          <small>{sous}</small>
         </>
       }
       onBack={onBack}

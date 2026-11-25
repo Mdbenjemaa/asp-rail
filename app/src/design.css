@@ -146,7 +146,11 @@ body { background: var(--page); }
 }
 .ds-chip[aria-checked='true'], .ds-chip[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .ds-chip.big { min-height: 64px; min-width: 88px; font-size: 20px; border-radius: 20px; }
-.ds-seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 18px; background: var(--surface-3); }
+.ds-seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; border-radius: 18px; background: var(--surface-3); }
+.ds-seg:has(> :nth-child(3)) button { padding: 0 4px; font-size: 14.5px; gap: 6px; line-height: 1.15; }
+@media (max-width: 360px) {
+  .ds-seg:has(> :nth-child(3)) button svg { display: none; }
+}
 .ds-seg button { min-height: 50px; border: 0; border-radius: 14px; background: none; color: var(--muted); font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .ds-seg button[aria-checked='true'] { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(16, 19, 26, 0.16); }
 .ds-label { display: block; margin: 22px 2px 10px; font-size: 15px; font-weight: 800; }
@@ -404,3 +408,36 @@ body { background: var(--page); }
   font-size: 15px; font-weight: 700; text-align: left;
 }
 .ds-quick:disabled { opacity: 1; }
+
+/* ---------- Activité AP LAM / AP S9 ---------- */
+.ds-situations { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ds-situation {
+  display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 10px 12px; border: 0; border-radius: 16px; background: var(--navy); color: #fff;
+  font-size: 14.5px; font-weight: 800; line-height: 1.25; text-align: left;
+}
+.ds-situation svg { flex: none; }
+.ds-depeche { align-items: center; }
+.ds-nums { display: flex; gap: 6px; flex: none; }
+.ds-nums span {
+  min-width: 48px; padding: 4px 8px; border-radius: 12px; background: var(--surface-2); text-align: center; font-size: 18px; font-weight: 900;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.ds-nums small { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.ds-numero { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 14px 16px; border-radius: 20px; background: var(--brand-soft); }
+.ds-numero > span { display: flex; flex-direction: column; min-width: 0; }
+.ds-numero small { font-size: 13px; font-weight: 800; color: var(--muted); }
+.ds-numero-val {
+  width: 3.2ch; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 44px; font-weight: 900;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.ds-numero-val:focus { outline: 3px solid var(--brand-line); outline-offset: 2px; border-radius: 8px; }
+.ds-numero .ds-btn { flex: none; }
+.ds-s2b { margin-top: 12px; }
+.ds-s2b b { display: block; margin-bottom: 6px; }
+.ds-s2b ul { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; }
+.ds-verdict.quiet { background: var(--surface-2); color: var(--ink); }
+.ds-quick.dsh-interdit .ds-dsh-titre { color: var(--err-ink); }
+.ds-quick.dsh-verifier .ds-dsh-titre { color: var(--warn-ink); }
+.ds-quick.dsh-ok .ds-dsh-titre { color: var(--ok-ink); }
+.ds-quick.dsh-interdit { box-shadow: inset 0 0 0 2px #dc2626, var(--elev); }
+.ds-quick.dsh-verifier { box-shadow: inset 0 0 0 2px var(--brand-line), var(--elev); }

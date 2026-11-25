@@ -15,6 +15,12 @@ import { Reviser } from './Reviser';
 import { enregistrer } from './store';
 import { useActivite } from './activite';
 import { MEMO_PN } from '../pn/memo';
+import { ControleDsh } from '../lam/ControleDsh';
+import { MEMO_LAM } from '../lam/memo';
+import { MissionLamScreen, MissionsLamScreen, TtxScreen } from '../lam/MissionLamScreen';
+import { NouvelleMissionLam } from '../lam/NouvelleMissionLam';
+import { EXERCICES_LAM } from '../lam/ordre';
+import { Urgences } from '../lam/Urgences';
 import { Diagnostic } from '../pn/Diagnostic';
 import { MissionScreen, MissionsScreen, ProcedureScreen } from '../pn/MissionScreen';
 import { NouvelleMission } from '../pn/NouvelleMission';
@@ -26,6 +32,7 @@ export function Couche(p: {
   ctx: Ctx;
   onNew: () => void;
   onNewMission: () => void;
+  onNewMissionLam: () => void;
   onMenu: () => void;
   onWhere: () => void;
   onTab: (t: Onglet) => void;
@@ -36,9 +43,9 @@ export function Couche(p: {
   return (
     <>
       {p.tab === 'accueil' && (
-        <Accueil ctx={ctx} couvert={p.pile.length > 0} onNew={p.onNew} onNewMission={p.onNewMission} onMenu={p.onMenu} onWhere={p.onWhere} onTab={p.onTab} />
+        <Accueil ctx={ctx} couvert={p.pile.length > 0} onNew={p.onNew} onNewMission={p.onNewMission} onNewMissionLam={p.onNewMissionLam} onMenu={p.onMenu} onWhere={p.onWhere} onTab={p.onTab} />
       )}
-      {p.tab === 'calcul' && (activite === 'pn' ? <Diagnostic ctx={ctx} onglet /> : <CalculRapide />)}
+      {p.tab === 'calcul' && (activite === 'pn' ? <Diagnostic ctx={ctx} onglet /> : activite === 'lam' ? <Urgences ctx={ctx} onglet /> : <CalculRapide />)}
       {p.tab === 'reviser' && <Reviser ctx={ctx} />}
       {p.pile.map((v, k) => {
         const hidden = k < top;
@@ -55,6 +62,8 @@ export function Couche(p: {
           case 'memo':
             return v.banque === 'pn' ? (
               <MemoScreen key={key} onBack={ctx.back} section={v.section} sections={MEMO_PN} titre="Mémo PN" />
+            ) : v.banque === 'lam' ? (
+              <MemoScreen key={key} onBack={ctx.back} section={v.section} sections={MEMO_LAM} titre="Mémo LAM / S9" />
             ) : (
               <MemoScreen key={key} onBack={ctx.back} section={v.section} />
             );
@@ -72,6 +81,20 @@ export function Couche(p: {
             return <OrdreScreen key={key} ctx={ctx} hidden={hidden} />;
           case 'pn-missions':
             return <MissionsScreen key={key} hidden={hidden} ctx={ctx} onNew={p.onNewMission} />;
+          case 'lam-nouvelle':
+            return <NouvelleMissionLam key={key} id={v.id} etape={v.etape} seule={v.seule} hidden={hidden} ctx={ctx} />;
+          case 'lam-mission':
+            return <MissionLamScreen key={key} id={v.id} hidden={hidden} ctx={ctx} />;
+          case 'lam-ttx':
+            return <TtxScreen key={key} id={v.id} hidden={hidden} ctx={ctx} />;
+          case 'lam-urgences':
+            return <Urgences key={key} ctx={ctx} missionId={v.id} hidden={hidden} />;
+          case 'lam-ordre':
+            return <OrdreScreen key={key} ctx={ctx} hidden={hidden} exercices={EXERCICES_LAM} titre="Cas pratiques LAM / S9" source="le livret technique AP-LAM / AP-S9" />;
+          case 'lam-missions':
+            return <MissionsLamScreen key={key} hidden={hidden} ctx={ctx} onNew={p.onNewMissionLam} />;
+          case 'lam-dsh':
+            return <ControleDsh key={key} ctx={ctx} hidden={hidden} />;
           case 'cas':
             return (
               <CasScreen

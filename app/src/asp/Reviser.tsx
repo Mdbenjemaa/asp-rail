@@ -1,88 +1,94 @@
-/** Onglet « Réviser » : mémo, quiz et cas pratiques de l'activité du jour d'abord, puis ceux de l'autre activité. */
+/** Onglet « Réviser » : mémo, quiz et cas pratiques de l'activité du jour d'abord, puis ceux des autres activités. */
+import type { ReactNode } from 'react';
+import { MEMO_LAM } from '../lam/memo';
+import { EXERCICES_LAM } from '../lam/ordre';
 import { MEMO_PN } from '../pn/memo';
 import { EXERCICES_ORDRE } from '../pn/ordre';
-import { useActivite } from './activite';
+import { useActivite, type Activite } from './activite';
 import type { Ctx } from './contexte';
 import { Ligne, Section } from './kit';
 import { MEMO } from './memo';
-import { useQuizStats } from './quizStats';
+import { useQuizStats, type Banque } from './quizStats';
 
-function GroupeAsp({ ctx }: { ctx: Ctx }) {
-  const s = useQuizStats('asp');
-  return (
-    <Section title="Annonce · TES M">
+const progression = (s: { erreurs: number; justes: number; total: number }) =>
+  s.erreurs ? `${s.erreurs} erreur${s.erreurs > 1 ? 's' : ''} à revoir · ${s.justes}/${s.total} sues` : `${s.total} questions avec explications`;
+
+function Quiz({ ctx, banque, titre }: { ctx: Ctx; banque: Banque; titre: string }) {
+  const s = useQuizStats(banque);
+  return <Ligne icon="sparkle" badgeClass="brand" title={titre} sub={progression(s)} onClick={() => ctx.open({ k: 'quiz', banque })} />;
+}
+
+const GROUPES: Record<Activite, (ctx: Ctx) => ReactNode> = {
+  asp: (ctx) => (
+    <Section key="asp" title="Annonce · TES M">
       <Ligne icon="book" badgeClass="brand" title="Mémo ASP" sub={`${MEMO.length} fiches : outillage, marges, bruit, AAn, signaux…`} onClick={() => ctx.open({ k: 'memo' })} />
-      <Ligne
-        icon="sparkle"
-        badgeClass="brand"
-        title="Quiz"
-        sub={s.erreurs ? `${s.erreurs} erreur${s.erreurs > 1 ? 's' : ''} à revoir · ${s.justes}/${s.total} sues` : `${s.total} questions avec explications`}
-        onClick={() => ctx.open({ k: 'quiz' })}
-      />
+      <Quiz ctx={ctx} banque="asp" titre="Quiz" />
       <Ligne icon="calc" badgeClass="brand" title="Cas pratiques" sub="Les 7 exercices « Terrain et CADA », corrigés" onClick={() => ctx.open({ k: 'cas' })} />
     </Section>
-  );
-}
-
-function GroupePn({ ctx }: { ctx: Ctx }) {
-  const s = useQuizStats('pn');
-  return (
-    <Section title="Agent PN · TES F">
+  ),
+  pn: (ctx) => (
+    <Section key="pn" title="Agent PN · TES F">
       <Ligne icon="book" badgeClass="brand" title="Mémo PN" sub={`${MEMO_PN.length} fiches : boîtier, Marche-Arrêt, dérangements, missions…`} onClick={() => ctx.open({ k: 'memo', banque: 'pn' })} />
-      <Ligne
-        icon="sparkle"
-        badgeClass="brand"
-        title="Quiz PN"
-        sub={s.erreurs ? `${s.erreurs} erreur${s.erreurs > 1 ? 's' : ''} à revoir · ${s.justes}/${s.total} sues` : `${s.total} questions avec explications`}
-        onClick={() => ctx.open({ k: 'quiz', banque: 'pn' })}
-      />
+      <Quiz ctx={ctx} banque="pn" titre="Quiz PN" />
       <Ligne icon="list" badgeClass="brand" title="Cas pratiques PN" sub={`${EXERCICES_ORDRE.length} procédures à remettre dans l’ordre`} onClick={() => ctx.open({ k: 'pn-ordre' })} />
     </Section>
-  );
-}
+  ),
+  lam: (ctx) => (
+    <Section key="lam" title="AP LAM · AP S9">
+      <Ligne icon="book" badgeClass="brand" title="Mémo LAM / S9" sub={`${MEMO_LAM.length} fiches : mise en voie, limiteurs, DSh, dépêches, urgences…`} onClick={() => ctx.open({ k: 'memo', banque: 'lam' })} />
+      <Quiz ctx={ctx} banque="lam" titre="Quiz LAM / S9" />
+      <Ligne icon="list" badgeClass="brand" title="Cas pratiques LAM / S9" sub={`${EXERCICES_LAM.length} procédures à remettre dans l’ordre`} onClick={() => ctx.open({ k: 'lam-ordre' })} />
+    </Section>
+  ),
+};
+
+const SOURCE: Record<Activite, string> = {
+  asp: 'D’après le support TES M – compétence ASP',
+  pn: 'D’après le support TES F – intervenant PN',
+  lam: 'D’après le livret technique AP-LAM / AP-S9',
+};
+
+const INCONTOURNABLES: Record<Activite, [string, string][]> = {
+  asp: [
+    ['DA = DD + MS.', 'Au-delà de 160 km/h, au moins 10 s.'],
+    ['Distance = vitesse ÷ 3,6 × DA', ', arrondie à la dizaine de mètres supérieure.'],
+    ['Marge', ' : 5 s en général sur voie circulée, 15 s pour la 2e catégorie, le soudage ou le meulage, un obstacle masquant, un annonceur pour 2 sens ou l’ASP qui surveille lui-même.'],
+  ],
+  pn: [
+    ['Feu rouge clignotant', ' : arrêt absolu pour tous les usagers de la route.'],
+    ['Ligne BAL', ' : blocage sur FERMETURE avant de mettre une annonce hors service.'],
+    ['Mobile travaux', ' : retirer d’abord le SAM le plus éloigné, repositionner d’abord le plus proche.'],
+  ],
+  lam: [
+    ['Mode chantier', ' : 30 km/h au plus, klaxon à chaque démarrage, 100 m avec le mobile qui précède.'],
+    ['Aucun SAM franchi', ' : arrêt du LAM et appel au CCh. Talonnage des aiguilles interdit.'],
+    ['Passage d’un TTx', ' : pinces, pétard, SAM, dépêche ; puis SAM, pétard, pinces, dépêche.'],
+  ],
+};
 
 export function Reviser({ ctx }: { ctx: Ctx }) {
   const activite = useActivite();
+  const ordre: Activite[] = [activite, ...(['asp', 'pn', 'lam'] as Activite[]).filter((a) => a !== activite)];
   return (
     <main className="ds-page" aria-label="Réviser">
       <header className="ds-page-head">
         <div>
           <h1>Réviser</h1>
-          <p>{activite === 'pn' ? 'D’après le support TES F – intervenant PN' : 'D’après le support TES M – compétence ASP'}</p>
+          <p>{SOURCE[activite]}</p>
         </div>
       </header>
-      {activite === 'pn' ? <GroupePn ctx={ctx} /> : <GroupeAsp ctx={ctx} />}
+      {GROUPES[activite](ctx)}
       <Section title="Les incontournables" flat>
         <div className="ds-card ds-memo-flash">
-          {activite === 'pn' ? (
-            <>
-              <p>
-                <b>Feu rouge clignotant</b> : arrêt absolu pour tous les usagers de la route.
-              </p>
-              <p>
-                <b>Ligne BAL</b> : blocage sur FERMETURE avant de mettre une annonce hors service.
-              </p>
-              <p>
-                <b>Mobile travaux</b> : retirer d’abord le SAM le plus éloigné, repositionner d’abord le plus proche.
-              </p>
-            </>
-          ) : (
-            <>
-              <p>
-                <b>DA = DD + MS.</b> Au-delà de 160 km/h, au moins 10 s.
-              </p>
-              <p>
-                <b>Distance = vitesse ÷ 3,6 × DA</b>, arrondie à la dizaine de mètres supérieure.
-              </p>
-              <p>
-                <b>Marge</b> : 5 s en général sur voie circulée, 15 s pour la 2e catégorie, le soudage ou le meulage, un obstacle masquant, un annonceur
-                pour 2 sens ou l’ASP qui surveille lui-même.
-              </p>
-            </>
-          )}
+          {INCONTOURNABLES[activite].map(([b, t]) => (
+            <p key={b}>
+              <b>{b}</b>
+              {t.startsWith(' ') || t.startsWith(',') ? t : ` ${t}`}
+            </p>
+          ))}
         </div>
       </Section>
-      {activite === 'pn' ? <GroupeAsp ctx={ctx} /> : <GroupePn ctx={ctx} />}
+      {ordre.slice(1).map((a) => GROUPES[a](ctx))}
     </main>
   );
 }

@@ -9,9 +9,12 @@ const ONGLETS: [Onglet, string, string][] = [
   ['reviser', 'Réviser', 'book'],
 ];
 
-/** Barre du bas, comme les applis du téléphone : quatre onglets, celui ouvert en jaune. En activité PN, « Calcul » devient « Dérangement ». */
-export function BottomNav({ tab, onTab, alerte, pn }: { tab: Onglet; onTab: (t: Onglet) => void; alerte?: boolean; pn?: boolean }) {
-  const onglets: [Onglet, string, string][] = ONGLETS.map(([id, label, ic]) => (pn && id === 'calcul' ? [id, 'Dérangement', 'alert'] : [id, label, ic]));
+/** 3e onglet selon l'activité : « Calcul » (annonce), « Dérangement » (agent PN), « Urgences » (LAM / S9). */
+const TROISIEME: Record<'asp' | 'pn' | 'lam', [string, string]> = { asp: ['Calcul', 'calc'], pn: ['Dérangement', 'alert'], lam: ['Urgences', 'alert'] };
+
+/** Barre du bas, comme les applis du téléphone : quatre onglets, celui ouvert en jaune. */
+export function BottomNav({ tab, onTab, alerte, activite = 'asp' }: { tab: Onglet; onTab: (t: Onglet) => void; alerte?: boolean; activite?: 'asp' | 'pn' | 'lam' }) {
+  const onglets: [Onglet, string, string][] = ONGLETS.map(([id, label, ic]) => (id === 'calcul' ? [id, ...TROISIEME[activite]] : [id, label, ic]));
   return (
     <nav className="ds-nav" aria-label="Navigation principale">
       {onglets.map(([id, label, ic]) => (

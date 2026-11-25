@@ -8,6 +8,7 @@ import { fmtLine, fmtPk } from '../lib/format';
 import { loadPref, savePref } from '../lib/me';
 import type { Direct, EtatDirect } from './direct';
 import { today } from './etat';
+import { controleDsh } from '../lam/mission';
 import { noterReponse, questionDuJour, useQuizStats, type Banque } from './quizStats';
 import { DA_MIN_GRANDE_VITESSE, distanceAnnonce } from './rules';
 
@@ -101,6 +102,28 @@ export function CasePn({ etat, pos, onClick }: { etat: EtatDirect; pos: Direct |
           <small>{etat === 'recherche' ? 'Recherche du GPS…' : etat === 'ok' ? 'Aucun PN connu sur cette ligne' : 'Avec ta position GPS'}</small>
         </span>
       )}
+    </button>
+  );
+}
+
+/** Contrôle de pose d'un DSh d'après la position : LGV, signal à moins de 30 m, PN proche. Indicatif. */
+export function CaseDsh({ etat, pos, onClick }: { etat: EtatDirect; pos: Direct | null; onClick: () => void }) {
+  const c = etat === 'ok' && pos ? controleDsh({ lgv: pos.lgv, signal: pos.signal, pn: pos.pn }) : null;
+  const titre = c ? (c.niveau === 'interdit' ? 'Interdit ici' : c.niveau === 'verifier' ? 'À vérifier' : 'Rien de proche') : 'Pose d’un DSh';
+  const detail = c ? (c.points[0]?.titre ?? 'Ni signal à 30 m, ni PN à 3 km') : etat === 'recherche' ? 'Recherche du GPS…' : 'Avec ta position GPS';
+  return (
+    <button className={`ds-quick live ${c ? `on dsh-${c.niveau}` : ''}`} onClick={onClick} aria-label={`Contrôle pose DSh : ${titre}${c?.points[0] ? `, ${c.points[0].titre}` : ''}`}>
+      <span className="ds-quick-top">
+        <span className="ds-quick-ico">
+          <Icon name="tool" />
+        </span>
+        {c && <EnDirect />}
+      </span>
+      <span className="ds-quick-val">
+        <small>Pose d’un DSh</small>
+        <b className="ds-quick-big ds-dsh-titre">{c ? titre : 'Contrôle'}</b>
+        <small>{detail}</small>
+      </span>
     </button>
   );
 }
@@ -202,7 +225,7 @@ export function CaseQuiz({ onClick, banque = 'asp' }: { onClick: () => void; ban
 
 /** Question du jour : une question par jour, à laquelle on répond depuis l'accueil. */
 export function QuestionDuJour({ onQuiz, banque = 'asp' }: { onQuiz: () => void; banque?: Banque }) {
-  const QDJ = banque === 'asp' ? 'asp-question-du-jour' : 'asp-pn-question-du-jour';
+  const QDJ = banque === 'asp' ? 'asp-question-du-jour' : `asp-${banque}-question-du-jour`;
   const [jour] = useState(today);
   const { q, ordre } = questionDuJour(banque, jour);
   const [choix, setChoix] = useState<number | null>(() => {

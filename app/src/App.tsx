@@ -49,6 +49,7 @@ import { definirActif, enregistrer, useActif, useChantiers } from './asp/store';
 import { BottomNav, type Onglet } from './components/BottomNav';
 import { useActivite } from './asp/activite';
 import { enregistrerMission, nouvelleMission } from './pn/mission';
+import { enregistrerMissionLam, nouvelleMissionLam as nouvelleMissionLamModele } from './lam/mission';
 import { useRetour } from './lib/back';
 
 type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements';
@@ -595,6 +596,11 @@ export default function App() {
     enregistrer(c);
     setPile((s) => [...s, { k: 'assistant', id: c.id }]);
   };
+  const nouvelleMissionLam = () => {
+    const m = nouvelleMissionLamModele();
+    enregistrerMissionLam(m);
+    setPile((s) => [...s, { k: 'lam-nouvelle', id: m.id }]);
+  };
   const nouvelleMissionPn = () => {
     const m = nouvelleMission();
     enregistrerMission(m);
@@ -845,6 +851,7 @@ export default function App() {
         ctx={ctx}
         onNew={nouveau}
         onNewMission={nouvelleMissionPn}
+        onNewMissionLam={nouvelleMissionLam}
         onMenu={() => setPanel('menu')}
         onWhere={() => {
           toMap();
@@ -852,7 +859,7 @@ export default function App() {
         }}
         onTab={setTab}
       />
-      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={activite === 'asp' && jourARegler} pn={activite === 'pn'} />}
+      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={activite === 'asp' && jourARegler} activite={activite} />}
 
       {panel === 'search' && (
         <SearchScreen

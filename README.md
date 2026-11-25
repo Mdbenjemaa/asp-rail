@@ -1,8 +1,9 @@
 # ASP Rail
 
-Appli web pour l'agent sécurité du personnel (ASP) et les annonceurs, et pour l'agent PN : se repérer sur le réseau
-(ligne et PK), calculer le délai et la distance d'annonce, placer les points d'annonce et le dispositif, garder sa fiche
-et ses check-lists, suivre une mission PN pas à pas avec son journal horodaté, et réviser. Elle s'installe sur l'écran d'accueil (iPhone et Android) et marche sans réseau là où on est déjà passé.
+Appli web pour l'agent sécurité du personnel (ASP) et les annonceurs, l'agent PN, l'AP LAM et l'AP S9 : se repérer
+sur le réseau (ligne et PK), calculer le délai et la distance d'annonce, placer les points d'annonce et le dispositif,
+garder sa fiche et ses check-lists, suivre une mission PN, LAM ou S9 pas à pas avec son journal horodaté et son carnet
+de dépêches, et réviser. Elle s'installe sur l'écran d'accueil (iPhone et Android) et marche sans réseau là où on est déjà passé.
 
 Construite sur la base de [PK Rail](https://github.com/Mdbenjemaa/pk-rail) (repérage, suivi du PK, carte des voies),
 avec en plus l'espace ASP.
@@ -11,7 +12,8 @@ avec en plus l'espace ASP.
 
 > Aide à la préparation, jamais une référence de sécurité. Le calcul suit les règles du support de formation
 > « TES M – compétence ASP » (S2MIH, v1.3 du 30/05/2023) ; l'activité PN suit le support ETF « Formation TES F –
-> intervenant PN ». La fiche de travail, la consigne PN et le livret de service du PN priment. Il ne remplace ni les textes SNCF Réseau en vigueur, ni les
+> intervenant PN » ; l'activité LAM / S9 suit le « Livret technique AP-LAM / AP-S9 » (version 2). La fiche de travail,
+> la consigne PN ou LAM, la situation géographique et le livret de service du PN priment. Il ne remplace ni les textes SNCF Réseau en vigueur, ni les
 > consignes et particularités locales, ni le carnet CADA et l'AAn. PK, vitesses et signaux viennent de données
 > ouvertes (SNCF Réseau, OpenStreetMap) : ils peuvent être faux, incomplets ou périmés. Vérifie toujours sur le
 > terrain. L'ASP reste responsable de son dispositif.
@@ -31,10 +33,11 @@ suit le téléphone : clair le jour, sombre la nuit (réglable dans le menu).
 | Calcul | Distance d'annonce selon la vitesse, le dégagement et la marge, avec le tableau complet (30 à 300 km/h, 5 à 60 s). |
 | Réviser | Mémo des règles du support (avec recherche), quiz avec explications (série de 10, par thème, « mes erreurs »), et les 7 exercices « Terrain et CADA » corrigés par le même moteur de calcul. |
 
-### Deux activités : Annonce (TES M) et Agent PN (TES F)
+### Trois activités : Annonce (TES M), Agent PN (TES F), LAM / S9
 
-En haut de l'accueil, la bascule **Annonce / Agent PN** choisit l'activité du jour (gardée sur le téléphone). L'accueil,
-les cases en direct, le 3e onglet et « Réviser » suivent l'activité.
+En haut de l'accueil, la bascule **Annonce / Agent PN / LAM / S9** choisit l'activité du jour (gardée sur le
+téléphone). L'accueil, les cases en direct, le 3e onglet (Calcul, Dérangement ou Urgences) et « Réviser » suivent
+l'activité.
 
 | Écran (activité PN) | Ce qu'il fait |
 | --- | --- |
@@ -44,6 +47,16 @@ les cases en direct, le 3e onglet et « Réviser » suivent l'activité.
 | Mobile travaux, LAM | Les gestes numérotés dans l'ordre (SAM le plus éloigné retiré d'abord, le plus proche remis d'abord…), puis « Terminé : noter au journal » avec l'heure de début et de fin. |
 | Dérangement (3e onglet) | Deux questions (quand, ce que tu vois) → raté d'ouverture, raté de fermeture ou pas de dérangement ; la conduite à tenir ; noté au journal de la mission si on vient d'une mission. |
 | Réviser | Mémo PN (16 fiches), quiz PN avec explications, et 6 cas pratiques « remets les gestes dans l'ordre ». |
+
+| Écran (activité LAM / S9) | Ce qu'il fait |
+| --- | --- |
+| Accueil | « Ma mission LAM / S9 », « Nouvelle mission », « Urgence ou aléa ? Fiches réflexes ». Cases en direct : contrôle de pose d'un DSh (LGV : interdit ; signal à moins de 30 m ou PN à moins de 3 km : à vérifier ; indicatif, le sens de la voie n'est pas dans les données), ligne et PK, une règle du mémo, la progression au quiz ; question du jour. |
+| Nouvelle mission | AP LAM ou AP S9 ; lieu (position GPS ou ligne, PK, voie) ; LAM : nombre d'engins (3 au plus), agrément, mise en voie ou traversée de PN ; S9 : repère du bouclage et outils de la fiche de travail (DSh, SAM + pétard, commutateur de blocage, observation) ; chantier (consigne LAM ou fiche, CCh, RPTx). |
+| Mission AP LAM | Avant (briefing, consigne LAM), vérifications de l'engin (agrément, agrès, limiteurs), mise en voie (5 minutes, ARF, PN, autorisation verbale), puis en voie : rappel du mode chantier et situations (SAM à franchir, appareil de voie, PN, traversée du personnel) notées au journal ; mise hors voie, stationnement, consigne rendue. |
+| Mission AP S9 | Mise en place du bouclage sur ordre (dépêches), gestes selon les outils (emplacement du DSh, pose en 10 gestes, SAM et pétard, commutateur et cadenas), confirmation ; pendant : « Un train travaux doit passer » (pinces, pétard, SAM, dépêche… puis l'inverse) ; retrait et confirmation. |
+| Carnet de dépêches | Chaque dépêche : avec qui, l'objet, le n° reçu et le n° donné, à l'heure ; l'appli propose un numéro à deux chiffres pris au hasard, sans suite avec les numéros déjà échangés (« Autre numéro » pour en tirer un autre). Le carnet et le journal se partagent par message. |
+| Urgences (3e onglet) | Fiches réflexes du livret : conducteur défaillant, SAM franchi, gabarit ou point protégé engagé, dérive, vitesse excessive, conducteur électrique tombé ; aléas (consignes non respectées, panne, câble endommagé, changement de point de mise en voie ou d'organisation, aléa S9). Notées au journal si on vient d'une mission. |
+| Réviser | Mémo LAM / S9 (20 fiches), quiz avec explications, et 7 cas pratiques « remets les gestes dans l'ordre ». |
 
 ## Repérage (repris de PK Rail)
 

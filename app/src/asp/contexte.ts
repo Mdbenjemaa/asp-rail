@@ -17,17 +17,25 @@ export type Vue =
   | { k: 'fiche'; id: string }
   | { k: 'checklists'; id: string }
   | { k: 'chantiers' }
-  | { k: 'memo'; section?: string; banque?: 'asp' | 'pn' }
-  | { k: 'quiz'; banque?: 'asp' | 'pn' }
+  | { k: 'memo'; section?: string; banque?: 'asp' | 'pn' | 'lam' }
+  | { k: 'quiz'; banque?: 'asp' | 'pn' | 'lam' }
   | { k: 'cas' }
   | { k: 'pn-nouvelle'; id: string; etape?: EtapePn; seule?: boolean }
   | { k: 'pn-mission'; id: string }
   | { k: 'pn-procedure'; id: string; type: 'mobile' | 'lam' }
   | { k: 'pn-diagnostic'; id?: string }
   | { k: 'pn-ordre' }
-  | { k: 'pn-missions' };
+  | { k: 'pn-missions' }
+  | { k: 'lam-nouvelle'; id: string; etape?: EtapeLam; seule?: boolean }
+  | { k: 'lam-mission'; id: string }
+  | { k: 'lam-ttx'; id: string }
+  | { k: 'lam-urgences'; id?: string }
+  | { k: 'lam-ordre' }
+  | { k: 'lam-missions' }
+  | { k: 'lam-dsh' };
 
 export type EtapePn = 'role' | 'pn' | 'equipement' | 'chantier';
+export type EtapeLam = 'type' | 'lieu' | 'detail' | 'chantier';
 
 export interface Ctx {
   manifest: Manifest | null;
