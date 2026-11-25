@@ -26,6 +26,7 @@ import {
   toutesEtapesLam,
   ttxPossible,
   type MissionLam,
+  numeroLibre,
 } from './mission';
 import { EXERCICES_LAM } from './ordre';
 import { QUESTIONS_LAM } from './quiz';
@@ -230,5 +231,16 @@ describe('contenu AP LAM / AP S9', () => {
     for (const e of EXERCICES_LAM) expect(new Set(e.etapes).size).toBe(e.etapes.length);
     expect(new Set(URGENCES.map((f) => f.id)).size).toBe(URGENCES.length);
     expect(URGENCES.some((f) => f.pour === 's9')).toBe(true);
+  });
+});
+
+describe('numéro de dépêche', () => {
+  it('libre seulement sans suite avec ceux déjà échangés (reçu compris)', () => {
+    expect(numeroLibre('51', ['50'])).toBe(false);
+    expect(numeroLibre('52', ['50'])).toBe(false);
+    expect(numeroLibre('53', ['50'])).toBe(true);
+    expect(numeroLibre('48', ['50', ''])).toBe(false);
+    expect(numeroLibre('', ['50'])).toBe(true);
+    for (let k = 0; k < 50; k++) expect(numeroLibre(proposerNumero(['50', '71']), ['50', '71'])).toBe(true);
   });
 });

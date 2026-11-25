@@ -74,8 +74,9 @@ test('AP S9 : contrôle DSh en direct, bouclage par dépêches, passage d’un t
   const numeros: string[] = [];
   await avancer(page, mission, mission.getByRole('button', { name: 'Un train travaux doit passer' }), numeros);
   expect(numeros.length).toBe(4);
-  // Numéros pris au hasard, sans suite avec ceux déjà échangés.
-  expect(Math.abs(Number(numeros[1]) - Number(numeros[0]))).toBeGreaterThan(2);
+  // Numéros pris au hasard, sans suite avec le numéro reçu ni ceux déjà échangés.
+  for (let k = 1; k < numeros.length; k += 2)
+    for (let j = 0; j < k; j++) expect(Math.abs(Number(numeros[k]) - Number(numeros[j])), `${numeros[k]} / ${numeros[j]}`).toBeGreaterThan(2);
   await expect(mission.getByText('Carnet de dépêches · 2')).toBeVisible();
   await expect(mission.getByText(/^Bouclage en place depuis \d{2}:\d{2}$/)).toBeVisible();
   await shot(page, '32-mission-s9-pendant');

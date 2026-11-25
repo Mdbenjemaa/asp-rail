@@ -313,9 +313,15 @@ export function titreMissionLam(m: MissionLam): string {
  * Numéro de dépêche proposé : deux chiffres pris au hasard, jamais déjà utilisé dans la mission, et sans suite avec
  * les numéros déjà échangés ni avec celui qu'on vient de recevoir (au moins 3 d'écart).
  */
+/** Le numéro n'a pas de suite (écart de 3 au moins) avec ceux déjà échangés. */
+export function numeroLibre(n: string | number, utilises: string[]): boolean {
+  const v = typeof n === 'number' ? n : parseInt(n, 10);
+  if (!Number.isFinite(v)) return true;
+  return utilises.map((x) => parseInt(x, 10)).every((x) => !Number.isFinite(x) || Math.abs(x - v) > 2);
+}
+
 export function proposerNumero(utilises: string[], rand: () => number = Math.random): string {
-  const pris = utilises.map((x) => parseInt(x, 10)).filter((x) => Number.isFinite(x));
-  const ok = (n: number) => pris.every((x) => Math.abs(x - n) > 2);
+  const ok = (n: number) => numeroLibre(n, utilises);
   for (let k = 0; k < 200; k++) {
     const n = 10 + Math.floor(rand() * 90);
     if (ok(n)) return String(n);
