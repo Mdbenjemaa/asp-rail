@@ -336,7 +336,7 @@ test('onglets Calcul et Réviser : distance, mémo, quiz et cas pratique', async
   await expect(page.getByRole('dialog', { name: 'Mémo ASP' })).toBeVisible();
   await page.getByRole('dialog', { name: 'Mémo ASP' }).getByRole('button', { name: 'Retour' }).click();
 
-  await reviser.getByRole('button', { name: /^Quiz/ }).click();
+  await reviser.getByRole('button', { name: /^Quiz(?! PN)/ }).click();
   await page.getByRole('button', { name: /^Série de 10 questions/ }).click();
   await page.locator('.asp-reponse').first().click();
   await expect(page.locator('.asp-explication')).toContainText(/Bonne réponse|Pas tout à fait/);
@@ -345,7 +345,7 @@ test('onglets Calcul et Réviser : distance, mémo, quiz et cas pratique', async
   await page.getByRole('button', { name: 'Arrêter la série' }).click();
   await page.getByRole('dialog', { name: 'Quiz' }).getByRole('button', { name: 'Retour' }).click();
 
-  await reviser.getByRole('button', { name: /^Cas pratiques/ }).click();
+  await reviser.getByRole('button', { name: /^Cas pratiques(?! PN)/ }).click();
   await page.getByRole('button', { name: /^Exercice 1/ }).click();
   const cas = page.getByRole('dialog', { name: /^Exercice 1/ });
   await cas.getByRole('radio', { name: 'Oui' }).click();
