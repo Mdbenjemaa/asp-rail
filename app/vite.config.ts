@@ -62,7 +62,7 @@ export default defineConfig({
         // L'appli elle-même est précachée. Les données (cases, fiches de ligne, carte des voies) sont gardées
         // par l'appli elle-même au fil de l'usage (src/lib/data.ts), même avant que le service worker soit actif.
         // Planche des dessins de signaux (rfn.json) comprise : sans elle, plus de signaux sur la carte hors réseau.
-        globPatterns: ['**/*.{js,css,html,png,svg,pbf}', 'signaux/*.json'],
+        globPatterns: ['**/*.{js,css,html,png,svg,pbf,ttf}', 'signaux/*.json'],
         // jsPDF garde à part html2canvas, DOMPurify et canvg (export HTML ou SVG) : l'appli ne s'en sert pas, inutile de les
         // mettre sur le téléphone.
         globIgnores: ['data/**', '**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js'],

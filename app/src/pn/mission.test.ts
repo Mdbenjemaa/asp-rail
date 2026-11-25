@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LinePoint } from '../lib/data';
+import { heureDans } from '../lib/temps';
 import {
   ajouterNote,
   avancement,
@@ -96,7 +97,7 @@ describe('avancement et journal', () => {
     expect(a.pendant).toBe(false);
   });
 
-  it('cocher note l’étape au journal avec sa dépêche ; décocher la retire', () => {
+  it('cocher note l’étape au journal avec sa dépêche ; décocher garde la trace, marquée annulée', () => {
     let m = mission();
     const ordre = toutesEtapes(m).find((e) => e.id === 'ordre')!;
     m = cocher(m, ordre, true, 'D 12');
@@ -104,9 +105,48 @@ describe('avancement et journal', () => {
     expect(m.depeches.ordre).toBe('D 12');
     expect(m.journal).toHaveLength(1);
     expect(m.journal[0].note).toBe('D 12');
+    const faiteA = m.faits.ordre;
     m = cocher(m, ordre, false);
     expect(m.faits.ordre).toBeUndefined();
-    expect(m.journal).toHaveLength(0);
+    expect(m.depeches.ordre).toBeUndefined();
+    // La ligne d'origine reste, avec son heure et sa dépêche, marquée annulée ; une ligne « Annulé » s'ajoute.
+    expect(m.journal).toHaveLength(2);
+    expect(m.journal[0]).toMatchObject({ t: faiteA, note: 'D 12', etape: 'ordre' });
+    expect(m.journal[0].annule).toBeGreaterThan(0);
+    expect(m.journal[1]).toMatchObject({ type: 'annulation', texte: `Annulé : ${ordre.texte}` });
+    expect(journalTexte(m)).toMatch(/\[annulée à \d{2}:\d{2}\]/);
+    // Recocher ajoute une nouvelle ligne, sans effacer l'historique.
+    m = cocher(m, ordre, true, 'D 15');
+    expect(m.journal).toHaveLength(3);
+    expect(m.journal.filter((x) => x.etape === 'ordre' && !x.annule)).toHaveLength(1);
+  });
+
+  it('cocher seulement la dernière étape ne termine pas la mission', () => {
+    let m = mission();
+    m = cocher(m, toutesEtapes(m).find((e) => e.id === 'arf')!, true);
+    expect(m.fin).toBeNull();
+    expect(avancement(m).prochaine?.id).toBe('briefing');
+    // Toutes les obligatoires faites, dans n'importe quel ordre : terminée.
+    for (const e of toutesEtapes(m)) if (!e.facultative && !m.faits[e.id]) m = cocher(m, e, true);
+    expect(m.fin).toBeGreaterThan(0);
+    // Une étape obligatoire annulée : plus terminée.
+    m = cocher(m, toutesEtapes(m).find((e) => e.id === 'briefing')!, false);
+    expect(m.fin).toBeNull();
+  });
+
+  it('la fin suit une modification de la mission (étape ajoutée par le BAL)', () => {
+    let m = mission({ bal: false });
+    for (const e of toutesEtapes(m)) if (!e.facultative) m = cocher(m, e, true);
+    expect(m.fin).toBeGreaterThan(0);
+    enregistrerMission({ ...m, pn: { ...m.pn, bal: true } });
+    expect(missionParId(m.id)?.fin).toBeNull();
+  });
+
+  it('heure d’un fait après minuit : avec la date', () => {
+    const m = { ...mission(), date: '2026-11-25' };
+    const t = new Date(2026, 10, 26, 0, 10).getTime();
+    expect(heureDans(t, m.date)).toBe('00:10 (26/11)');
+    expect(heureDans(new Date(2026, 10, 25, 23, 50).getTime(), m.date)).toBe('23:50');
   });
 
   it('« pendant » le chantier une fois la prise faite, fin enregistrée avec l’ARF', () => {

@@ -41,6 +41,8 @@ export interface Chantier {
   id: string;
   created: number;
   updated: number;
+  /** Créé par « Nouveau chantier » et pas encore rempli : retiré au prochain lancement s'il traîne encore. */
+  brouillon?: boolean;
   nom: string;
   /** Date du chantier (AAAA-MM-JJ). */
   date: string;
@@ -141,7 +143,7 @@ export function zoneAnnonce(c: Chantier): { debut: number | null; fin: number | 
   return { debut: c.pkDebut, fin: c.pkFin };
 }
 
-export function entreeDe(c: Chantier): Entree {
+function entreeDe(c: Chantier): Entree {
   const z = zoneAnnonce(c);
   return {
     outillage: c.outillage,

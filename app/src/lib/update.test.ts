@@ -34,4 +34,17 @@ describe('mise à jour de l’appli', () => {
     setUpdateGate({ busy: false, idle: true });
     expect(reload).toHaveBeenCalledTimes(1);
   });
+
+  it('appli mise de côté avec une feuille ouverte (dépêche en cours) : pas de rechargement', () => {
+    const reload = vi.fn();
+    _setReloadForTests(reload, { pending: false, busy: false, idle: true }, true);
+    setUpdateGate({ busy: false, idle: false });
+    updateReady();
+    _checkForTests(true);
+    expect(reload).not.toHaveBeenCalled();
+    // Feuille refermée, retour à l'accueil : la mise à jour se fait.
+    _setReloadForTests(reload, { pending: true, busy: false, idle: false }, false);
+    setUpdateGate({ busy: false, idle: true });
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
 });

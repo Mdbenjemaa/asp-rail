@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { defineConfig } from '@playwright/test';
+import { defineConfig, webkit } from '@playwright/test';
 
 /**
  * Tests dans un vrai navigateur (téléphone simulé) : ils ouvrent l'appli construite (dossier dist)
@@ -8,10 +8,17 @@ import { defineConfig } from '@playwright/test';
  *   npm run build && npm run e2e
  *
  * Chrome : celui du système s'il existe (CHROME_PATH pour en choisir un autre), sinon celui de Playwright
- * (npx playwright install chromium).
+ * (npx playwright install chromium). Safari (WebKit) aussi quand il est installé : npx playwright install webkit.
  */
 const base = process.env.BASE_PATH ?? '/';
 const port = Number(process.env.E2E_PORT ?? 4180);
+const webkitPret = (() => {
+  try {
+    return existsSync(webkit.executablePath());
+  } catch {
+    return false;
+  }
+})();
 const chrome = process.env.CHROME_PATH ?? ['/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => existsSync(p));
 
 export default defineConfig({
@@ -34,12 +41,23 @@ export default defineConfig({
     serviceWorkers: 'block',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
-    launchOptions: {
-      executablePath: chrome,
-      // Carte WebGL sans carte graphique (serveurs, CI).
-      args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-    },
   },
+  projects: [
+    {
+      name: 'chrome',
+      use: {
+        browserName: 'chromium',
+        launchOptions: {
+          executablePath: chrome,
+          // Carte WebGL sans carte graphique (serveurs, CI).
+          args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+        },
+      },
+    },
+    // Safari (moteur WebKit, celui de l'iPhone), si installé (npx playwright install webkit). Les quelques tests
+    // qui simulent des capteurs ou des gestes propres à Chrome sont sautés (test.skip, raison indiquée).
+    ...(webkitPret ? [{ name: 'safari', use: { browserName: 'webkit' as const } }] : []),
+  ],
   webServer: {
     command: `npx vite preview --port ${port} --strictPort --host 127.0.0.1`,
     url: `http://127.0.0.1:${port}${base}`,

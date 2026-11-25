@@ -29,7 +29,7 @@ export function NouvelleMission(p: { id: string; etape?: EtapePn; seule?: boolea
   if (!m) return null;
   const set = (patch: Partial<Mission>) => {
     touche.current = true;
-    enregistrerMission({ ...m, ...patch });
+    enregistrerMission({ ...m, ...patch, brouillon: false });
   };
   const setPn = (patch: Partial<PnInfo>) => set({ pn: { ...m.pn, ...patch } });
   const etape = ETAPES[i];
@@ -71,6 +71,7 @@ export function NouvelleMission(p: { id: string; etape?: EtapePn; seule?: boolea
             className="ds-btn primary big"
             onClick={() => {
               touche.current = true;
+              if (m.brouillon) enregistrerMission({ ...m, brouillon: false });
               if (derniere) p.ctx.replace({ k: 'pn-mission', id: m.id });
               else setI(i + 1);
             }}

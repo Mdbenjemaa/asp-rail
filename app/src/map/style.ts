@@ -8,7 +8,7 @@ import type {
 import type { FeatureCollection } from 'geojson';
 import { DATA_URL, PMTILES_URL } from '../lib/data';
 import { PREVIEW } from '../lib/env';
-import { FILTERS, type Filters } from '../lib/layers';
+import type { Filters } from '../lib/layers';
 import { RFN_SPRITE, SIGNAL_ICONS } from '../lib/signaux';
 import { frenchLabels, nightLayers } from './night';
 
@@ -79,7 +79,7 @@ function emptyFC(): FeatureCollection {
 /** Signaux de nuit : mêmes teintes, plus claires pour rester lisibles sur fond sombre. */
 const NIGHT_SIG: Record<string, string> = { '#dc2626': '#f87171', '#eab308': '#fde047', '#ffffff': '#f3f4f6', '#2563eb': '#93c5fd', '#9ca3af': '#d1d5db' };
 
-export function railLayers(basemap: Basemap, filters: Filters, night = false): LayerSpecification[] {
+function railLayers(basemap: Basemap, filters: Filters, night = false): LayerSpecification[] {
   const photo = basemap === 'photo';
   /** Couleur selon le fond : plan de jour, plan de nuit, photo aérienne. */
   const pick = (day: string, nuit: string, ph: string) => (photo ? ph : night ? nuit : day);
@@ -325,7 +325,3 @@ export async function buildStyle(basemap: Basemap, filters: Filters, o: Overlays
   };
 }
 
-/** Pour l'écran des filtres : couches commandées par chaque filtre. */
-export function layersFor(key: keyof Filters): string[] {
-  return FILTERS.find((f) => f.key === key)?.layers ?? [];
-}

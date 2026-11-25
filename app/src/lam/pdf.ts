@@ -6,19 +6,16 @@ import type { LineDoc } from '../lib/data';
 import { fmtLine, fmtPk } from '../lib/format';
 import { creerPdf, groupe, ligneGrise, nomPdf, type InfoExport } from '../lib/pdfKit';
 import { planSituation } from '../lib/plan';
-import { avancementLam, heure, OUTIL_S9, phasesLam, titreMissionLam, TYPE_MISSION, type MissionLam } from './mission';
+import { dateFr, dateHeure, duree, heureDans } from '../lib/temps';
+import { avancementLam, depecheDe, OUTIL_S9, phasesLam, titreMissionLam, TYPE_MISSION, type MissionLam } from './mission';
 
-const TYPE_EVT = { etape: 'Étape', depeche: 'Dépêche', note: 'Note', passage: 'Passage TTx', urgence: 'Urgence / aléa', situation: 'En voie' } as const;
+const TYPE_EVT = { etape: 'Étape', depeche: 'Dépêche', note: 'Note', passage: 'Passage TTx', urgence: 'Urgence / aléa', situation: 'En voie', annulation: 'Annulation' } as const;
 
-const dateFr = (iso: string) => iso.split('-').reverse().join('/');
-const duree = (ms: number) => {
-  const min = Math.max(0, Math.round(ms / 60000));
-  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
-};
 
 export function journalLamPdf(m: MissionLam, info: InfoExport, doc: LineDoc | null): File {
   const av = avancementLam(m);
   const titre = titreMissionLam(m);
+  const h = (t: number) => heureDans(t, m.date);
   const debut = m.journal.length ? Math.min(...m.journal.map((e) => e.t)) : null;
   const lieu = [m.lieu.pk !== null ? `PK ${fmtPk(m.lieu.pk)}` : null, m.lieu.voie ? `voie ${m.lieu.voie}` : null, m.lieu.lieu || null].filter(Boolean).join(' · ');
   const k = creerPdf({
@@ -50,8 +47,8 @@ export function journalLamPdf(m: MissionLam, info: InfoExport, doc: LineDoc | nu
     [
       'Déroulement',
       m.fin
-        ? `Terminée à ${heure(m.fin)}${debut ? ` · début ${heure(debut)} · durée ${duree(m.fin - debut)}` : ''}`
-        : `En cours : ${av.faites} étape(s) sur ${av.total}${debut ? ` · début ${heure(debut)}` : ''}`,
+        ? `Terminée à ${h(m.fin)}${debut ? ` · début ${h(debut)} · durée ${duree(m.fin - debut)}` : ''}`
+        : `En cours : ${av.faites} étape(s) sur ${av.total}${debut ? ` · début ${h(debut)}` : ''}`,
     ],
     ['Dépêches', `${m.depeches.length}${m.type === 's9' ? ` · ${m.ttx} train(s) travaux passé(s)` : ''}`],
   ]);
@@ -70,9 +67,9 @@ export function journalLamPdf(m: MissionLam, info: InfoExport, doc: LineDoc | nu
     groupe(`${ph.titre}${ph.lieu ? ` · ${ph.lieu}` : ''}`, 3),
     ...ph.etapes.map((e) => {
       const t = m.faits[e.id];
-      const d = m.depeches.find((x) => x.etape === e.id);
+      const d = depecheDe(m, e.id);
       const cells = [
-        t ? heure(t) : '—',
+        t ? h(t) : '—',
         e.texte,
         d ? `${d.avec}${d.recu ? ` · reçu ${d.recu}` : ''}${d.donne ? ` · donné ${d.donne}` : ''}` : e.depeche ? 'Par dépêche' : '',
       ];
@@ -85,7 +82,9 @@ export function journalLamPdf(m: MissionLam, info: InfoExport, doc: LineDoc | nu
   if (m.depeches.length) {
     k.table(
       ['Heure', 'Avec', 'Objet', 'N° reçu', 'N° donné'],
-      [...m.depeches].sort((a, b) => a.t - b.t).map((d) => [heure(d.t), d.avec, d.objet, d.recu || '—', d.donne || '—']),
+      [...m.depeches]
+        .sort((a, b) => a.t - b.t)
+        .map((d) => [h(d.t), d.avec, `${d.objet}${d.annulee ? ` (annulée à ${h(d.annulee)})` : ''}`, d.recu || '—', d.donne || '—']),
       { widths: { 0: 16, 1: 18, 3: 18, 4: 19 } },
     );
   } else {
@@ -97,7 +96,7 @@ export function journalLamPdf(m: MissionLam, info: InfoExport, doc: LineDoc | nu
     k.titre('Événements');
     k.table(
       ['Heure', 'Type', 'Événement'],
-      evts.map((e) => [heure(e.t), TYPE_EVT[e.type], `${e.texte}${e.note ? ` (${e.note})` : ''}`]),
+      evts.map((e) => [h(e.t), TYPE_EVT[e.type], `${e.texte}${e.note ? ` (${e.note})` : ''}`]),
       { widths: { 0: 16, 1: 30 } },
     );
   }
@@ -108,7 +107,7 @@ export function journalLamPdf(m: MissionLam, info: InfoExport, doc: LineDoc | nu
       titre: TYPE_MISSION[m.type],
       nom: info.agent,
       png: info.signature,
-      quand: info.signeA ? `${new Date(info.signeA).toLocaleDateString('fr-FR')} à ${heure(info.signeA)}` : null,
+      quand: info.signeA ? `${dateHeure(info.signeA)}` : null,
     },
     { titre: m.type === 's9' ? 'RPTx ou CCh' : 'Chef de chantier (CCh)', nom: m.type === 's9' ? m.rptx || m.cch : m.cch },
   ]);

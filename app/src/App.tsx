@@ -7,27 +7,27 @@ import { Banner } from './components/Banner';
 import { AroundCard, ErrorCard, HintCard, NextCard } from './components/Cards';
 import { Icon } from './components/parts';
 import { SearchScreen } from './components/SearchScreen';
-import { AccesSheet, Disclaimer, FeatureCard, FilterSheet, InfoSheet, MenuSheet, type ImportStatus } from './components/Sheets';
-import type { LocateState, Theme } from './components/state';
+import { AccesSheet, Disclaimer, FeatureCard, FilterSheet, InfoSheet, MenuSheet } from './components/Sheets';
+import type { LocateState } from './components/state';
 import { TargetSheet, type Origin, type TargetState } from './components/TargetSheet';
 import { InstallBanner } from './components/Install';
 import { OrientButton } from './components/OrientButton';
 import { SignalementSheet, SignalementsSheet, SignalerSheet } from './components/Signalements';
 import {
-  deleteSignalement,
-  listSignalements,
-  saveSignalement,
-  shareSignalement,
   signalementFeatures,
-  type Envoi,
   type Lieu,
-  type Signalement,
 } from './lib/signalements';
-import { accesFeature, accesFeatures, findAccesAt, loadAcces, readAccesSource, saveAcces, snapAcces, type AccesSet } from './lib/acces';
+import { accesFeature, accesFeatures, findAccesAt, type AccesSet } from './lib/acces';
+import { useAcces } from './app/useAcces';
+import { useSignalements } from './app/useSignalements';
+import { useMiseEnPage } from './app/useMiseEnPage';
+import { useTheme } from './app/useTheme';
 import { setUpdateGate } from './lib/update';
 import { setCourse, startCompass } from './lib/heading';
 import { fmtLine, fmtPk } from './lib/format';
 import { decodeGeom, parsePk, pkRange, positionsAtPk } from './lib/pk';
+import { REFUS_STOCKAGE } from './lib/collection';
+import { creer } from './app/creation';
 import { dataUpdate, keepAround, loadCell, loadLine, loadManifest, OFFLINE_MESSAGE, type Manifest } from './lib/data';
 import { distance, type LonLat } from './lib/geo';
 import { acquire, follow, geoErrorMessage, type Acquisition, type Fix } from './lib/gps';
@@ -41,20 +41,16 @@ import { MapView, type FocusRequest } from './map/MapView';
 import { PREVIEW } from './lib/env';
 import type { Basemap } from './map/style';
 import { chantierFeatures, emprise } from './asp/carte';
-import { calculChantier, nouveauChantier, type Chantier } from './asp/chantier';
+import { calculChantier, type Chantier } from './asp/chantier';
 import type { Ctx, Here, Vue } from './asp/contexte';
 import { Couche } from './asp/Couche';
 import { aRegler, chantierDuJour } from './asp/etat';
-import { definirActif, enregistrer, useActif, useChantiers } from './asp/store';
+import { definirActif, useActif, useChantiers } from './asp/store';
 import { BottomNav, type Onglet } from './components/BottomNav';
 import { useActivite } from './asp/activite';
-import { enregistrerMission, nouvelleMission } from './pn/mission';
-import { enregistrerMissionLam, nouvelleMissionLam as nouvelleMissionLamModele } from './lam/mission';
 import { useRetour } from './lib/back';
 
 type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements';
-
-const darkQuery = () => (typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null);
 
 /** ASP Rail : se repérer sur le réseau (ligne et PK) et préparer son dispositif d'annonce (chantiers, calculs, mémo). */
 export default function App() {
@@ -62,8 +58,7 @@ export default function App() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(() => ({ ...DEFAULT_FILTERS, ...loadPref<Partial<Filters>>('asp-filters', {}) }));
   const [basemap, setBasemap] = useState<Basemap>(() => loadPref<Basemap>('asp-basemap', 'plan'));
-  const [theme, setTheme] = useState<Theme>(() => loadPref<Theme>('asp-theme', 'auto'));
-  const [systemDark, setSystemDark] = useState(() => darkQuery()?.matches ?? false);
+  const { theme, setTheme, night } = useTheme();
   const [ack, setAck] = useState(() => loadPref('asp-ack-v1', false));
   const [panel, setPanel] = useState<Panel>('none');
   const [autourTab, setAutourTab] = useState<AutourTab>('autour');
@@ -84,12 +79,6 @@ export default function App() {
     setCardFolded(f);
     savePref('asp-fiche-reduite', f);
   };
-  /** Mes signalements (gardés sur le téléphone) et celui ouvert. */
-  const [signals, setSignals] = useState<Signalement[]>([]);
-  const [openSignal, setOpenSignal] = useState<Signalement | null>(null);
-  useEffect(() => {
-    void listSignalements().then(setSignals);
-  }, []);
   /** Onglet ouvert (l'appli s'ouvre sur l'accueil) et écrans ouverts par-dessus. */
   const [tab, setTab] = useState<Onglet>('accueil');
   const [pile, setPile] = useState<Vue[]>([]);
@@ -102,16 +91,13 @@ export default function App() {
   const [picked, setPicked] = useState<{ f: MapGeoJSONFeature; at: LonLat } | null>(null);
   const [target, setTarget] = useState<TargetState | null>(null);
   const [targetExpanded, setTargetExpanded] = useState(false);
-  const [acces, setAcces] = useState<AccesSet[]>(() => loadAcces());
-  const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
+  const { acces, importStatus, resnapAcces, importAcces, deleteSet, toggleSet } = useAcces(() => setFilters((f) => ({ ...f, acces: true })));
   const [toast, setToast] = useState<string | null>(null);
   /** Suivi : problème en cours (données de la zone indisponibles sans réseau…). */
   const [followIssue, setFollowIssue] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bottomZone = useRef<HTMLDivElement>(null);
-  const topZone = useRef<HTMLDivElement>(null);
   // Peu de place entre le bandeau et la fiche du bas : boutons de la carte en ronds, sans texte.
-  const [toolsCompact, setToolsCompact] = useState(false);
+  const { bottomZone, topZone, toolsCompact } = useMiseEnPage();
 
   const acquisition = useRef<Acquisition | null>(null);
   const stopFollow = useRef<(() => void) | null>(null);
@@ -153,85 +139,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * Accès importés avec une autre version des données (ou sans réseau) : on recalcule leur ligne et leur PK,
-   * pour qu'ils restent justes quand les PK sont recalés.
-   */
-  const resnapAcces = async (m: Manifest) => {
-    for (const set of loadAcces()) {
-      if (set.v === m.version || !set.items.length) continue;
-      try {
-        const { items, complete, version } = await snapAcces(set.items);
-        if (!complete) continue;
-        setAcces((cur) => {
-          const next = cur.map((s) => (s.id === set.id ? { ...s, items, v: version } : s));
-          saveAcces(next);
-          return next;
-        });
-      } catch {
-        /* pas de réseau : ce sera pour la prochaine ouverture */
-      }
-    }
-  };
   useEffect(() => savePref('asp-filters', filters), [filters]);
   useEffect(() => savePref('asp-basemap', basemap), [basemap]);
-  useEffect(() => savePref('asp-theme', theme), [theme]);
-
-  // Mode nuit : choisi dans le menu, ou en « Auto » selon le mode sombre du téléphone.
-  useEffect(() => {
-    const mq = darkQuery();
-    if (!mq) return;
-    const onChange = () => setSystemDark(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  const night = theme === 'nuit' || (theme === 'auto' && systemDark);
-  useEffect(() => {
-    document.documentElement.classList.toggle('night', night);
-  }, [night]);
-
-  // Hauteur du bas de l'écran (fiche + barre) : pour placer l'échelle de la carte et le bandeau d'installation au-dessus.
-  useEffect(() => {
-    const el = bottomZone.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => document.documentElement.style.setProperty('--bz', `${el.offsetHeight}px`));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Boutons de la carte (Couches, Accès, Signaler) : s'ils passaient sous la fiche du bas (bandeau du suivi plus
-  // haut, fiche ouverte), ils deviennent des ronds sans texte ; ils reprennent leur texte dès qu'il y a la place.
-  useEffect(() => {
-    const tz = topZone.current;
-    const bz = bottomZone.current;
-    if (!tz || !bz || typeof ResizeObserver === 'undefined') return;
-    let raf = 0;
-    const check = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const tools = tz.querySelector<HTMLElement>('.map-tools');
-        if (!tools) return;
-        const btns = Array.from(tools.children);
-        // Hauteur en grand (64 px, le menu rond 52 px), quel que soit le mode affiché : pas de va-et-vient.
-        const big = btns.reduce((h, b) => h + (b.classList.contains('round') ? 52 : 64), 0) + 10 * Math.max(0, btns.length - 1);
-        // Limite : le haut de la fiche du bas, ou des boutons de la carte en bas à droite (crédits « i »).
-        const ctrl = tz.parentElement?.querySelector<HTMLElement>('.maplibregl-ctrl-bottom-right');
-        const ctrlTop = ctrl && ctrl.offsetHeight > 0 ? ctrl.getBoundingClientRect().top : Infinity;
-        const room = Math.min(bz.getBoundingClientRect().top, ctrlTop) - tools.getBoundingClientRect().top - 8;
-        setToolsCompact(big > room);
-      });
-    };
-    const ro = new ResizeObserver(check);
-    ro.observe(tz);
-    ro.observe(bz);
-    window.addEventListener('resize', check);
-    check();
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-      window.removeEventListener('resize', check);
-    };
-  }, []);
 
   const focusOn = useCallback((center: LonLat, zoom?: number) => setFocus((f) => ({ center, zoom, seq: (f?.seq ?? 0) + 1 })), []);
 
@@ -282,6 +191,26 @@ export default function App() {
     // Le temps de lire : 6 s, plus pour les longues explications (jusqu'à 14 s). Un toucher la ferme.
     toastTimer.current = setTimeout(() => setToast(null), Math.min(14000, Math.max(6000, text.length * 60)));
   };
+
+  /** Mes signalements (gardés sur le téléphone) et celui ouvert. */
+  const { signals, openSignal, setOpenSignal, sendSignal, newSignal, removeSignal } = useSignalements({
+    onToast: (t) => showToast(t),
+    onCree: () => {
+      setFilters((f) => ({ ...f, signalements: true }));
+      setPanel('none');
+    },
+  });
+
+  // Le téléphone a refusé un enregistrement (stockage plein) : on le dit, au lieu de laisser croire que c'est gardé.
+  const toastRefus = useRef(showToast);
+  useEffect(() => {
+    toastRefus.current = showToast;
+  });
+  useEffect(() => {
+    const f = () => toastRefus.current('Le téléphone a refusé l’enregistrement : stockage plein ? Exporte puis supprime d’anciennes missions ou fiches.');
+    window.addEventListener(REFUS_STOCKAGE, f);
+    return () => window.removeEventListener(REFUS_STOCKAGE, f);
+  }, []);
 
   const gpsBlocked = () =>
     showToast('Le GPS est bloqué dans cet aperçu. Cherche une gare, puis appuie longuement sur la carte à côté des voies : l’appli calcule le PK de ce point.');
@@ -502,38 +431,6 @@ export default function App() {
     : null;
   const signalFC = useMemo(() => signalementFeatures(signals), [signals]);
 
-  const envoiToast = (r: Envoi) =>
-    showToast(
-      r === 'copie'
-        ? 'Partage indisponible ici : le texte du signalement est copié, colle-le dans un message.'
-        : r === 'annule'
-          ? 'Signalement enregistré sur le téléphone, pas envoyé.'
-          : 'Signalement envoyé.',
-    );
-
-  /** Envoi par le partage du téléphone (appelé directement dans le toucher : sinon le téléphone refuse). */
-  const sendSignal = (s: Signalement) => {
-    const sending = shareSignalement(s);
-    void sending.then(async (r) => {
-      envoiToast(r);
-      if (r === 'annule') return;
-      const done = { ...s, sent: Date.now() };
-      await saveSignalement(done).catch(() => undefined);
-      setSignals((cur) => cur.map((x) => (x.id === s.id ? done : x)));
-      setOpenSignal((o) => (o && o.id === s.id ? done : o));
-    });
-  };
-
-  const newSignal = async (draft: Omit<Signalement, 'id' | 'created'>, send: boolean) => {
-    const s: Signalement = { ...draft, id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, created: Date.now() };
-    if (send) sendSignal(s);
-    await saveSignalement(s);
-    setSignals((cur) => [s, ...cur.filter((x) => x.id !== s.id)]);
-    setFilters((f) => ({ ...f, signalements: true }));
-    setPanel('none');
-    if (!send) showToast('Signalement enregistré sur le téléphone.');
-  };
-
   const openSignaler = () => {
     setPanel('signaler');
     if (loc.phase === 'idle' || loc.phase === 'error') locate();
@@ -591,61 +488,10 @@ export default function App() {
     setPile([]);
     setTab('carte');
   };
-  const nouveau = () => {
-    const c = nouveauChantier();
-    enregistrer(c);
-    setPile((s) => [...s, { k: 'assistant', id: c.id }]);
-  };
-  const nouvelleMissionLam = () => {
-    const m = nouvelleMissionLamModele();
-    enregistrerMissionLam(m);
-    setPile((s) => [...s, { k: 'lam-nouvelle', id: m.id }]);
-  };
-  const nouvelleMissionPn = () => {
-    const m = nouvelleMission();
-    enregistrerMission(m);
-    setPile((s) => [...s, { k: 'pn-nouvelle', id: m.id }]);
-  };
+  const nouveau = () => setPile((s) => [...s, creer('chantier')]);
+  const nouvelleMissionLam = () => setPile((s) => [...s, creer('lam')]);
+  const nouvelleMissionPn = () => setPile((s) => [...s, creer('pn')]);
   const activite = useActivite();
-
-  /** « Mes accès » : fichier KML/KMZ/GeoJSON ou lien Google My Maps ; gardés sur ce téléphone. */
-  const importAcces = async (src: File | string) => {
-    setImportStatus({ busy: true, text: '' });
-    try {
-      const { title, points } = await readAccesSource(src);
-      if (!points.length) throw new Error('Aucun point trouvé dans ce fichier.');
-      const { items, complete, version } = await snapAcces(points);
-      const name = title || (typeof src === 'string' ? 'Carte Google My Maps' : src.name.replace(/\.(kml|kmz|geojson|json)$/i, ''));
-      const set: AccesSet = { id: String(Date.now()), name, imported: Date.now(), items, v: complete ? version : undefined };
-      const next = [...acces, set];
-      if (!saveAcces(next)) throw new Error('Le téléphone a refusé l’enregistrement (stockage plein ?).');
-      setAcces(next);
-      setFilters((f) => ({ ...f, acces: true }));
-      const snapped = items.filter((a) => a.code).length;
-      setImportStatus({
-        busy: false,
-        text:
-          `${items.length} accès importés, dont ${snapped} rattachés à une ligne avec leur PK.` +
-          (complete ? '' : ' Sans réseau, certains n’ont pas encore leur PK : il sera calculé au prochain lancement avec du réseau.'),
-      });
-    } catch (e) {
-      setImportStatus({ busy: false, error: true, text: e instanceof Error ? e.message : 'Import impossible.' });
-    }
-  };
-
-  const deleteSet = (id: string) => {
-    const next = acces.filter((s) => s.id !== id);
-    saveAcces(next);
-    setAcces(next);
-    setImportStatus(null);
-  };
-
-  /** Active ou désactive une liste d'accès (gardé sur le téléphone). */
-  const toggleSet = (id: string) => {
-    const next = acces.map((s) => (s.id === id ? { ...s, hidden: !s.hidden } : s));
-    saveAcces(next);
-    setAcces(next);
-  };
 
   const showSet = (set: AccesSet) => {
     if (!set.items.length) return;
@@ -972,7 +818,7 @@ export default function App() {
           onDelete={() => {
             if (!window.confirm('Supprimer ce signalement du téléphone ? Les photos seront effacées.')) return;
             const id = openSignal.id;
-            void deleteSignalement(id).then(() => setSignals((cur) => cur.filter((x) => x.id !== id)));
+            removeSignal(id);
             setOpenSignal(null);
           }}
           onClose={() => setOpenSignal(null)}

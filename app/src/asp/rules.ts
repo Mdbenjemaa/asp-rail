@@ -198,12 +198,12 @@ export function voiesAnnoncees(voies: Voie[]): Voie[] {
 }
 
 /** Sens à surveiller sur une voie. */
-export function sensDe(v: Voie): SensSimple[] {
+function sensDe(v: Voie): SensSimple[] {
   return v.sens === 'deux' ? ['croissant', 'decroissant'] : [v.sens];
 }
 
 /** Cas du chantier, déduit de la place des voies : il choisit le tableau des marges de sécurité. */
-export function situationDe(voies: Voie[]): Situation {
+function situationDe(voies: Voie[]): Situation {
   const travail = voies.filter((v) => v.role === 'travail');
   if (travail.some((v) => !v.interdite)) return 'circulee';
   if (travail.length) return 'interdite';

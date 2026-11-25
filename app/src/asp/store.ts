@@ -3,13 +3,14 @@
  * (zone, points d'annonce, agents) et les écrans de l'ASP.
  */
 import { useSyncExternalStore } from 'react';
+import { signalerRefus } from '../lib/collection';
 import { loadPref, savePref } from '../lib/me';
 import { normaliser, type Chantier } from './chantier';
 
 const KEY = 'asp-chantiers-v1';
 const ACTIVE_KEY = 'asp-chantier-carte';
 
-let chantiers: Chantier[] = lire();
+let chantiers: Chantier[] = nettoyer(lire());
 let actif: string | null = loadPref<string | null>(ACTIVE_KEY, null);
 const abonnes = new Set<() => void>();
 
@@ -17,6 +18,13 @@ function lire(): Chantier[] {
   const brut = loadPref<unknown>(KEY, []);
   if (!Array.isArray(brut)) return [];
   return brut.filter((c): c is Chantier => !!c && typeof c === 'object' && typeof (c as Chantier).id === 'string').map(normaliser);
+}
+
+/** Au lancement : les chantiers créés puis laissés vides (appli fermée pendant la création) disparaissent. */
+function nettoyer(list: Chantier[]): Chantier[] {
+  const gardes = list.filter((c) => !c.brouillon);
+  if (gardes.length !== list.length) savePref(KEY, gardes);
+  return gardes;
 }
 
 function prevenir() {
@@ -49,6 +57,7 @@ export function enregistrer(c: Chantier): boolean {
     localStorage.setItem(KEY, JSON.stringify(chantiers));
   } catch {
     ok = false;
+    signalerRefus();
   }
   prevenir();
   return ok;
@@ -80,9 +89,3 @@ export function useActif(): Chantier | null {
   return useSyncExternalStore(abonner, () => chantierParId(actif));
 }
 
-/** Pour les tests : repart de ce qui est dans le stockage. */
-export function relire() {
-  chantiers = lire();
-  actif = loadPref<string | null>(ACTIVE_KEY, null);
-  prevenir();
-}

@@ -71,7 +71,7 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
     );
   }
   const set = (patch: Partial<Chantier>) => {
-    if (!enregistrer({ ...c, ...patch })) p.ctx.onToast('Le téléphone a refusé l’enregistrement (stockage plein ?).');
+    enregistrer({ ...c, ...patch });
   };
   const codes = codesAgents(c.agents);
   const controles = controlesDispositif(c, r);

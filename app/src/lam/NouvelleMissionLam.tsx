@@ -28,7 +28,7 @@ export function NouvelleMissionLam(p: { id: string; etape?: EtapeLam; seule?: bo
   if (!m) return null;
   const set = (patch: Partial<MissionLam>) => {
     touche.current = true;
-    enregistrerMissionLam({ ...m, ...patch });
+    enregistrerMissionLam({ ...m, ...patch, brouillon: false });
   };
   const setLieu = (patch: Partial<LieuLam>) => set({ lieu: { ...m.lieu, ...patch } });
   const etape = ETAPES[i];
@@ -72,6 +72,7 @@ export function NouvelleMissionLam(p: { id: string; etape?: EtapeLam; seule?: bo
             disabled={etape.id === 'detail' && m.type === 's9' && !m.outils.length}
             onClick={() => {
               touche.current = true;
+              if (m.brouillon) enregistrerMissionLam({ ...m, brouillon: false });
               if (derniere) p.ctx.replace({ k: 'lam-mission', id: m.id });
               else setI(i + 1);
             }}
@@ -136,7 +137,14 @@ export function NouvelleMissionLam(p: { id: string; etape?: EtapeLam; seule?: bo
                 key={o}
                 label={OUTIL_S9[o]}
                 checked={m.outils.includes(o)}
-                onChange={(on) => set({ outils: (Object.keys(OUTIL_S9) as OutilS9[]).filter((x) => (x === o ? on : m.outils.includes(x))) })}
+                onChange={(on) => {
+                  // Une mission S9 a toujours au moins un outil (sinon il n'y a rien à poser ni à retirer).
+                  if (!on && m.outils.length === 1 && m.outils[0] === o) {
+                    p.ctx.onToast('Garde au moins un outil de ta fiche de travail.');
+                    return;
+                  }
+                  set({ outils: (Object.keys(OUTIL_S9) as OutilS9[]).filter((x) => (x === o ? on : m.outils.includes(x))) });
+                }}
               />
             ))}
           </div>

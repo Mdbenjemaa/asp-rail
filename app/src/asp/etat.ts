@@ -32,7 +32,7 @@ export function chantierDuJour(list: Chantier[], actif: Chantier | null): Chanti
   return recents.find((c) => c.date === today()) ?? recents[0] ?? null;
 }
 
-export const fmtDate = (iso: string) => {
+const fmtDate = (iso: string) => {
   const [y, m, d] = iso.split('-');
   return y && m && d ? `${d}/${m}/${y}` : iso;
 };

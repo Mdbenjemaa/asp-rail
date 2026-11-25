@@ -9,7 +9,8 @@ const count = (page: import('@playwright/test').Page, cache: string, part = '') 
     [cache, part],
   );
 
-test('sans réseau : l’appli s’ouvre, le repérage, la carte des voies et le suivi marchent là où on est passé', async ({ page, context }) => {
+test('sans réseau : l’appli s’ouvre, le repérage, la carte des voies et le suivi marchent là où on est passé', async ({ page, context, browserName }) => {
+  test.skip(browserName === 'webkit', 'Chrome seul : Playwright ne simule le réseau du service worker que dans Chrome');
   test.slow();
   // Premier lancement avec du réseau : même avant que le service worker soit actif, les données vues sont gardées.
   await openApp(page);

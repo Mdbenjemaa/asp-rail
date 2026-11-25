@@ -3,7 +3,6 @@ import { useId, useState, type ReactNode } from 'react';
 import { Icon } from '../components/parts';
 import { useRetour } from '../lib/back';
 import { fmtPk } from '../lib/format';
-import type { Alerte } from './rules';
 
 /** En-tête d'un écran plein : retour, titre, sous-titre, action à droite. Le retour du téléphone fait pareil. */
 export function ScreenHead(p: { title: string; sub?: string; onBack: () => void; backLabel?: string; right?: ReactNode }) {
@@ -189,25 +188,6 @@ export function PkInput(p: { label: string; value: number | null; onChange: (v: 
         />
       </div>
     </div>
-  );
-}
-
-const NIVEAU_TITRE = { stop: 'À régler', attention: 'À vérifier', info: 'Rappel' } as const;
-
-/** Liste d'alertes : à régler (rouge), à vérifier (orange), rappels (gris). */
-export function Alertes({ list }: { list: Alerte[] }) {
-  if (!list.length) return null;
-  const ordre = { stop: 0, attention: 1, info: 2 };
-  const tri = [...list].sort((a, b) => ordre[a.niveau] - ordre[b.niveau]);
-  return (
-    <ul className="asp-alertes">
-      {tri.map((a, i) => (
-        <li key={i} className={`asp-alerte ${a.niveau}`}>
-          <b>{NIVEAU_TITRE[a.niveau]}</b>
-          <span>{a.texte}</span>
-        </li>
-      ))}
-    </ul>
   );
 }
 

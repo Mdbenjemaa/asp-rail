@@ -9,7 +9,9 @@ import type { Ctx } from '../asp/contexte';
 import { Feuille } from '../asp/Fiche';
 import { Ecran, Ligne, Section } from '../asp/kit';
 import { FeuilleExportPdf } from '../asp/ExportPdf';
+import { confirmerAnnulation } from '../asp/confirmer';
 import { messageEnvoi, partagerTexte } from '../asp/partage';
+import { duree, heureDans } from '../lib/temps';
 import { loadLine } from '../lib/data';
 import { useHorloge } from '../pn/horloge';
 import { FeuilleDepeche } from './Depeche';
@@ -19,6 +21,7 @@ import {
   cocherGesteTtx,
   cocherLam,
   demarrerTtx,
+  depecheDe,
   depecheTtx,
   enregistrerMissionLam,
   heure,
@@ -39,11 +42,6 @@ import {
   type Interlocuteur,
   type MissionLam,
 } from './mission';
-
-const duree = (ms: number) => {
-  const min = Math.max(0, Math.round(ms / 60000));
-  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
-};
 
 /** Situations du LAM pendant le déplacement et le travail : la règle, et une ligne au journal. */
 const SITUATIONS: { id: string; titre: string; icon: 'flag' | 'arrow' | 'tracks' | 'people'; regle: string; journal: string }[] = [
@@ -95,8 +93,11 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
   const av = avancementLam(m);
   const debut = m.journal.length ? Math.min(...m.journal.map((e) => e.t)) : null;
   const avecDefaut: Interlocuteur = m.depeches.at(-1)?.avec ?? (m.type === 's9' ? 'RPTx' : 'CCh');
+  const h = (t: number) => heureDans(t, m.date);
   const faire = (e: EtapeLam, fait = true) => {
     if (fait && e.depeche) setFeuille({ k: 'depeche', etape: e });
+    // Décocher une étape faite : on demande ; l'heure et la dépêche restent, marquées annulées.
+    else if (!fait && m.faits[e.id] && !confirmerAnnulation(e.texte, h(m.faits[e.id]))) return;
     else save(cocherLam(m, e, fait));
   };
   const partager = () =>
@@ -141,7 +142,7 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
     >
       <section className="ds-hero" aria-label="Où en est la mission">
         <div className="ds-hero-top">
-          <span className="ds-tag">{m.fin ? `Terminée à ${heure(m.fin)}` : debut ? `En cours depuis ${duree(now - debut)}` : 'Pas commencée'}</span>
+          <span className="ds-tag">{m.fin ? `Terminée à ${h(m.fin)}` : debut ? `En cours depuis ${duree(now - debut)}` : 'Pas commencée'}</span>
           <span className={`ds-status ${m.fin ? 'ok' : 'todo'}`}>
             {av.faites}/{av.total}
           </span>
@@ -225,7 +226,7 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
         <Section key={ph.id} title={`${ph.titre}${ph.lieu ? ` · ${ph.lieu}` : ''}`}>
           {ph.etapes.map((e) => {
             const t = m.faits[e.id];
-            const d = m.depeches.find((x) => x.etape === e.id);
+            const d = depecheDe(m, e.id);
             return (
               <label key={e.id} className={`ds-row ds-check ${t ? 'on' : ''}`}>
                 <input type="checkbox" checked={!!t} onChange={(ev) => faire(e, ev.target.checked)} />
@@ -233,7 +234,7 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
                   <b>{e.texte}</b>
                   {(t || e.depeche) && (
                     <small>
-                      {t ? `Fait à ${heure(t)}` : 'Par dépêche'}
+                      {t ? `Fait à ${h(t)}` : 'Par dépêche'}
                       {d ? ` · ${d.avec}${d.recu ? ` · reçu ${d.recu}` : ''}${d.donne ? ` · donné ${d.donne}` : ''}` : ''}
                     </small>
                   )}
@@ -257,11 +258,14 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
           [...m.depeches]
             .sort((a, b) => b.t - a.t)
             .map((d) => (
-              <div key={d.id} className="ds-row ds-journal ds-depeche">
-                <span className="ds-journal-h">{heure(d.t)}</span>
+              <div key={d.id} className={`ds-row ds-journal ds-depeche ${d.annulee ? 'annule' : ''}`}>
+                <span className="ds-journal-h">{h(d.t)}</span>
                 <span className="ds-row-txt">
                   <b>{d.objet}</b>
-                  <small>{d.avec}</small>
+                  <small>
+                    {d.avec}
+                    {d.annulee ? ` · annulée à ${h(d.annulee)}` : ''}
+                  </small>
                 </span>
                 <span className="ds-nums">
                   {d.recu && (
@@ -301,11 +305,16 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
           [...m.journal]
             .sort((a, b) => b.t - a.t)
             .map((e) => (
-              <div key={e.id} className="ds-row ds-journal">
-                <span className="ds-journal-h">{heure(e.t)}</span>
+              <div key={e.id} className={`ds-row ds-journal ${e.annule ? 'annule' : ''}`}>
+                <span className="ds-journal-h">{h(e.t)}</span>
                 <span className="ds-row-txt">
                   <b>{e.texte}</b>
-                  {e.note && <small>{e.note}</small>}
+                  {(e.note || e.annule) && (
+                    <small>
+                      {e.note ?? ''}
+                      {e.annule ? `${e.note ? ' · ' : ''}Annulée à ${h(e.annule)}` : ''}
+                    </small>
+                  )}
                 </span>
               </div>
             ))

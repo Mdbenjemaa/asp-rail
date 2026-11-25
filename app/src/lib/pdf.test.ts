@@ -76,6 +76,20 @@ describe('PDF', () => {
     expect(t).not.toContain('/Subtype /Image');
   });
 
+  it('nom en arabe ou en polonais : écrit avec la police Unicode, seulement quand il le faut', async () => {
+    const police = readFileSync(new URL('../assets/fonts/DejaVuSans.ttf', import.meta.url)).toString('base64');
+    const m = nouvelleMissionLam({ type: 'lam', date: '2026-11-25', cch: 'Łukasz Żółć', lieu: { ligne: null, ligneNom: null, pk: null, voie: '', lieu: 'PN 26' } });
+    const avec = await contenu(journalLamPdf(m, { ...info, agent: 'محمد', police }, null));
+    expect(avec).toContain('/FontName /');
+    expect(avec).toMatch(/DejaVu/);
+    // Sans caractère spécial, la police n'est pas ajoutée (PDF léger).
+    const sans = journalLamPdf({ ...m, cch: 'M. Durand' }, { ...info, police }, null);
+    expect(await contenu(sans)).not.toMatch(/DejaVu/);
+    // Sans police disponible : les caractères inconnus sont retirés, le PDF se fait quand même.
+    expect(pdfText('Łukasz → محمد')).toBe('ukasz -> ');
+    expect(pdfText('Łukasz → محمد', true)).toBe('Łukasz -> محمد');
+  });
+
   it('journal AP LAM sans ligne : pas de plan, le reste est là', async () => {
     const m = nouvelleMissionLam({ type: 'lam', date: '2026-11-25', lieu: { ligne: null, ligneNom: null, pk: null, voie: '', lieu: 'PN 26' } });
     const t = await contenu(journalLamPdf(m, info, null));

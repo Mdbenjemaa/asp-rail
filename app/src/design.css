@@ -453,3 +453,7 @@ body:has(.modal-back) .ds-snack { top: calc(env(safe-area-inset-top, 0px) + 12px
 .ds-sig-gardee img { max-width: 100%; height: 90px; object-fit: contain; }
 .ds-sig-gardee small { color: #64748b; font-size: 13px; font-weight: 700; }
 .ds-sig-gardee span { display: flex; gap: 4px; flex-wrap: wrap; }
+/* Étape ou dépêche annulée : barrée, l'heure d'origine reste lisible. */
+.ds-journal.annule .ds-row-txt b { text-decoration: line-through; color: var(--muted); font-weight: 700; }
+.ds-journal.annule .ds-journal-h { text-decoration: line-through; }
+.ds-journal.annule .ds-nums { opacity: 0.55; }

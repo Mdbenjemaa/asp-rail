@@ -12,7 +12,7 @@ export const RFN_SPRITE = `${BASE}rfn`;
 /** Pas de dessins dans l'aperçu publié sur claude.ai (fichiers absents) : pastilles de couleur. */
 export const SIGNAL_ICONS = !PREVIEW;
 
-export const slugSignal = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const slugSignal = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 /** Dessin en grand pour la fiche d'un signal. */
 export const signalImage = (name: string) => `${BASE}fiche/${slugSignal(name)}.png`;
 

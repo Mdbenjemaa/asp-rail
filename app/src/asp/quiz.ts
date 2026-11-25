@@ -71,7 +71,6 @@ export const QUESTIONS: Question[] = [
   { id: 'sig-avert', theme: 'Signaux', q: 'L’avertissement (feu jaune) commande…', choix: ['D’être en mesure de s’arrêter avant le signal d’arrêt annoncé', 'L’arrêt immédiat', 'De rouler à 60 km/h', 'La marche en manœuvre'], bonne: 0, explication: 'Il annonce un carré, un sémaphore, un feu rouge clignotant ou un heurtoir.' },
 ];
 
-export const THEMES = Array.from(new Set(QUESTIONS.map((q) => q.theme)));
 
 /** Mélange (Fisher-Yates) avec un tirage donné, pour les tests. */
 export function melanger<T>(list: T[], rand: () => number = Math.random): T[] {

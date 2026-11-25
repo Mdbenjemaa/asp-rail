@@ -50,22 +50,24 @@ function install() {
   });
 }
 
+/** Ajoute une fermeture au-dessus de la pile ; renvoie de quoi la retirer (quand l'élément se ferme autrement). */
+export function empiler(onRetour: () => void): () => void {
+  install();
+  const fn = () => onRetour();
+  pile.push(fn);
+  sync();
+  return () => {
+    const i = pile.lastIndexOf(fn);
+    if (i >= 0) pile.splice(i, 1);
+    later();
+  };
+}
+
 /** Tant que `actif` est vrai, le bouton retour du téléphone appelle `onRetour` (le dernier ouvert d'abord). */
 export function useRetour(actif: boolean, onRetour: () => void) {
   const ref = useRef(onRetour);
   useEffect(() => {
     ref.current = onRetour;
   });
-  useEffect(() => {
-    if (!actif) return;
-    install();
-    const fn = () => ref.current();
-    pile.push(fn);
-    sync();
-    return () => {
-      const i = pile.lastIndexOf(fn);
-      if (i >= 0) pile.splice(i, 1);
-      later();
-    };
-  }, [actif]);
+  useEffect(() => (actif ? empiler(() => ref.current()) : undefined), [actif]);
 }

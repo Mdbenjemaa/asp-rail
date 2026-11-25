@@ -152,8 +152,8 @@ export function loadManifest(): Promise<Manifest> {
 
 /** Adresse d'un fichier de données propre à leur version : une ancienne copie gardée ne peut pas resservir. */
 const versioned = (url: string, m: Manifest) => (PREVIEW ? url : `${url}?v=${encodeURIComponent(m.version)}`);
-export const cellUrl = (key: string, m: Manifest) => versioned(`${DATA_URL}cells/${key}.json`, m);
-export const lineUrl = (code: string, m: Manifest) => versioned(`${DATA_URL}lines/${code}.json`, m);
+const cellUrl = (key: string, m: Manifest) => versioned(`${DATA_URL}cells/${key}.json`, m);
+const lineUrl = (code: string, m: Manifest) => versioned(`${DATA_URL}lines/${code}.json`, m);
 
 /** Nouvelle version des données (déjà vue une autre fois sur ce téléphone). */
 export const dataUpdate = { changed: false };

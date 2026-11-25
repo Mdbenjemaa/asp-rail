@@ -10,7 +10,9 @@ import type { Ctx } from '../asp/contexte';
 import { Feuille } from '../asp/Fiche';
 import { Ecran, Ligne, Section } from '../asp/kit';
 import { FeuilleExportPdf } from '../asp/ExportPdf';
+import { confirmerAnnulation } from '../asp/confirmer';
 import { messageEnvoi, partagerTexte } from '../asp/partage';
+import { duree, heureDans } from '../lib/temps';
 import { loadLine } from '../lib/data';
 import {
   ajouterNote,
@@ -36,11 +38,6 @@ import {
   type Procedure,
 } from './mission';
 
-const duree = (ms: number) => {
-  const min = Math.max(0, Math.round(ms / 60000));
-  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
-};
-
 export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
   const m = useMissions().find((x) => x.id === p.id) ?? null;
   const [note, setNote] = useState('');
@@ -58,7 +55,10 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
   const av = avancement(m);
   const debut = m.journal.length ? Math.min(...m.journal.map((e) => e.t)) : null;
   const reprise = m.faits['photo'] ?? m.faits['debut-surv'] ?? null;
+  const h = (t: number) => heureDans(t, m.date);
   const faire = (e: Etape, fait = true) => {
+    // Décocher une étape faite : on demande, et l'heure d'origine reste au journal, marquée annulée.
+    if (!fait && m.faits[e.id] && !confirmerAnnulation(e.texte, h(m.faits[e.id]))) return;
     save(cocher(m, e, fait, fait ? note.trim() : undefined));
     setNote('');
   };
@@ -107,7 +107,7 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
       <section className="ds-hero" aria-label="Où en est la mission">
         <div className="ds-hero-top">
           <span className="ds-tag">
-            {m.fin ? `Terminée à ${heure(m.fin)}` : debut ? `En cours depuis ${duree(now - debut)}` : 'Pas commencée'}
+            {m.fin ? `Terminée à ${h(m.fin)}` : debut ? `En cours depuis ${duree(now - debut)}` : 'Pas commencée'}
             {m.pn.type ? ` · ${TYPE_PN[m.pn.type]}` : ''}
           </span>
           <span className={`ds-status ${m.fin ? 'ok' : 'todo'}`}>
@@ -179,7 +179,7 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
                   <b>{e.texte}</b>
                   {(t || e.facultative) && (
                     <small>
-                      {t ? `Fait à ${heure(t)}` : ''}
+                      {t ? `Fait à ${h(t)}` : ''}
                       {m.depeches[e.id] ? ` · dépêche ${m.depeches[e.id]}` : ''}
                       {!t && e.facultative ? 'Seulement si besoin' : ''}
                     </small>
@@ -204,11 +204,16 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
           [...m.journal]
             .sort((a, b) => b.t - a.t)
             .map((e) => (
-              <div key={e.id} className="ds-row ds-journal">
-                <span className="ds-journal-h">{heure(e.t)}</span>
+              <div key={e.id} className={`ds-row ds-journal ${e.annule ? 'annule' : ''}`}>
+                <span className="ds-journal-h">{h(e.t)}</span>
                 <span className="ds-row-txt">
                   <b>{e.texte}</b>
-                  {e.note && <small>{e.type === 'etape' ? `Dépêche ${e.note}` : e.note}</small>}
+                  {(e.note || e.annule) && (
+                    <small>
+                      {e.note ? (e.type === 'etape' ? `Dépêche ${e.note}` : e.note) : ''}
+                      {e.annule ? `${e.note ? ' · ' : ''}Annulée à ${h(e.annule)}` : ''}
+                    </small>
+                  )}
                 </span>
               </div>
             ))

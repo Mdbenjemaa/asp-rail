@@ -117,6 +117,8 @@ test('activité PN : bascule sur l’accueil, PN le plus proche en direct, missi
 
   // Retour à l'accueil : l'activité et la mission restent sur le téléphone.
   await mission.getByRole('button', { name: 'Retour' }).click();
+  // L'appli retire son entrée d'historique juste après la fermeture : on attend avant de recharger.
+  await expect.poll(() => page.evaluate(() => !(history.state as { aspRetour?: boolean } | null)?.aspRetour)).toBe(true);
   await page.reload();
   await expect(page.getByRole('radiogroup', { name: 'Activité' }).getByRole('radio', { name: 'Agent PN' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('region', { name: 'Ma mission PN' })).toContainText('PN 26');
@@ -197,4 +199,53 @@ test('activité PN sur petit écran (320 × 568) : rien ne déborde', async ({ p
     await nav(page).getByRole('button', { name: tab }).click();
     expect(await deborde(), tab).toEqual({ sw: 320, bad: [] });
   }
+});
+
+test('mission PN : une étape cochée par erreur s’annule sans effacer sa trace, et la dernière étape seule ne termine rien', async ({ page }) => {
+  await fakeShare(page);
+  await openApp(page, { home: true, gps: PRES_PN26 });
+  await page.getByRole('radiogroup', { name: 'Activité' }).getByRole('radio', { name: 'Agent PN' }).click();
+  await page.getByRole('button', { name: 'Nouvelle mission PN' }).first().click();
+  const assistant = page.getByRole('dialog', { name: 'Nouvelle mission PN' });
+  await assistant.getByRole('button', { name: 'Continuer' }).click();
+  await assistant.getByRole('button', { name: /Trouver les PN autour de moi/ }).click();
+  await assistant.getByRole('radiogroup', { name: 'PN proches' }).getByRole('radio', { name: /^PN 26 · \d+ m/ }).click({ timeout: 20_000 });
+  await assistant.getByRole('button', { name: 'Continuer' }).click();
+  await assistant.getByRole('button', { name: 'Continuer' }).click();
+  await assistant.getByRole('button', { name: 'Commencer la mission' }).click();
+  const mission = page.getByRole('dialog', { name: 'Mission PN · PN 26 · ligne 830 000' });
+
+  // Première étape faite, puis décochée par erreur : on demande avant d'annuler.
+  await mission.getByRole('button', { name: /^Fait à \d{2}:\d{2}$/ }).click();
+  const etapes = mission.locator('label.ds-row.ds-check');
+  const premiere = etapes.first();
+  const texte = (await premiere.locator('b').innerText()).trim();
+  await expect(premiere.getByRole('checkbox')).toBeChecked();
+  page.once('dialog', (d) => void d.dismiss());
+  await premiere.getByRole('checkbox').click();
+  await expect(premiere.getByRole('checkbox')).toBeChecked();
+
+  page.once('dialog', (d) => {
+    expect(d.message()).toContain(`Annuler « ${texte} »`);
+    void d.accept();
+  });
+  await premiere.getByRole('checkbox').click();
+  await expect(premiere.getByRole('checkbox')).not.toBeChecked();
+  const journal = mission.locator('.ds-journal');
+  await expect(journal.filter({ hasText: `Annulé : ${texte}` })).toHaveCount(1);
+  await expect(mission.locator('.ds-journal.annule').filter({ hasText: texte })).toContainText(/Annulée à \d{2}:\d{2}/);
+
+  // La dernière étape cochée seule (ARF) : la mission n'est pas terminée pour autant.
+  await etapes.last().getByRole('checkbox').click();
+  await expect(etapes.last().getByRole('checkbox')).toBeChecked();
+  await expect(mission.getByRole('heading', { name: 'Mission terminée' })).toHaveCount(0);
+  await expect(mission.getByText(/^Terminée à/)).toHaveCount(0);
+
+  // Journal en PDF, avec un nom en arabe : l'annulation y figure et le nom est lisible.
+  await mission.getByRole('button', { name: 'Journal', exact: true }).click();
+  const pdf = await exporterPdf(page, { nom: 'محمد Moo' });
+  expect(pdf.plat).toContain('Annulation');
+  expect(pdf.plat).toContain(texte);
+  expect(pdf.plat).toMatch(/[؀-ۿﹰ-﻿]/);
+  expect(pdf.plat).toContain('Moo');
 });

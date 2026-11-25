@@ -3,7 +3,7 @@
  * d'annonce, chaîne d'annonce, et règles sur le rôle de l'ASP.
  */
 import { fmtDist, fmtPk } from '../lib/format';
-import { ROLE_COURT, ROLE_LABEL, type Agent, type Chantier, cleSens, newId, SENS_TEXTE } from './chantier';
+import { ROLE_COURT, type Agent, type Chantier, cleSens, newId, SENS_TEXTE } from './chantier';
 import type { Alerte, Resultat } from './rules';
 
 /** Nom court de chaque agent : ASP, A1, A2, R1, S1… dans l'ordre de la liste. */
@@ -144,11 +144,6 @@ export function controlesDispositif(c: Chantier, r: Resultat): Alerte[] {
     alertes.push({ niveau: 'attention', texte: 'Ajoute les annonceurs (et si besoin sentinelles et répétiteurs).' });
   }
   return alertes;
-}
-
-/** Libellé d'un agent pour les listes : « A1 · Annonceur · Karim ». */
-export function libelleAgent(a: Agent, codes: Map<string, string>): string {
-  return [codes.get(a.id), ROLE_LABEL[a.role], a.nom.trim()].filter(Boolean).join(' · ');
 }
 
 /**

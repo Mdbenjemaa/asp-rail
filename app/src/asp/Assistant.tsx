@@ -64,13 +64,13 @@ export function Assistant(p: { id: string; etape?: EtapeId; seule?: boolean; hid
   if (!c || !r) return null;
   const set: Set = (patch) => {
     touche.current = true;
-    if (!enregistrer({ ...c, ...patch })) p.ctx.onToast('Le téléphone a refusé l’enregistrement (stockage plein ?).');
+    enregistrer({ ...c, ...patch, brouillon: false });
   };
   const etape = ETAPES[i];
   const ok = valide(etape.id, c);
   const sp: StepProps = { c, r, set, ctx: p.ctx, doc };
   const terminer = (avecAnnonceurs: boolean) => {
-    enregistrer(avecAnnonceurs ? annonceurParSens(c, r) : c);
+    enregistrer({ ...(avecAnnonceurs ? annonceurParSens(c, r) : c), brouillon: false });
     definirActif(c.id);
     p.ctx.replace({ k: 'fiche', id: c.id });
   };

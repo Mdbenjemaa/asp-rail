@@ -9,6 +9,7 @@ import { follow, type Fix } from '../lib/gps';
 import { cellsAround, matchInCells, pickFollowLine, searchRadius } from '../lib/locate';
 import { signalProche, type SignalProche } from '../lam/mission';
 import { pnsProches, type PnProche } from '../pn/mission';
+import { cadence, estLgv } from '../lib/cadence';
 import { vmaxEntre } from './lignes';
 
 export interface Direct {
@@ -55,7 +56,7 @@ async function rattacher(fix: Fix, m: Manifest, prefer: string | null): Promise<
     vmax,
     pn: doc ? (pnsProches(doc.points, best.pk, 1)[0] ?? null) : null,
     signal: doc ? signalProche(doc.points, best.pk) : null,
-    lgv: /\bLGV\b/i.test(nom ?? '') || (vmax ?? 0) > 220,
+    lgv: estLgv(nom, vmax),
   };
 }
 
@@ -84,58 +85,33 @@ export function usePositionDirecte(actif: boolean): { etat: EtatDirect; pos: Dir
     if (!actif || !visible || !('geolocation' in navigator)) return;
     let stop: (() => void) | null = null;
     let fini = false;
-    let occupe = false;
-    let dernier = 0;
     let ligne: string | null = null;
     void autorise().then(async (ok) => {
       if (fini || !ok) return;
       setEtat((e) => (e === 'ok' ? e : 'recherche'));
       const m = await loadManifest().catch(() => null);
       if (fini || !m) return;
-      // Une mesure à la fois, au plus toutes les 1,5 s ; la dernière reçue n'est jamais perdue (le GPS peut se taire ensuite).
-      let attente: Fix | null = null;
-      let minuterie: ReturnType<typeof setTimeout> | null = null;
-      const traiter = () => {
-        minuterie = null;
-        if (fini || occupe || !attente) return;
-        const reste = 1500 - (Date.now() - dernier);
-        if (reste > 0) {
-          minuterie = setTimeout(traiter, reste);
-          return;
-        }
-        const fix = attente;
-        attente = null;
-        occupe = true;
-        dernier = Date.now();
-        rattacher(fix, m, ligne)
-          .then((r) => {
-            if (fini) return;
-            if (!r) {
-              setEtat('loin');
-              return;
-            }
-            ligne = r.code;
-            setPos({ ...r, t: fix.received });
-            setEtat('ok');
-          })
-          .catch(() => undefined)
-          .finally(() => {
-            occupe = false;
-            if (attente && !minuterie) traiter();
-          });
-      };
+      const file = cadence<Fix>((fix) =>
+        rattacher(fix, m, ligne).then((r) => {
+          if (fini) return;
+          if (!r) {
+            setEtat('loin');
+            return;
+          }
+          ligne = r.code;
+          setPos({ ...r, t: fix.received });
+          setEtat('ok');
+        }),
+      );
       const arretGps = follow(
-        (fix) => {
-          attente = fix;
-          if (!minuterie) traiter();
-        },
+        (fix) => file.pousser(fix),
         () => {
           if (!fini) setEtat((e) => (e === 'ok' ? e : 'erreur'));
         },
       );
       stop = () => {
         arretGps();
-        if (minuterie) clearTimeout(minuterie);
+        file.arreter();
       };
     });
     return () => {

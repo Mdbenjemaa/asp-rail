@@ -3,9 +3,12 @@
  * dépêches (numéro reçu, numéro donné, heure), passages de train travaux et journal horodaté, gardés sur le téléphone.
  * La consigne LAM, la fiche de travail, la situation géographique et les textes en vigueur priment toujours.
  */
-import { useSyncExternalStore } from 'react';
+import { creerCollection, newId } from '../lib/collection';
 import type { LinePoint } from '../lib/data';
 import { fmtLine, fmtPk } from '../lib/format';
+import { heure, heureDans, jourDe } from '../lib/temps';
+
+export { heure };
 
 export type TypeMissionLam = 'lam' | 's9';
 export type OutilS9 = 'dsh' | 'sam' | 'cmb' | 'obs';
@@ -40,6 +43,8 @@ export interface Depeche {
   donne: string;
   /** Étape de la mission validée par cette dépêche. */
   etape?: string;
+  /** Étape décochée ensuite : la dépêche reste au carnet, marquée annulée (ses numéros restent pris). */
+  annulee?: number;
 }
 
 export interface EvenementLam {
@@ -48,7 +53,9 @@ export interface EvenementLam {
   texte: string;
   etape?: string;
   note?: string;
-  type: 'etape' | 'depeche' | 'note' | 'passage' | 'urgence' | 'situation';
+  type: 'etape' | 'depeche' | 'note' | 'passage' | 'urgence' | 'situation' | 'annulation';
+  /** Étape décochée ensuite : l'heure d'origine reste au journal, marquée annulée. */
+  annule?: number;
 }
 
 export interface MissionLam {
@@ -78,6 +85,8 @@ export interface MissionLam {
   ttx: number;
   enCours: { debut: number; faits: Record<string, number> } | null;
   fin: number | null;
+  /** Créée par « Nouvelle mission » et pas encore remplie. */
+  brouillon?: boolean;
 }
 
 export interface EtapeLam {
@@ -96,11 +105,7 @@ export interface PhaseLam {
   etapes: EtapeLam[];
 }
 
-export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-const aujourdhui = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const aujourdhui = () => jourDe(Date.now());
 
 export function nouvelleMissionLam(init: Partial<MissionLam> = {}): MissionLam {
   const now = Date.now();
@@ -284,8 +289,6 @@ export const ttxPossible = (m: MissionLam) => m.type === 's9' && (m.outils.inclu
 
 export const toutesEtapesLam = (m: MissionLam) => phasesLam(m).flatMap((p) => p.etapes.map((e) => ({ ...e, phase: p })));
 
-/** Dernière étape de la mission : la cocher clôt la mission. */
-const derniere = (m: MissionLam) => (m.type === 'lam' ? 'restituer' : 'confirme-retrait');
 /** Phase « pendant » : après la mise en voie (LAM) ou la mise en place (S9), avant la fin. */
 const phaseFin = (m: MissionLam) => (m.type === 'lam' ? 'mhv' : 'retrait');
 
@@ -305,8 +308,6 @@ export function titreMissionLam(m: MissionLam): string {
   if (m.type === 's9') return `AP S9${m.bouclage.trim() ? ` · ${m.bouclage.trim()}` : ''}${ou}`;
   return `AP LAM${ou}`;
 }
-
-export const heure = (t: number) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 /**
  * Numéro de dépêche proposé : deux chiffres pris au hasard, jamais déjà utilisé dans la mission, et sans suite avec
@@ -328,37 +329,48 @@ export const numerosUtilises = (m: MissionLam) => m.depeches.flatMap((d) => [d.r
 
 const ligneDepeche = (d: Depeche) => `${d.avec}${d.recu ? ` · reçu ${d.recu}` : ''}${d.donne ? ` · donné ${d.donne}` : ''}`;
 
+/** Terminée quand toutes les étapes obligatoires sont faites (et seulement alors), à l'heure de la dernière faite. */
+function avecFinLam(m: MissionLam): MissionLam {
+  const obligatoires = toutesEtapesLam(m).filter((e) => !e.facultative);
+  const toutes = obligatoires.length > 0 && obligatoires.every((e) => m.faits[e.id]);
+  const fin = toutes ? (m.fin ?? Math.max(...obligatoires.map((e) => m.faits[e.id]))) : null;
+  return fin === m.fin ? m : { ...m, fin };
+}
+
 /** Note une dépêche au carnet et au journal ; si elle valide une étape, l'étape est cochée à la même heure. */
 export function noterDepeche(m: MissionLam, d: Omit<Depeche, 'id' | 't'>, etape?: EtapeLam): MissionLam {
   const t = Date.now();
   const dep: Depeche = { ...d, id: newId(), t, etape: etape?.id };
   const ev: EvenementLam = { id: newId(), t, texte: d.objet, etape: etape?.id, note: ligneDepeche(dep), type: 'depeche' };
-  let next: MissionLam = { ...m, depeches: [...m.depeches, dep] };
-  if (etape) {
-    next = { ...next, faits: { ...next.faits, [etape.id]: t }, journal: [...next.journal.filter((x) => x.etape !== etape.id), ev] };
-    if (etape.id === derniere(m)) next.fin = t;
-  } else {
-    next.journal = [...next.journal, ev];
-  }
-  return next;
+  const next: MissionLam = { ...m, depeches: [...m.depeches, dep], journal: [...m.journal, ev] };
+  return avecFinLam(etape ? { ...next, faits: { ...next.faits, [etape.id]: t } } : next);
 }
 
-/** Coche ou décoche une étape ; le journal suit (décocher retire aussi la dépêche qui la validait). */
+/**
+ * Coche ou décoche une étape. Décocher ne supprime rien : la ligne du journal et la dépêche qui la validait
+ * restent, marquées annulées, et une ligne « Annulé » est ajoutée.
+ */
 export function cocherLam(m: MissionLam, e: EtapeLam, fait: boolean): MissionLam {
   const now = Date.now();
   const faits = { ...m.faits };
-  let journal = m.journal.filter((x) => x.etape !== e.id);
+  let journal = m.journal;
   let depeches = m.depeches;
   if (fait) {
     faits[e.id] = now;
     journal = [...journal, { id: newId(), t: now, texte: e.texte, etape: e.id, type: 'etape' }];
   } else {
+    const avant = m.faits[e.id];
     delete faits[e.id];
-    depeches = depeches.filter((d) => d.etape !== e.id);
+    const i = journal.map((x) => x.etape === e.id && (x.type === 'etape' || x.type === 'depeche') && !x.annule).lastIndexOf(true);
+    journal = journal.map((x, k) => (k === i ? { ...x, annule: now } : x));
+    depeches = depeches.map((d) => (d.etape === e.id && !d.annulee ? { ...d, annulee: now } : d));
+    if (avant) journal = [...journal, { id: newId(), t: now, texte: `Annulé : ${e.texte}`, note: `faite à ${heureDans(avant, m.date)}`, type: 'annulation' }];
   }
-  const fini = fait && e.id === derniere(m);
-  return { ...m, faits, journal, depeches, fin: fini ? now : fait ? m.fin : null };
+  return avecFinLam({ ...m, faits, journal, depeches });
 }
+
+/** La dépêche encore valable qui a validé une étape. */
+export const depecheDe = (m: MissionLam, etape: string) => m.depeches.find((d) => d.etape === etape && !d.annulee) ?? null;
 
 /** Commence (ou reprend) un passage de train travaux. */
 export function demarrerTtx(m: MissionLam): MissionLam {
@@ -404,70 +416,24 @@ export function journalTexteLam(m: MissionLam): string {
   if (m.rptx.trim()) l.push(`RPTx : ${m.rptx.trim()}`);
   if (m.depeches.length) {
     l.push('', 'Dépêches');
-    for (const d of [...m.depeches].sort((a, b) => a.t - b.t)) l.push(`${heure(d.t)} · ${d.objet} · ${ligneDepeche(d)}`);
+    for (const d of [...m.depeches].sort((a, b) => a.t - b.t))
+      l.push(`${heureDans(d.t, m.date)} · ${d.objet} · ${ligneDepeche(d)}${d.annulee ? ` [annulée à ${heureDans(d.annulee, m.date)}]` : ''}`);
   }
   l.push('', 'Journal');
-  for (const e of [...m.journal].sort((a, b) => a.t - b.t)) l.push(`${heure(e.t)} · ${e.texte}${e.note ? ` (${e.note})` : ''}`);
-  if (m.fin) l.push('', `Fin de mission à ${heure(m.fin)}`);
+  for (const e of [...m.journal].sort((a, b) => a.t - b.t))
+    l.push(`${heureDans(e.t, m.date)} · ${e.texte}${e.note ? ` (${e.note})` : ''}${e.annule ? ` [annulée à ${heureDans(e.annule, m.date)}]` : ''}`);
+  if (m.fin) l.push('', `Fin de mission à ${heureDans(m.fin, m.date)}`);
   return l.join('\n');
 }
 
 /* ---------- Stockage sur le téléphone ---------- */
 
-const KEY = 'asp-missions-lam-v1';
-let cache: MissionLam[] | null = null;
-const listeners = new Set<() => void>();
-
-function lire(): MissionLam[] {
-  if (cache) return cache;
-  try {
-    const raw = localStorage.getItem(KEY);
-    const list = raw ? (JSON.parse(raw) as MissionLam[]) : [];
-    cache = Array.isArray(list) ? list.map((m) => ({ ...nouvelleMissionLam(), ...m, lieu: { ...nouvelleMissionLam().lieu, ...m.lieu } })) : [];
-  } catch {
-    cache = [];
-  }
-  return cache;
-}
-function ecrire(list: MissionLam[]): boolean {
-  cache = list;
-  listeners.forEach((l) => l());
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
-  }
-}
-export function enregistrerMissionLam(m: MissionLam): boolean {
-  const list = lire();
-  const next = { ...m, updated: Date.now() };
-  const i = list.findIndex((x) => x.id === m.id);
-  return ecrire(i >= 0 ? list.map((x) => (x.id === m.id ? next : x)) : [next, ...list]);
-}
-export function supprimerMissionLam(id: string) {
-  ecrire(lire().filter((x) => x.id !== id));
-}
-export function missionLamParId(id: string): MissionLam | null {
-  return lire().find((x) => x.id === id) ?? null;
-}
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === KEY) {
-      cache = null;
-      cb();
-    }
-  };
-  window.addEventListener('storage', onStorage);
-  return () => {
-    listeners.delete(cb);
-    window.removeEventListener('storage', onStorage);
-  };
-}
-export function useMissionsLam(): MissionLam[] {
-  return useSyncExternalStore(subscribe, lire);
-}
+const missions = creerCollection<MissionLam>('asp-missions-lam-v1', (m) => ({ ...nouvelleMissionLam(), ...m, lieu: { ...nouvelleMissionLam().lieu, ...m.lieu } }));
+/** Enregistre la mission (fin recalculée) ; false si le téléphone a refusé, l'alerte est déjà partie. */
+export const enregistrerMissionLam = (m: MissionLam) => missions.enregistrer(avecFinLam(m));
+export const supprimerMissionLam = missions.supprimer;
+export const missionLamParId = missions.parId;
+export const useMissionsLam = missions.useListe;
 
 /** La mission à mettre en avant : celle du jour en cours, sinon la plus récente non terminée. */
 export function missionLamDuJour(list: MissionLam[]): MissionLam | null {
@@ -504,7 +470,7 @@ export interface ControleDsh {
 }
 
 /** Seuil au-delà duquel un PN n'est plus signalé (zone d'annonce, à vérifier au schéma de ligne). */
-export const PN_ZONE = 3000;
+const PN_ZONE = 3000;
 
 /**
  * Indications de la position sur la pose d'un DSh : LGV (interdit), signal à moins de 30 m (le sens n'est pas connu :

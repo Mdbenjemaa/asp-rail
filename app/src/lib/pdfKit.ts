@@ -15,6 +15,11 @@ export interface InfoExport {
   signature: string | null;
   signeA: number | null;
   cree: Date;
+  /**
+   * Police Unicode (DejaVu Sans, TrueType en base64) pour écrire ce que les polices standard du PDF ne savent pas :
+   * arabe, polonais, grec, cyrillique… Ajoutée au PDF seulement si un texte en a besoin.
+   */
+  police?: string | null;
 }
 
 type Rgb = [number, number, number];
@@ -27,12 +32,12 @@ const SOFT: Rgb = [241, 245, 249];
 const RED: Rgb = [200, 30, 30];
 
 const deux = (n: number) => String(n).padStart(2, '0');
-export const heureDe = (d: Date) => `${deux(d.getHours())}:${deux(d.getMinutes())}`;
-export const dateDe = (d: Date) => `${deux(d.getDate())}/${deux(d.getMonth() + 1)}/${d.getFullYear()}`;
+const heureDe = (d: Date) => `${deux(d.getHours())}:${deux(d.getMinutes())}`;
+const dateDe = (d: Date) => `${deux(d.getDate())}/${deux(d.getMonth() + 1)}/${d.getFullYear()}`;
 /** « 25/11/2026 à 10:25 » */
-export const fmtCree = (d: Date) => `${dateDe(d)} à ${heureDe(d)}`;
+const fmtCree = (d: Date) => `${dateDe(d)} à ${heureDe(d)}`;
 /** « 2026-11-25-1025 », pour les noms de fichier. */
-export const horodatage = (d: Date) => `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}-${deux(d.getHours())}${deux(d.getMinutes())}`;
+const horodatage = (d: Date) => `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}-${deux(d.getHours())}${deux(d.getMinutes())}`;
 
 /** Nom de fichier sans accents ni espaces. */
 export function nomPdf(prefixe: string, titre: string, cree: Date): string {
@@ -45,13 +50,19 @@ export function nomPdf(prefixe: string, titre: string, cree: Date): string {
   return `${prefixe}${base ? `-${base}` : ''}-${horodatage(cree)}.pdf`;
 }
 
+/** Ce que les polices standard du PDF (WinAnsi) savent écrire. */
+const WINANSI = /^[\x20-\x7e\u00a0-\u00ffŒœŠšŽžŸƒˆ˜–—‘’‚“”„†‡•…‰‹›€™\n]*$/;
+/** Ce que la police Unicode embarquée sait écrire (latin étendu, grec, cyrillique, arabe, symboles). */
+const HORS_UNICODE = /[^\x20-\x7e\u00a0-\u024f\u0370-\u04ff\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff\u2000-\u22ff\u25a0-\u26ff\n]/g;
+
 /**
- * Les polices standard du PDF ne connaissent que les caractères latins courants (WinAnsi) : on remplace
- * le reste (flèches, ≥, espaces fines) par des équivalents lisibles.
+ * Texte prêt pour le PDF : flèches et signes remplacés par des équivalents lisibles. Sans police Unicode, seuls
+ * les caractères latins courants restent ; avec (`unicode`), l'arabe, le polonais, le grec… restent aussi.
  */
-export function pdfText(s: string): string {
-  return s
-    .replace(/[   ]/g, ' ')
+export function pdfText(s: string, unicode = false): string {
+  const t = s
+    .normalize('NFC')
+    .replace(/[\u2009\u202f\u00a0]/g, ' ')
     .replace(/≥/g, '>=')
     .replace(/≤/g, '<=')
     .replace(/→/g, '->')
@@ -59,8 +70,8 @@ export function pdfText(s: string): string {
     .replace(/▲▼/g, '(2 sens)')
     .replace(/▲/g, '(+)')
     .replace(/▼/g, '(-)')
-    .replace(/[‐-‒]/g, '-')
-    .replace(/[^\x20-\x7e -ÿŒœ–—‘’“”…€‰\n]/g, '');
+    .replace(/[\u2010-\u2012]/g, '-');
+  return unicode ? t.replace(HORS_UNICODE, '') : t.replace(/[^\x20-\x7e\u00a0-\u00ffŒœŠšŽžŸƒˆ˜–—‘’‚“”„†‡•…‰‹›€™\n]/g, '');
 }
 
 export interface CaseSignature {
@@ -101,6 +112,36 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
   let y = 0;
   const cree = fmtCree(e.info.cree);
 
+  // Police Unicode, ajoutée au document au premier texte qui en a besoin.
+  let unicodePret = false;
+  const unicode = (): boolean => {
+    if (!e.info.police) return false;
+    if (!unicodePret) {
+      doc.addFileToVFS('DejaVuSans.ttf', e.info.police);
+      doc.addFont('DejaVuSans.ttf', 'dejavu', 'normal');
+      unicodePret = true;
+    }
+    return true;
+  };
+  /** Choisit la police qui sait écrire ce texte et rend le texte prêt (taille et couleur à régler avant). */
+  const ecrit = (t: string, gras = false): string => {
+    const u = pdfText(t, true);
+    if (!WINANSI.test(u) && unicode()) {
+      doc.setFont('dejavu', 'normal');
+      return u;
+    }
+    doc.setFont('helvetica', gras ? 'bold' : 'normal');
+    return pdfText(t);
+  };
+  /** Cellule de tableau : le texte, la police étant choisie au moment du dessin (didParseCell). */
+  const prep = (t: string) => pdfText(t, !!e.info.police);
+  const policeCellule = (d: { cell: { text: string[]; styles: { font: string; fontStyle: string } } }) => {
+    if (!WINANSI.test(d.cell.text.join(' ')) && unicode()) {
+      d.cell.styles.font = 'dejavu';
+      d.cell.styles.fontStyle = 'normal';
+    }
+  };
+
   // Bandeau.
   doc.setFillColor(...NAVY);
   doc.rect(0, 0, W, 31, 'F');
@@ -108,16 +149,14 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
   doc.rect(0, 31, W, 2, 'F');
   const gauche = W - 2 * M - 64;
   doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(17);
-  doc.text(pdfText(e.titre), M, 12, { maxWidth: gauche });
+  doc.text(ecrit(e.titre, true), M, 12, { maxWidth: gauche });
   doc.setFontSize(10.5);
-  doc.text(doc.splitTextToSize(pdfText(e.sousTitre), gauche)[0] as string, M, 19.5);
+  doc.text(doc.splitTextToSize(ecrit(e.sousTitre, true), gauche)[0] as string, M, 19.5);
   if (e.ligne3) {
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(203, 213, 225);
-    doc.text(doc.splitTextToSize(pdfText(e.ligne3), gauche)[0] as string, M, 25.5);
+    doc.text(doc.splitTextToSize(ecrit(e.ligne3), gauche)[0] as string, M, 25.5);
   }
   doc.setTextColor(203, 213, 225);
   doc.setFont('helvetica', 'normal');
@@ -127,9 +166,8 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11.5);
   doc.text(pdfText(cree), W - M, 15, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(pdfText(`Agent : ${e.info.agent.trim() || 'non renseigné'}`), W - M, 21.5, { align: 'right', maxWidth: 64 });
+  doc.text(ecrit(`Agent : ${e.info.agent.trim() || 'non renseigné'}`), W - M, 21.5, { align: 'right', maxWidth: 64 });
   doc.setTextColor(...INK);
   y = 42;
 
@@ -151,6 +189,9 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
     textColor: INK,
     valign: 'middle' as const,
     overflow: 'linebreak' as const,
+    // jspdf-autotable demande un réordonnancement « logique » du texte, qui retourne une 2e fois l'arabe déjà
+    // mis en forme par jsPDF : sans option, jsPDF garde l'ordre visuel, juste.
+    textOptions: {},
   });
   const marges = { left: M, right: M, top: 22, bottom: 20 };
 
@@ -160,10 +201,9 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
     M,
     titre(t, place = 30) {
       saut(place);
-      doc.setFont('helvetica', 'bold');
       doc.setFontSize(12.5);
       doc.setTextColor(...NAVY);
-      doc.text(pdfText(t), M, y);
+      doc.text(ecrit(t, true), M, y);
       doc.setFillColor(...YELLOW);
       doc.rect(M, y + 1.6, 12, 0.9, 'F');
       doc.setTextColor(...INK);
@@ -172,7 +212,8 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
     kv(rows) {
       autoTable(doc, {
         startY: y,
-        body: rows.map(([k, v]) => [pdfText(k), pdfText(v)]),
+        body: rows.map(([k, v]) => [prep(k), prep(v)]),
+        didParseCell: policeCellule,
         margin: marges,
         theme: 'grid',
         styles: styles(),
@@ -183,8 +224,9 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
     table(head, body, opts = {}) {
       autoTable(doc, {
         startY: y,
-        head: head ? [head.map(pdfText)] : undefined,
-        body: body.map((row) => (Array.isArray(row) ? row.map((c) => (typeof c === 'string' ? pdfText(c) : c)) : row)) as RowInput[],
+        head: head ? [head.map((h) => pdfText(h))] : undefined,
+        body: body.map((row) => (Array.isArray(row) ? row.map((c) => (typeof c === 'string' ? prep(c) : c)) : row)) as RowInput[],
+        didParseCell: policeCellule,
         margin: marges,
         theme: 'grid',
         styles: styles(opts.taille),
@@ -194,10 +236,9 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
       apresTable();
     },
     note(t, opts = {}) {
-      doc.setFont('helvetica', 'normal');
       doc.setFontSize(opts.taille ?? 9);
       doc.setTextColor(...(opts.couleur ?? INK));
-      const lignes = doc.splitTextToSize(pdfText(t), W - 2 * M) as string[];
+      const lignes = doc.splitTextToSize(ecrit(t), W - 2 * M) as string[];
       const h = lignes.length * (opts.taille ?? 9) * 0.42 + 2;
       saut(h);
       doc.text(lignes, M, y + 1);
@@ -231,13 +272,11 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
         doc.setDrawColor(...LINE);
         doc.setLineWidth(0.3);
         doc.roundedRect(x, y, w, h, 2, 2, 'S');
-        doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(...NAVY);
-        doc.text(pdfText(c.titre), x + 3, y + 5);
-        doc.setFont('helvetica', 'normal');
+        doc.text(ecrit(c.titre, true), x + 3, y + 5);
         doc.setTextColor(...INK);
-        doc.text(pdfText(c.nom || 'Nom : ……………………………'), x + 3, y + 10, { maxWidth: w - 6 });
+        doc.text(ecrit(c.nom || 'Nom : ……………………………'), x + 3, y + 10, { maxWidth: w - 6 });
         if (c.png) {
           try {
             const props = doc.getImageProperties(c.png);
@@ -251,7 +290,7 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
         }
         doc.setFontSize(7.5);
         doc.setTextColor(...MUTED);
-        doc.text(pdfText(c.png && c.quand ? `Signé sur le téléphone le ${c.quand}` : 'Date et signature'), x + 3, y + h - 3);
+        doc.text(ecrit(c.png && c.quand ? `Signé sur le téléphone le ${c.quand}` : 'Date et signature'), x + 3, y + h - 3);
         doc.setTextColor(...INK);
       });
       y += h + 8;
@@ -261,10 +300,9 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
       for (let i = 1; i <= pages; i++) {
         doc.setPage(i);
         if (i > 1) {
-          doc.setFont('helvetica', 'bold');
           doc.setFontSize(8);
           doc.setTextColor(...NAVY);
-          doc.text(pdfText(`${e.titre} · ${e.sousTitre}`), M, 11, { maxWidth: W - 2 * M - 50 });
+          doc.text(ecrit(`${e.titre} · ${e.sousTitre}`, true), M, 11, { maxWidth: W - 2 * M - 50 });
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(...MUTED);
           doc.text(pdfText(`Créé le ${cree}`), W - M, 11, { align: 'right' });
@@ -279,7 +317,8 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
         doc.setFontSize(7);
         doc.setTextColor(...MUTED);
         const agent = e.info.agent.trim() ? ` par ${e.info.agent.trim()}` : '';
-        doc.text(pdfText(`Créé le ${cree}${agent} avec ASP Rail, sur le téléphone. ${e.pied}`), M, H - 8.5, { maxWidth: W - 2 * M - 18 });
+        doc.text(ecrit(`Créé le ${cree}${agent} avec ASP Rail, sur le téléphone. ${e.pied}`), M, H - 8.5, { maxWidth: W - 2 * M - 18 });
+        doc.setFont('helvetica', 'normal');
         doc.text(`${i}/${pages}`, W - M, H - 8.5, { align: 'right' });
       }
       return new File([doc.output('blob')], nom, { type: 'application/pdf' });

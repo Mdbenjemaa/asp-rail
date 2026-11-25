@@ -287,7 +287,8 @@ test('petit écran (320 × 568) : rien ne déborde ni ne se chevauche', async ({
   expect(live).toBeLessThanOrEqual(320);
 });
 
-test('direction du téléphone : faisceau sur le point GPS et carte orientée', async ({ page }) => {
+test('direction du téléphone : faisceau sur le point GPS et carte orientée', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Chrome seul : capteurs d’orientation simulés (permission accelerometer), propre à Android');
   await openApp(page);
   // Capteurs d'orientation autorisés, comme sur un téléphone.
   await page.context().grantPermissions(['geolocation', 'accelerometer', 'gyroscope', 'magnetometer']);
@@ -308,7 +309,8 @@ test('direction du téléphone : faisceau sur le point GPS et carte orientée', 
   await expect.poll(async () => Math.abs(await bearing())).toBeLessThan(1);
 });
 
-test('signaler : type, gravité, commentaire, photo, envoi et liste de mes signalements', async ({ page }) => {
+test('signaler : type, gravité, commentaire, photo, envoi et liste de mes signalements', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Chrome seul : lecture du presse-papiers par le test (permission clipboard-read)');
   page.on('dialog', (d) => void d.accept());
   await openApp(page);
   await page.context().grantPermissions(['geolocation', 'clipboard-read', 'clipboard-write']);
@@ -352,6 +354,8 @@ test('boussole façon iPhone : autorisation, cap de la boussole, et retour au no
   // iPhone : autorisation demandée au toucher, cap donné par webkitCompassHeading dans « deviceorientation ».
   await page.addInitScript(() => {
     (DeviceOrientationEvent as unknown as { requestPermission: () => Promise<string> }).requestPermission = () => Promise.resolve('granted');
+    // Téléphone tenu droit (WebKit pour Linux annonce 90° même en portrait).
+    Object.defineProperty(screen, 'orientation', { value: { angle: 0, type: 'portrait-primary' }, configurable: true });
     Object.defineProperty(window, 'ondeviceorientationabsolute', { value: undefined, configurable: true });
     delete (window as unknown as Record<string, unknown>).ondeviceorientationabsolute;
   });
@@ -392,7 +396,8 @@ test('boussole refusée : un message dit quoi faire', async ({ page }) => {
 });
 
 
-test('deux doigts : la carte tourne, garde son angle, et le bouton remet le nord en haut', async ({ page }) => {
+test('deux doigts : la carte tourne, garde son angle, et le bouton remet le nord en haut', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Chrome seul : capteurs d’orientation simulés (permission accelerometer)');
   await openApp(page);
   await page.context().grantPermissions(['geolocation', 'accelerometer', 'gyroscope', 'magnetometer']);
   await locate(page);
@@ -450,7 +455,8 @@ async function touchDrag(page: import('@playwright/test').Page, x: number, y: nu
   await cdp.detach();
 }
 
-test('fiche « Autour de toi » : se réduit (bouton ou glisser vers le bas), le choix reste, et se rouvre', async ({ page }) => {
+test('fiche « Autour de toi » : se réduit (bouton ou glisser vers le bas), le choix reste, et se rouvre', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Chrome seul : glisser du doigt simulé par le protocole de Chrome (CDP)');
   await openApp(page);
   await locate(page);
   const card = page.getByRole('region', { name: 'Autour de toi' });
@@ -484,7 +490,8 @@ test('fiche « Autour de toi » : se réduit (bouton ou glisser vers le bas), le
   await expect(card).toHaveCount(0);
 });
 
-test('fenêtres : poignée en haut, on les ferme en les faisant glisser vers le bas', async ({ page }) => {
+test('fenêtres : poignée en haut, on les ferme en les faisant glisser vers le bas', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Chrome seul : glisser du doigt simulé par le protocole de Chrome (CDP)');
   await openApp(page);
   await page.getByRole('button', { name: 'Couches et fond de carte' }).click();
   const sheet = page.getByRole('dialog', { name: 'Couches' });

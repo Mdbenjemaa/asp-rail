@@ -103,7 +103,8 @@ export const pkValue = (text: string) => {
 };
 
 /** Erreurs attendues : réseau extérieur coupé pendant les tests (fonds de carte, Google…). */
-const EXPECTED = /Failed to load resource|net::ERR_|AJAXError|Failed to fetch|NetworkError/i;
+// « Worker failed to load » : Safari le note quand la carte se ferme pendant son chargement (code coupé).
+const EXPECTED = /Failed to load resource|net::ERR_|AJAXError|Failed to fetch|NetworkError|Worker failed to load/i;
 
 export interface AppOptions {
   /** Premier lancement : l'avertissement s'affiche (sinon il est déjà accepté). */
@@ -126,7 +127,7 @@ export async function toCarte(page: Page) {
 }
 
 /** Coupe tout ce qui sort de la machine : les tests ne dépendent pas d'Internet. */
-export async function offlineWorld(context: BrowserContext) {
+async function offlineWorld(context: BrowserContext) {
   await context.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/, (route) => route.abort('internetdisconnected'));
 }
 

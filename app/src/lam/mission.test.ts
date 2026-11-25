@@ -5,6 +5,7 @@ import { MEMO_LAM, REGLES_LAM } from './memo';
 import {
   avancementLam,
   cocherGesteTtx,
+  depecheDe,
   cocherLam,
   controleDsh,
   demarrerTtx,
@@ -68,6 +69,15 @@ describe('mission AP LAM', () => {
     const l = ids(nouvelleMissionLam({ type: 'lam', pn: true }));
     expect(l.indexOf('pn-route')).toBeLessThan(l.indexOf('mev'));
     expect(l.indexOf('mev')).toBeLessThan(l.indexOf('pn-ouvrir'));
+  });
+
+  it('rendre la consigne en premier ne termine pas la mission', () => {
+    let m = nouvelleMissionLam({ type: 'lam' });
+    m = cocherLam(m, etape(m, 'restituer'), true);
+    expect(m.fin).toBeNull();
+    m = nouvelleMissionLam({ type: 's9', outils: ['sam'] });
+    m = noterDepeche(m, { avec: 'RPTx', objet: 'Retrait', recu: '11', donne: '55' }, etape(m, 'confirme-retrait'));
+    expect(m.fin).toBeNull();
   });
 
   it('« pendant » après la mise en voie ; la consigne rendue termine la mission', () => {
@@ -144,10 +154,15 @@ describe('carnet de dépêches', () => {
     expect(m.depeches[0]).toMatchObject({ avec: 'RPTx', recu: '93', donne: '24', etape: 'ordre-pose' });
     expect(m.journal.at(-1)?.note).toBe('RPTx · reçu 93 · donné 24');
     expect(numerosUtilises(m)).toEqual(['93', '24']);
-    // Décocher l'étape retire la dépêche qui la validait.
+    // Décocher l'étape garde la dépêche et ses numéros, marqués annulés (les numéros restent pris).
     m = cocherLam(m, etape(m, 'ordre-pose'), false);
-    expect(m.depeches).toHaveLength(0);
+    expect(m.depeches).toHaveLength(1);
+    expect(m.depeches[0].annulee).toBeGreaterThan(0);
     expect(m.faits['ordre-pose']).toBeUndefined();
+    expect(depecheDe(m, 'ordre-pose')).toBeNull();
+    expect(numerosUtilises(m)).toEqual(['93', '24']);
+    expect(m.journal.at(-1)).toMatchObject({ type: 'annulation' });
+    expect(journalTexteLam(m)).toMatch(/\[annulée à \d{2}:\d{2}\]/);
   });
 
   it('journal partagé : la mission, le carnet puis le journal', () => {

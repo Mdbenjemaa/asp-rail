@@ -11,7 +11,7 @@ import { codesAgents } from './dispositif';
 import type { Resultat } from './rules';
 
 /** Position d'un PK sur la ligne (la première, si la ligne passe deux fois par ce PK). */
-export function auPk(doc: LineDoc, pk: number | null): [number, number] | null {
+function auPk(doc: LineDoc, pk: number | null): [number, number] | null {
   if (pk === null) return null;
   const pos = positionsAtPk(doc, pk);
   return pos.length ? pos[0].lonlat : null;

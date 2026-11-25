@@ -6,9 +6,9 @@
 import { loadPref, savePref } from '../lib/me';
 import { SB_KEY, SB_URL } from '../lib/server';
 
-export const ACCESS_KEY = 'asp-acces';
+const ACCESS_KEY = 'asp-acces';
 /** Sans réseau, l'appli s'ouvre encore pendant 30 jours après la dernière vérification. */
-export const GRACE_MS = 30 * 24 * 3600 * 1000;
+const GRACE_MS = 30 * 24 * 3600 * 1000;
 
 export interface StoredAccess {
   code: string;

@@ -26,7 +26,6 @@ const COURSE_MAX_AGE = 5000;
 const NO_SENSOR_MS = 3500;
 
 const listeners = new Set<Listener>();
-const stateListeners = new Set<(s: CompassState) => void>();
 let compass: { h: number; t: number } | null = null;
 let course: { h: number; t: number } | null = null;
 let state: CompassState = 'off';
@@ -34,7 +33,7 @@ let listening = false;
 let lastSent: number | null = null;
 let lastSentAt = 0;
 
-export const norm = (a: number) => ((a % 360) + 360) % 360;
+const norm = (a: number) => ((a % 360) + 360) % 360;
 
 /** Écart entre deux angles, de -180 à 180. */
 export const angleDiff = (a: number, b: number) => ((b - a + 540) % 360) - 180;
@@ -73,9 +72,7 @@ export function compassState(): CompassState {
 }
 
 function setState(s: CompassState) {
-  if (s === state) return;
   state = s;
-  for (const l of stateListeners) l(s);
 }
 
 function emit(force = false) {
@@ -165,12 +162,6 @@ export function subscribeHeading(l: Listener): () => void {
   listeners.add(l);
   l(currentHeading());
   return () => listeners.delete(l);
-}
-
-export function subscribeCompassState(l: (s: CompassState) => void): () => void {
-  stateListeners.add(l);
-  l(state);
-  return () => stateListeners.delete(l);
 }
 
 /** Pourquoi la carte ne tourne pas : un message clair selon l'état de la boussole et le téléphone. */

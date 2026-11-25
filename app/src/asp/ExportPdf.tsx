@@ -4,6 +4,7 @@
  * Le PDF et la ligne sont préparés dès l'ouverture : au toucher, il ne reste qu'à assembler et partager.
  */
 import { useEffect, useRef, useState } from 'react';
+import policeUrl from '../assets/fonts/DejaVuSans.ttf?url';
 import { Icon } from '../components/parts';
 import type { InfoExport } from '../lib/pdfKit';
 import { garderNomAgent, garderSignature, nomAgent, signatureDe } from '../lib/signature';
@@ -13,6 +14,24 @@ import { partagerFichier, type Envoi } from './partage';
 import { Champ } from './ui';
 
 export type Constructeur = (info: InfoExport) => File;
+
+/** Police Unicode des PDF (arabe, polonais, grec…), lue une fois depuis l'appli gardée sur le téléphone. */
+let police: Promise<string | null> | null = null;
+function chargerPolice(): Promise<string | null> {
+  police ??= fetch(policeUrl)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+    .then((buf) => {
+      const octets = new Uint8Array(buf);
+      let bin = '';
+      for (let i = 0; i < octets.length; i += 0x8000) bin += String.fromCharCode(...octets.subarray(i, i + 0x8000));
+      return btoa(bin);
+    })
+    .catch(() => {
+      police = null; // sans police : les caractères latins courants seulement, on réessaiera
+      return null;
+    });
+  return police;
+}
 
 const quand = (t: number) => `${new Date(t).toLocaleDateString('fr-FR')} à ${new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
 
@@ -38,9 +57,8 @@ export function FeuilleExportPdf(p: {
 
   useEffect(() => {
     let actif = true;
-    preparer
-      .current()
-      .then((c) => actif && setConstruire(() => c))
+    Promise.all([preparer.current(), chargerPolice()])
+      .then(([c, pol]) => actif && setConstruire(() => (info: InfoExport) => c({ ...info, police: pol })))
       .catch((e: unknown) => actif && setErreur(e instanceof Error ? e.message : 'Préparation impossible.'));
     return () => {
       actif = false;

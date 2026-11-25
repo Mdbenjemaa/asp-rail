@@ -3,9 +3,12 @@
  * Les étapes reprennent l'ordre du support ; la fiche de travail, la consigne PN et le livret de service priment.
  * Chaque étape faite garde son heure : c'est le journal de la mission.
  */
-import { useSyncExternalStore } from 'react';
+import { creerCollection, newId } from '../lib/collection';
 import type { LinePoint } from '../lib/data';
 import { fmtLine, fmtPk } from '../lib/format';
+import { heure, heureDans, jourDe } from '../lib/temps';
+
+export { heure, newId };
 
 export type RolePn = 'travaux' | 'franchissement';
 export type TypePn = 'SAL2' | 'SAL2B' | 'SAL4' | 'SALFC' | 'SAL0';
@@ -48,7 +51,9 @@ export interface Evenement {
   etape?: string;
   /** N° de dépêche, remarque… */
   note?: string;
-  type: 'etape' | 'passage' | 'derangement' | 'note';
+  type: 'etape' | 'passage' | 'derangement' | 'note' | 'annulation';
+  /** Étape décochée ensuite : l'heure d'origine reste au journal, marquée annulée. */
+  annule?: number;
 }
 
 export interface Mission {
@@ -75,6 +80,8 @@ export interface Mission {
   /** Procédure en cours (mobile travaux ou LAM) : étapes cochées de ce passage. */
   enCours: { type: Procedure; debut: number; faits: Record<string, number> } | null;
   fin: number | null;
+  /** Créée par « Nouvelle mission » et pas encore remplie. */
+  brouillon?: boolean;
 }
 
 export interface Etape {
@@ -93,11 +100,7 @@ export interface Phase {
   etapes: Etape[];
 }
 
-export const newId = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-const aujourdhui = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const aujourdhui = () => jourDe(Date.now());
 
 export function nouvelleMission(init: Partial<Mission> = {}): Mission {
   const now = Date.now();
@@ -324,8 +327,6 @@ export function titreMission(m: Mission): string {
   return `${n ? `PN ${n.replace(/^PN\s*/i, '')}` : 'PN sans numéro'}${m.pn.ligne ? ` · ligne ${fmtLine(m.pn.ligne)}` : ''}`;
 }
 
-export const heure = (t: number) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-
 /** Journal de la mission, à envoyer par message ou à recopier dans le carnet du PN. */
 export function journalTexte(m: Mission): string {
   const lignes = [
@@ -341,87 +342,60 @@ export function journalTexte(m: Mission): string {
       .join(' · '),
     [m.contrat && `Contrat travaux ${m.contrat}`, m.indice && `indice ${m.indice}`, m.cch && `CCh ${m.cch}`, m.rptx && `RPTx ${m.rptx}`].filter(Boolean).join(' · '),
     '',
-    ...[...m.journal].sort((a, b) => a.t - b.t).map((e) => `${heure(e.t)}  ${e.texte}${e.note ? ` (${e.note})` : ''}`),
+    ...[...m.journal]
+      .sort((a, b) => a.t - b.t)
+      .map((e) => `${heureDans(e.t, m.date)}  ${e.texte}${e.note ? ` (${e.note})` : ''}${e.annule ? ` [annulée à ${heureDans(e.annule, m.date)}]` : ''}`),
   ];
   if (m.passages || m.lam) lignes.push('', `Mobiles travaux passés : ${m.passages} · LAM mis en voie : ${m.lam}`);
   lignes.push('', 'Aide-mémoire ASP Rail : le carnet du PN et les dépêches officielles font foi.');
   return lignes.filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');
 }
 
-/** Coche ou décoche une étape ; le journal suit. */
+/**
+ * La mission est terminée quand toutes ses étapes obligatoires sont faites (et seulement alors) : à l'heure de la
+ * dernière faite. Recalculé à chaque enregistrement, y compris après une modification du PN ou du rôle.
+ */
+function avecFin(m: Mission): Mission {
+  const obligatoires = toutesEtapes(m).filter((e) => !e.facultative);
+  const toutes = obligatoires.length > 0 && obligatoires.every((e) => m.faits[e.id]);
+  const fin = toutes ? (m.fin ?? Math.max(...obligatoires.map((e) => m.faits[e.id]))) : null;
+  return fin === m.fin ? m : { ...m, fin };
+}
+
+/**
+ * Coche ou décoche une étape ; le journal suit. Décocher ne supprime rien : la ligne d'origine reste au journal,
+ * marquée annulée, et une ligne « Annulé » est ajoutée. Recocher ajoute une nouvelle ligne à l'heure du moment.
+ */
 export function cocher(m: Mission, e: Etape, fait: boolean, note?: string): Mission {
   const now = Date.now();
   const faits = { ...m.faits };
   const depeches = { ...m.depeches };
-  let journal = m.journal.filter((x) => x.etape !== e.id);
+  let journal = m.journal;
   if (fait) {
     faits[e.id] = now;
     if (note) depeches[e.id] = note;
+    else delete depeches[e.id];
     journal = [...journal, { id: newId(), t: now, texte: e.texte, etape: e.id, note: note || undefined, type: 'etape' }];
   } else {
+    const avant = m.faits[e.id];
     delete faits[e.id];
     delete depeches[e.id];
+    // La ligne de l'étape encore valable (la plus récente non annulée) est marquée annulée.
+    const i = journal.map((x) => x.etape === e.id && x.type === 'etape' && !x.annule).lastIndexOf(true);
+    journal = journal.map((x, k) => (k === i ? { ...x, annule: now } : x));
+    if (avant) journal = [...journal, { id: newId(), t: now, texte: `Annulé : ${e.texte}`, note: `faite à ${heureDans(avant, m.date)}`, type: 'annulation' }];
   }
-  const fini = fait && e.id === 'arf';
-  return { ...m, faits, depeches, journal, fin: fini ? now : fait ? m.fin : null };
+  return avecFin({ ...m, faits, depeches, journal });
 }
 
 /* ---------- Stockage sur le téléphone ---------- */
 
-const KEY = 'asp-missions-pn-v1';
-let cache: Mission[] | null = null;
-const listeners = new Set<() => void>();
-
-function lire(): Mission[] {
-  if (cache) return cache;
-  try {
-    const raw = localStorage.getItem(KEY);
-    const list = raw ? (JSON.parse(raw) as Mission[]) : [];
-    cache = Array.isArray(list) ? list.map((m) => ({ ...nouvelleMission(), ...m, pn: { ...nouvelleMission().pn, ...m.pn } })) : [];
-  } catch {
-    cache = [];
-  }
-  return cache;
-}
-function ecrire(list: Mission[]): boolean {
-  cache = list;
-  listeners.forEach((l) => l());
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
-  }
-}
-export function enregistrerMission(m: Mission): boolean {
-  const list = lire();
-  const next = { ...m, updated: Date.now() };
-  const i = list.findIndex((x) => x.id === m.id);
-  return ecrire(i >= 0 ? list.map((x) => (x.id === m.id ? next : x)) : [next, ...list]);
-}
-export function supprimerMission(id: string) {
-  ecrire(lire().filter((x) => x.id !== id));
-}
-export function missionParId(id: string): Mission | null {
-  return lire().find((x) => x.id === id) ?? null;
-}
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === KEY) {
-      cache = null;
-      cb();
-    }
-  };
-  window.addEventListener('storage', onStorage);
-  return () => {
-    listeners.delete(cb);
-    window.removeEventListener('storage', onStorage);
-  };
-}
-export function useMissions(): Mission[] {
-  return useSyncExternalStore(subscribe, lire);
-}
+const missions = creerCollection<Mission>('asp-missions-pn-v1', (m) => ({ ...nouvelleMission(), ...m, pn: { ...nouvelleMission().pn, ...m.pn } }));
+/** Enregistre la mission (fin recalculée) ; false si le téléphone a refusé, l'alerte est déjà partie. */
+export const enregistrerMission = (m: Mission) => missions.enregistrer(avecFin(m));
+export const supprimerMission = missions.supprimer;
+export const missionParId = missions.parId;
+export const useMissions = missions.useListe;
 
 /** Mission à montrer en grand : la dernière en cours, sinon la plus récente. */
 export function missionDuJour(list: Mission[]): Mission | null {

@@ -51,7 +51,7 @@ export function matchScore(query: string, name: string): number | null {
 }
 
 /** Même chose sur des textes déjà passés par normName (pour chercher vite dans une longue liste). */
-export function scoreNorm(q: string, n: string): number | null {
+function scoreNorm(q: string, n: string): number | null {
   if (!q) return null;
   if (n.startsWith(q)) return 0;
   if (n.includes(` ${q}`)) return 1;

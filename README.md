@@ -73,6 +73,22 @@ CADA) ; les étapes par phase avec leur heure et leur dépêche ; le carnet de d
 cadres de signature (l'agent, avec sa signature au doigt, et le CCh, RPTx ou responsable du chantier à signer sur le
 papier). Le journal en texte reste dans le menu « ⋯ » pour un message rapide.
 
+Les noms et notes en arabe ou avec des lettres hors alphabet latin s'impriment correctement : la police DejaVu Sans
+(réduite aux caractères utiles, licence dans `app/src/assets/fonts/`) n'est chargée que si le texte en a besoin.
+
+### Journal fiable
+
+- **Annuler une étape cochée par erreur** : l'appli demande confirmation ; l'heure d'origine reste au journal, barrée
+  « annulée à HH:MM », suivie d'une ligne « Annulé : … » (et la dépêche liée est marquée annulée).
+- **Fin de mission** : une mission n'est « terminée » que quand toutes les étapes obligatoires sont faites (cocher la
+  dernière seule ne suffit pas) ; l'heure de fin est celle de la dernière étape.
+- **Après minuit** : une heure d'un autre jour que celui de la mission porte la date (`00:10 (26/11)`).
+- **Stockage plein** : si le téléphone refuse d'enregistrer, une alerte le dit tout de suite (exporter, puis supprimer
+  d'anciennes missions ou fiches) ; l'appli demande au téléphone de garder ses données durablement.
+- **Fiches vides** : une mission ou un chantier créé puis abandonné avant la première saisie disparaît au lancement.
+- Une mise à jour de l'appli n'interrompt jamais une feuille ouverte (signature, note…) ; le zoom à deux doigts reste
+  possible partout.
+
 ## Repérage (repris de PK Rail)
 
 | Fonction | Ce qu'elle fait |
@@ -107,19 +123,25 @@ npm run check    # tout : lint, tests unitaires, construction, puis tests dans u
 ```
 
 Le moteur de l'annonce est dans `app/src/asp/rules.ts` (testé dans `rules.test.ts` et `cas.test.ts`) ; les écrans de
-l'ASP dans `app/src/asp/`, le code d'accès dans `app/src/access/` et l'administration dans `app/src/admin/`.
+l'ASP dans `app/src/asp/`, l'activité PN dans `app/src/pn/`, LAM / S9 dans `app/src/lam/`, le code d'accès dans
+`app/src/access/` et l'administration dans `app/src/admin/`. Partagé : `lib/collection.ts` (missions gardées sur le
+téléphone, brouillons, stockage plein), `lib/temps.ts` (heures et dates), `lib/pdfKit.ts` (mise en page des PDF),
+`app/` (thème, mise en page, accès, signalements, création — sortis de `App.tsx`).
 
 L'import d'un lien Google My Maps (« Mes accès ») passe par la fonction serveur `mymaps` du même projet Supabase :
 le navigateur ne peut pas lire Google directement.
 
 ### Tests dans un navigateur
 
-`npm run e2e` (après `npm run build`) ouvre l'appli construite dans Chrome, en téléphone simulé avec un GPS simulé
+`npm run e2e` (après `npm run build`) ouvre l'appli construite dans Chrome et, s'il est installé
+(`npx playwright install webkit`), dans Safari (WebKit, le moteur de l'iPhone), en téléphone simulé avec un GPS simulé
 le long de la ligne 830 000 à Lieusaint. Repérage : premier lancement, Me repérer, suivi du PK, recherche, Aller au
 PK, couches, mes accès, signalements, menu, GPS refusé, petit écran, sans réseau. ASP : code d'accès (refusé,
 accepté, gardé, coupé, lien reçu), espace administrateur, nouveau chantier pas à pas (position, vitesse de la ligne,
 résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
-obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran.
+obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
+LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Dans
+Safari, six tests qui simulent des capteurs ou des gestes propres à Chrome sont sautés (raison indiquée dans le test).
 Internet est coupé pendant les tests (le serveur du code est simulé). `SHOTS=1` enregistre des captures dans
 `app/e2e-shots/`.
 

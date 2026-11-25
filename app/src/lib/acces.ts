@@ -80,7 +80,7 @@ function firstCoordinate(text: string): LonLat | null {
 }
 
 /** Points d'un fichier KML : nom, description, données associées, et position. */
-export function parseKml(text: string): { title: string | null; points: RawPoint[] } {
+function parseKml(text: string): { title: string | null; points: RawPoint[] } {
   const xml = new DOMParser().parseFromString(text, 'application/xml');
   if (xml.getElementsByTagName('parsererror').length) throw new Error('Fichier KML illisible');
   const doc = xml.getElementsByTagName('Document')[0];
@@ -107,7 +107,7 @@ export function parseKml(text: string): { title: string | null; points: RawPoint
 }
 
 /** Points d'un GeoJSON (points, ou premier sommet des lignes et surfaces). */
-export function parseGeoJson(text: string): { title: string | null; points: RawPoint[] } {
+function parseGeoJson(text: string): { title: string | null; points: RawPoint[] } {
   const fc = JSON.parse(text) as FeatureCollection;
   if (!fc || !Array.isArray(fc.features)) throw new Error('GeoJSON sans éléments');
   const points: RawPoint[] = [];
@@ -135,7 +135,7 @@ const MYMAPS_ERR: Record<string, string> = {
 };
 
 /** Va chercher le KML complet d'une carte Google My Maps (par le serveur de l'appli : le navigateur ne peut pas lire Google). */
-export async function fetchMyMaps(src: { mid: string } | { link: string }): Promise<string> {
+async function fetchMyMaps(src: { mid: string } | { link: string }): Promise<string> {
   const offline = 'Pas de réseau : il en faut pour aller chercher les points sur Google My Maps. Réessaie quand tu as du réseau.';
   if (!navigator.onLine) throw new Error(offline);
   const res = await fetch(`${SB_URL}/functions/v1/mymaps`, {
@@ -169,7 +169,7 @@ async function fromKml(text: string): Promise<Parsed> {
 }
 
 /** Importe une carte Google My Maps à partir de son lien (celui qu'on partage ou qu'on copie dans le navigateur). */
-export async function readMyMapsLink(link: string): Promise<Parsed> {
+async function readMyMapsLink(link: string): Promise<Parsed> {
   const mid = myMapsId(link);
   if (mid) return parseKml(await fetchMyMaps({ mid }));
   // Lien court du bouton Partager (maps.app.goo.gl) : le serveur le suit jusqu'à la carte.
@@ -181,7 +181,7 @@ export async function readMyMapsLink(link: string): Promise<Parsed> {
 /** Lit un fichier importé : .kml, .kmz (KML compressé, export par défaut de My Maps), .geojson, .json. */
 const MAX_FILE = 30 * 1024 * 1024;
 
-export async function readAccesFile(file: File): Promise<Parsed> {
+async function readAccesFile(file: File): Promise<Parsed> {
   if (file.size > MAX_FILE) throw new Error('Fichier trop gros (plus de 30 Mo) : ce n’est sans doute pas une carte d’accès.');
   const lower = file.name.toLowerCase();
   const bytes = new Uint8Array(await file.arrayBuffer());
