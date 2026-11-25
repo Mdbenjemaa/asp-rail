@@ -5,16 +5,28 @@
 import { useMemo, useState } from 'react';
 import { loadAccess } from '../access/gate';
 import { Icon } from '../components/parts';
+import { PREVIEW } from '../lib/env';
 import { fmtLine } from '../lib/format';
 import { calculChantier, titreChantier, zoneTexte } from './chantier';
 import type { Ctx } from './contexte';
 import { chantierDuJour, jourTexte, today } from './etat';
 import { ListeChantiers } from './Fiche';
+import { usePositionDirecte } from './direct';
 import { Annonce, Etat } from './kit';
+import { CaseCalcul, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from './Widgets';
 import { useActif, useChantiers } from './store';
 
-export function Accueil(p: { ctx: Ctx; onNew: () => void; onMenu: () => void; onWhere: () => void; onTab: (t: 'calcul' | 'reviser') => void }) {
+export function Accueil(p: {
+  ctx: Ctx;
+  /** Un écran est ouvert par-dessus : le GPS de l'accueil s'arrête. */
+  couvert: boolean;
+  onNew: () => void;
+  onMenu: () => void;
+  onWhere: () => void;
+  onTab: (t: 'calcul' | 'reviser') => void;
+}) {
   const list = useChantiers();
+  const direct = usePositionDirecte(!p.couvert && !PREVIEW);
   const actif = useActif();
   const c = chantierDuJour(list, actif);
   const r = useMemo(() => (c ? calculChantier(c) : null), [c]);
@@ -80,45 +92,14 @@ export function Accueil(p: { ctx: Ctx; onNew: () => void; onMenu: () => void; on
         </button>
       )}
 
-      <h2 className="ds-section-title">Raccourcis</h2>
+      <h2 className="ds-section-title">En direct</h2>
       <div className="ds-grid">
-        <button className="ds-quick" onClick={p.onWhere}>
-          <span className="ds-quick-ico">
-            <Icon name="locate" />
-          </span>
-          <span>
-            <b>Où suis-je ?</b>
-            <small>Ligne et PK au mètre</small>
-          </span>
-        </button>
-        <button className="ds-quick" onClick={() => p.onTab('calcul')}>
-          <span className="ds-quick-ico">
-            <Icon name="calc" />
-          </span>
-          <span>
-            <b>Calcul rapide</b>
-            <small>Vitesse et délai → distance</small>
-          </span>
-        </button>
-        <button className="ds-quick" onClick={() => p.ctx.open({ k: 'memo' })}>
-          <span className="ds-quick-ico">
-            <Icon name="book" />
-          </span>
-          <span>
-            <b>Mémo ASP</b>
-            <small>Les règles, en clair</small>
-          </span>
-        </button>
-        <button className="ds-quick" onClick={() => p.ctx.open({ k: 'quiz' })}>
-          <span className="ds-quick-ico">
-            <Icon name="sparkle" />
-          </span>
-          <span>
-            <b>Quiz</b>
-            <small>10 questions pour réviser</small>
-          </span>
-        </button>
+        <CaseOu etat={direct.etat} pos={direct.pos} onClick={p.onWhere} />
+        <CaseCalcul pos={direct.etat === 'ok' ? direct.pos : null} onClick={() => p.onTab('calcul')} />
+        <CaseMemo onClick={() => p.ctx.open({ k: 'memo' })} />
+        <CaseQuiz onClick={() => p.ctx.open({ k: 'quiz' })} />
       </div>
+      <QuestionDuJour onQuiz={() => p.ctx.open({ k: 'quiz' })} />
 
       {autres.length > 0 && (
         <>

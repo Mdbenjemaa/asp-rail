@@ -311,3 +311,40 @@ body { background: var(--page); }
 .ds-scroll .asp-voie { margin-bottom: 12px; }
 .ds-fix { margin-top: 10px; background: var(--bg); border: 2px solid var(--line); white-space: normal; text-align: left; padding: 12px 18px; min-height: 56px; }
 .night .ds-btn.dark { background: var(--surface-3); color: var(--ink); }
+
+/* ---------- Cases vivantes de l'accueil ---------- */
+.ds-quick.live { min-height: 132px; justify-content: flex-start; gap: 12px; }
+.ds-quick-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 42px; }
+.ds-quick-val { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-quick-val small { margin: 0; }
+.ds-quick-big { font-size: 22px; line-height: 1.15; font-weight: 900; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; animation: ds-fade 0.35s ease-out; }
+.ds-quick-rule { font-size: 15px; line-height: 1.3; font-weight: 800; animation: ds-fade 0.5s ease-out; }
+.ds-quick-count { font-size: 12px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ds-quick.live.on .ds-quick-ico { background: var(--ok-bg); color: var(--ok-ink); }
+.ds-live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 850; color: var(--ok); white-space: nowrap; }
+.ds-live i { width: 8px; height: 8px; border-radius: 4px; background: currentColor; animation: ds-pulse 1.6s ease-in-out infinite; }
+.ds-ring-bg { fill: none; stroke: var(--surface-3); stroke-width: 4.5; }
+.ds-ring-fg { fill: none; stroke: var(--brand-line); stroke-width: 4.5; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 21px 21px; transition: stroke-dasharray 0.6s ease; }
+.ds-ring text { fill: var(--ink); font-size: 11px; font-weight: 850; }
+.ds-qdj { margin-top: 10px; }
+.ds-qdj-q { margin: 10px 0 14px; font-size: 18px; line-height: 1.35; font-weight: 850; }
+.ds-qdj-choix { display: flex; flex-direction: column; gap: 8px; }
+.ds-qdj-btn { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 10px 16px; border: 2px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--ink); font-size: 15.5px; font-weight: 700; text-align: left; }
+.ds-qdj-btn.juste { border-color: var(--ok); background: var(--ok-bg); color: var(--ok-ink); opacity: 1; }
+.ds-qdj-btn.faux { border-color: #dc2626; background: var(--err-bg); color: var(--err-ink); opacity: 1; }
+.ds-qdj-btn.grise { opacity: 0.5; }
+.ds-qdj-expl { margin: 12px 0 4px; font-size: 15px; line-height: 1.45; color: var(--muted); }
+@keyframes ds-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
+@keyframes ds-fade { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ds-live i, .ds-quick-big, .ds-quick-rule { animation: none; }
+}
+@media (max-width: 400px) {
+  .ds-live { font-size: 0; gap: 0; }
+  .ds-live i { width: 10px; height: 10px; border-radius: 5px; }
+  .ds-quick.live { padding: 12px; }
+}
+@media (max-width: 360px) {
+  .ds-quick-big { font-size: 19px; }
+  .ds-quick-rule { font-size: 14px; }
+}

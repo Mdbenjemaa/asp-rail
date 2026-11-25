@@ -1,12 +1,12 @@
 /** Onglet « Réviser » : mémo, quiz et cas pratiques du support TES M – compétence ASP. */
-import { loadPref } from '../lib/me';
 import type { Ctx } from './contexte';
 import { Ligne, Section } from './kit';
 import { MEMO } from './memo';
 import { QUESTIONS } from './quiz';
+import { useQuizStats } from './quizStats';
 
 export function Reviser({ ctx }: { ctx: Ctx }) {
-  const erreurs = loadPref<string[]>('asp-quiz-erreurs', []).length;
+  const { erreurs, justes } = useQuizStats();
   return (
     <main className="ds-page" aria-label="Réviser">
       <header className="ds-page-head">
@@ -21,7 +21,7 @@ export function Reviser({ ctx }: { ctx: Ctx }) {
           icon="sparkle"
           badgeClass="brand"
           title="Quiz"
-          sub={erreurs ? `${erreurs} erreur${erreurs > 1 ? 's' : ''} à revoir · ${QUESTIONS.length} questions` : `${QUESTIONS.length} questions avec explications`}
+          sub={erreurs ? `${erreurs} erreur${erreurs > 1 ? 's' : ''} à revoir · ${justes}/${QUESTIONS.length} sues` : `${QUESTIONS.length} questions avec explications`}
           onClick={() => ctx.open({ k: 'quiz' })}
         />
         <Ligne icon="calc" badgeClass="brand" title="Cas pratiques" sub="Les 7 exercices « Terrain et CADA », corrigés" onClick={() => ctx.open({ k: 'cas' })} />

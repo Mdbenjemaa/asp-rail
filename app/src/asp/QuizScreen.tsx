@@ -1,10 +1,10 @@
 /** Quiz de révision : séries de questions, explication après chaque réponse, et reprise de ses erreurs. */
 import { useMemo, useState } from 'react';
-import { loadPref, savePref } from '../lib/me';
+import { loadPref } from '../lib/me';
 import { melanger, QUESTIONS, THEMES, type Question } from './quiz';
+import { ERREURS, noterReponse } from './quizStats';
 import { ScreenHead } from './ui';
 
-const KEY = 'asp-quiz-erreurs';
 
 interface Tour {
   q: Question;
@@ -15,17 +15,13 @@ interface Tour {
 const preparer = (qs: Question[]): Tour[] => melanger(qs).map((q) => ({ q, ordre: melanger(q.choix.map((_, i) => i)) }));
 
 export function QuizScreen({ onBack }: { onBack: () => void }) {
-  const [erreurs, setErreurs] = useState<string[]>(() => loadPref<string[]>(KEY, []));
+  const [erreurs, setErreurs] = useState<string[]>(() => loadPref<string[]>(ERREURS, []));
   const [serie, setSerie] = useState<Tour[] | null>(null);
   const [i, setI] = useState(0);
   const [choisi, setChoisi] = useState<number | null>(null);
   const [score, setScore] = useState<{ ok: number; rates: Tour[] }>({ ok: 0, rates: [] });
   const [theme, setTheme] = useState<string | null>(null);
 
-  const garder = (ids: string[]) => {
-    setErreurs(ids);
-    savePref(KEY, ids);
-  };
   const lancer = (qs: Question[]) => {
     setSerie(preparer(qs));
     setI(0);
@@ -98,13 +94,9 @@ export function QuizScreen({ onBack }: { onBack: () => void }) {
   const repondre = (idx: number) => {
     if (repondu) return;
     setChoisi(idx);
-    if (idx === t.q.bonne) {
-      setScore((s) => ({ ...s, ok: s.ok + 1 }));
-      if (erreurs.includes(t.q.id)) garder(erreurs.filter((x) => x !== t.q.id));
-    } else {
-      setScore((s) => ({ ...s, rates: [...s.rates, t] }));
-      if (!erreurs.includes(t.q.id)) garder([...erreurs, t.q.id]);
-    }
+    if (idx === t.q.bonne) setScore((s) => ({ ...s, ok: s.ok + 1 }));
+    else setScore((s) => ({ ...s, rates: [...s.rates, t] }));
+    setErreurs(noterReponse(t.q.id, idx === t.q.bonne));
   };
   return (
     <div className="screen asp-screen" role="dialog" aria-label="Quiz">

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, fakeShare, fmtPkTest, openApp, pkValue, shot, showPoint, test } from './helpers';
+import { expect, fakeShare, fmtPkTest, openApp, pkValue, pointAtPk, shot, showPoint, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -393,4 +393,40 @@ test('petit écran (320 × 568) : accueil, parcours, fiche et onglets ne débord
     await page.getByRole('navigation', { name: 'Navigation principale' }).getByRole('button', { name: tab }).click();
     expect(await deborde(), tab).toEqual({ sw: 320, bad: [] });
   }
+});
+
+test('accueil en direct : position qui suit l’agent, distance à la vitesse de la ligne, mémo, quiz et question du jour', async ({ page }) => {
+  await openApp(page, { home: true });
+  // GPS déjà autorisé : la case se remplit toute seule, sans rien toucher.
+  const ou = page.getByRole('button', { name: /^Où suis-je : ligne 830 000, PK 28\+\d{3}$/ });
+  await expect(ou).toBeVisible({ timeout: 20_000 });
+  await expect(ou).toContainText('En direct');
+  // L'agent marche le long des voies : le PK suit.
+  await page.context().setGeolocation({ ...pointAtPk('830000', 29.2), accuracy: 4 });
+  await expect(page.getByRole('button', { name: /^Où suis-je : ligne 830 000, PK 29\+[12]\d{2}$/ })).toBeVisible({ timeout: 15_000 });
+  // Calcul : vitesse de la ligne à cet endroit (160 km/h) → 450 m à 10 s.
+  await expect(page.getByRole('button', { name: 'Calcul rapide : 160 km/h, 450 m à 10 s' })).toBeVisible();
+  await shot(page, '07-accueil-direct');
+
+  // Mémo : la règle change toute seule.
+  const regle = page.getByRole('button', { name: 'Mémo ASP' }).locator('.ds-quick-rule');
+  const avant = await regle.innerText();
+  await expect(regle).not.toHaveText(avant, { timeout: 10_000 });
+
+  // Question du jour : la réponse compte dans la progression du quiz, et reste affichée dans la journée.
+  const quiz = page.getByRole('button', { name: /^Quiz : / });
+  await expect(quiz).toHaveAccessibleName(/^Quiz : 0 %/);
+  const qdj = page.getByRole('region', { name: 'Question du jour' });
+  await qdj.locator('.ds-qdj-btn').first().click();
+  await expect(qdj.locator('.ds-status')).toHaveText(/Bonne réponse|À revoir/);
+  const juste = (await qdj.locator('.ds-status').innerText()) === 'Bonne réponse';
+  await expect(quiz).toContainText(juste ? /1\/\d+ sues/ : '1 erreur à revoir');
+  await expect(qdj.locator('.ds-qdj-expl')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Question du jour' }).locator('.ds-status')).toHaveText(juste ? 'Bonne réponse' : 'À revoir');
+
+  // Un écran ouvert par-dessus : le GPS de l'accueil s'arrête (il reprend au retour).
+  await page.getByRole('button', { name: 'Nouveau chantier' }).first().click();
+  await page.getByRole('dialog', { name: 'Nouveau chantier' }).getByRole('button', { name: 'Fermer' }).click();
+  await expect(page.getByRole('button', { name: /^Où suis-je : ligne 830 000/ })).toBeVisible({ timeout: 15_000 });
 });

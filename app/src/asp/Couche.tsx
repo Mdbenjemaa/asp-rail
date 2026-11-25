@@ -19,7 +19,7 @@ export function Couche(p: { tab: Onglet; pile: Vue[]; ctx: Ctx; onNew: () => voi
   const top = p.pile.length - 1;
   return (
     <>
-      {p.tab === 'accueil' && <Accueil ctx={ctx} onNew={p.onNew} onMenu={p.onMenu} onWhere={p.onWhere} onTab={p.onTab} />}
+      {p.tab === 'accueil' && <Accueil ctx={ctx} couvert={p.pile.length > 0} onNew={p.onNew} onMenu={p.onMenu} onWhere={p.onWhere} onTab={p.onTab} />}
       {p.tab === 'calcul' && <CalculRapide />}
       {p.tab === 'reviser' && <Reviser ctx={ctx} />}
       {p.pile.map((v, k) => {
