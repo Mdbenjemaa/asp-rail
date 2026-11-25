@@ -8,7 +8,9 @@ import { fmtLine, fmtPk } from '../lib/format';
 import type { Ctx } from '../asp/contexte';
 import { Feuille } from '../asp/Fiche';
 import { Ecran, Ligne, Section } from '../asp/kit';
-import { partagerTexte } from '../asp/partage';
+import { FeuilleExportPdf } from '../asp/ExportPdf';
+import { messageEnvoi, partagerTexte } from '../asp/partage';
+import { loadLine } from '../lib/data';
 import { useHorloge } from '../pn/horloge';
 import { FeuilleDepeche } from './Depeche';
 import {
@@ -21,6 +23,7 @@ import {
   enregistrerMissionLam,
   heure,
   journalTexteLam,
+  missionLamParId,
   noterDepeche,
   numerosUtilises,
   OUTIL_S9,
@@ -74,7 +77,7 @@ const SITUATIONS: { id: string; titre: string; icon: 'flag' | 'arrow' | 'tracks'
   },
 ];
 
-type FeuilleOuverte = null | 'plus' | 'note' | { k: 'depeche'; etape?: EtapeLam } | { k: 'situation'; id: string };
+type FeuilleOuverte = null | 'plus' | 'note' | 'pdf' | { k: 'depeche'; etape?: EtapeLam } | { k: 'situation'; id: string };
 
 export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
   const m = useMissionsLam().find((x) => x.id === p.id) ?? null;
@@ -125,7 +128,7 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
       }
       actions={
         <>
-          <button className="ds-btn" onClick={partager}>
+          <button className="ds-btn" onClick={() => setFeuille('pdf')}>
             <Icon name="share" size={20} />
             Journal
           </button>
@@ -350,6 +353,21 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
           }}
         />
       )}
+      {feuille === 'pdf' && (
+        <FeuilleExportPdf
+          titre={`Journal · ${titreMissionLam(m)}`}
+          docId={m.id}
+          preparer={async () => {
+            const [{ journalLamPdf }, ligne] = await Promise.all([import('./pdf'), m.lieu.ligne ? loadLine(m.lieu.ligne).catch(() => null) : Promise.resolve(null)]);
+            return (info) => journalLamPdf(missionLamParId(m.id) ?? m, info, ligne);
+          }}
+          onClose={() => setFeuille(null)}
+          onFini={(e) => {
+            setFeuille(null);
+            p.ctx.onToast(messageEnvoi(e));
+          }}
+        />
+      )}
       {situation && (
         <Feuille title={situation.titre} onClose={() => setFeuille(null)}>
           <p className="ds-next-aide" style={{ marginTop: 0 }}>
@@ -400,7 +418,16 @@ export function MissionLamScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) 
               }}
             />
           )}
-          <Ligne icon="share" title="Partager le journal" chevron={false} onClick={partager} />
+          <Ligne icon="file" title="Journal en PDF" chevron={false} onClick={() => setFeuille('pdf')} />
+          <Ligne
+            icon="message"
+            title="Journal en texte, par message"
+            chevron={false}
+            onClick={() => {
+              setFeuille(null);
+              partager();
+            }}
+          />
           <Ligne
             icon="trash"
             title="Supprimer la mission"

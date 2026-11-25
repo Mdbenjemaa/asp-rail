@@ -58,6 +58,21 @@ l'activité.
 | Urgences (3e onglet) | Fiches réflexes du livret : conducteur défaillant, SAM franchi, gabarit ou point protégé engagé, dérive, vitesse excessive, conducteur électrique tombé ; aléas (consignes non respectées, panne, câble endommagé, changement de point de mise en voie ou d'organisation, aléa S9). Notées au journal si on vient d'une mission. |
 | Réviser | Mémo LAM / S9 (20 fiches), quiz avec explications, et 7 cas pratiques « remets les gestes dans l'ordre ». |
 
+### Export PDF des journaux et de la fiche CADA
+
+Le bouton « Journal » d'une mission PN ou LAM / S9, et « Partager › Fiche CADA en PDF » d'un chantier, ouvrent la
+feuille « Exporter en PDF » : nom de l'agent (gardé sur le téléphone), signature au doigt (facultative, gardée pour la
+mission ou le chantier), puis « Créer le PDF et partager » (menu de partage du téléphone, sinon téléchargement).
+
+Le PDF (A4, jsPDF) est fait sur le téléphone, même sans réseau. Il porte « Créé le JJ/MM/AAAA à HH:MM » dans le
+bandeau, le pied de chaque page et le nom du fichier (`Journal-PN-PN26-2026-11-25-1025.pdf`,
+`Journal-AP-S9-A3-…`, `CADA-…`). Contenu : la mission ou le chantier ; un plan de situation dessiné depuis la
+géométrie de la ligne (voie tournée pour que les PK croissent vers la droite, gares, PN, signaux, repères de PK, nord,
+échelle, coordonnées et lien « Ouvrir dans une carte » ; zone de travail, points d'annonce et agents pour la fiche
+CADA) ; les étapes par phase avec leur heure et leur dépêche ; le carnet de dépêches (LAM / S9) ; les événements ; deux
+cadres de signature (l'agent, avec sa signature au doigt, et le CCh, RPTx ou responsable du chantier à signer sur le
+papier). Le journal en texte reste dans le menu « ⋯ » pour un message rapide.
+
 ## Repérage (repris de PK Rail)
 
 | Fonction | Ce qu'elle fait |

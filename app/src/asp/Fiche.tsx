@@ -25,7 +25,9 @@ import { AgentCard } from './Dispositif';
 import { annonceurParSens, codesAgents, controlesDispositif, surveilleTexteCourt } from './dispositif';
 import { AlertesDs, Annonce, CorrectionDfv, Ecran, Etat, Ligne, Section } from './kit';
 import { useLigne } from './lignes';
-import { nomFichier, partagerFichier, partagerTexte, resumeTexte, type Envoi } from './partage';
+import { FeuilleExportPdf } from './ExportPdf';
+import { messageEnvoi, partagerTexte, resumeTexte, type Envoi } from './partage';
+import { loadLine } from '../lib/data';
 import type { Resultat } from './rules';
 import { definirActif, enregistrer, supprimer, useActif, useChantiers } from './store';
 import { Champ, Nombre } from './ui';
@@ -51,7 +53,7 @@ export function Feuille(p: { title: string; onClose: () => void; children: React
   );
 }
 
-type FeuilleOuverte = { k: 'agent'; id: string } | { k: 'ajouter' } | { k: 'equipe' } | { k: 'partager' } | { k: 'plus' } | null;
+type FeuilleOuverte = { k: 'agent'; id: string } | { k: 'ajouter' } | { k: 'equipe' } | { k: 'partager' } | { k: 'pdf' } | { k: 'plus' } | null;
 
 export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
   const c = useChantiers().find((x) => x.id === p.id) ?? null;
@@ -60,7 +62,6 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
   const { doc } = useLigne(c?.ligne ?? null);
   const [feuille, setFeuille] = useState<FeuilleOuverte>(null);
   const [rappels, setRappels] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   if (!c || !r) {
     return (
@@ -92,21 +93,6 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
             ? 'Partage indisponible ici : le résumé est copié, colle-le dans un message.'
             : 'Envoi annulé.',
     );
-  // Le partage doit partir du toucher lui-même (sinon le téléphone le refuse) : le PDF est fait juste avant.
-  const pdf = async () => {
-    setBusy(true);
-    try {
-      const { fichePdf } = await import('./pdf');
-      const file = new File([fichePdf(c, r)], nomFichier(c), { type: 'application/pdf' });
-      envoi(await partagerFichier(file, `Fiche CADA · ${titreChantier(c)}`), 'PDF');
-      setFeuille(null);
-    } catch (e) {
-      p.ctx.onToast(e instanceof Error ? `PDF impossible : ${e.message}` : 'PDF impossible.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const ajouter = (role: Exclude<RoleAgent, 'asp'>) => {
     const a: Agent = { id: newId(), role, nom: '', entreprise: c.entreprise, pk: null, surveille: [] };
     set({ agents: [...c.agents, a] });
@@ -284,9 +270,25 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
           </button>
         </Feuille>
       )}
+      {feuille?.k === 'pdf' && (
+        <FeuilleExportPdf
+          titre={`Fiche CADA · ${titreChantier(c)}`}
+          docId={c.id}
+          defautNom={c.asp}
+          preparer={async () => {
+            const [{ fichePdf }, ligne] = await Promise.all([import('./pdf'), c.ligne ? loadLine(c.ligne).catch(() => null) : Promise.resolve(null)]);
+            return (info) => fichePdf(c, r, info, ligne);
+          }}
+          onClose={() => setFeuille(null)}
+          onFini={(e) => {
+            setFeuille(null);
+            p.ctx.onToast(messageEnvoi(e));
+          }}
+        />
+      )}
       {feuille?.k === 'partager' && (
         <Feuille title="Partager" onClose={() => setFeuille(null)}>
-          <Ligne icon="file" title={busy ? 'Préparation du PDF…' : 'Fiche CADA en PDF'} sub="Pour l’imprimer ou l’envoyer" onClick={busy ? undefined : () => void pdf()} />
+          <Ligne icon="file" title="Fiche CADA en PDF" sub="Avec le plan de situation et ta signature" onClick={() => setFeuille({ k: 'pdf' })} />
           <Ligne
             icon="message"
             title="Résumé par message"

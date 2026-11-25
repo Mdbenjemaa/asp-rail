@@ -1,4 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test as base, type BrowserContext, type Page } from '@playwright/test';
 
 /** Lieusaint-Moissy, à côté des voies de la ligne 830 000 (Paris-Lyon à Marseille), PK ≈ 28+718. */
@@ -204,3 +207,59 @@ export const test = base.extend<{ pageErrors: string[] }>({
 });
 
 export { expect };
+
+/**
+ * Exporte en PDF depuis la feuille « Exporter en PDF » déjà ouverte : nom de l'agent, signature au doigt (souris),
+ * puis partage. Rend le nom du fichier et son texte (pdftotext).
+ */
+export async function exporterPdf(page: Page, opts: { nom?: string; signer?: boolean; partage?: number } = {}) {
+  const feuille = page.getByRole('dialog', { name: 'Exporter en PDF' });
+  await expect(feuille).toBeVisible();
+  if (opts.nom !== undefined) await feuille.getByLabel('Ton nom (agent)').fill(opts.nom);
+  if (opts.signer) {
+    const cadre = feuille.getByLabel('Cadre de signature');
+    await cadre.scrollIntoViewIfNeeded();
+    // La feuille monte en glissant : on attend qu'elle soit à sa place avant de signer.
+    let box = (await cadre.boundingBox())!;
+    for (let k = 0; k < 20; k++) {
+      await page.waitForTimeout(100);
+      const b = (await cadre.boundingBox())!;
+      if (Math.abs(b.y - box.y) < 0.5) break;
+      box = b;
+    }
+    await page.mouse.move(box.x + 30, box.y + box.height * 0.6);
+    await page.mouse.down();
+    for (const [dx, dy] of [
+      [60, -30],
+      [100, 20],
+      [150, -25],
+      [210, 15],
+    ])
+      await page.mouse.move(box.x + dx, box.y + box.height * 0.5 + dy, { steps: 4 });
+    await page.mouse.up();
+    await expect(feuille.getByRole('button', { name: 'Effacer' })).toBeVisible();
+  }
+  const bouton = feuille.getByRole('button', { name: 'Créer le PDF et partager' });
+  await expect(bouton).toBeEnabled({ timeout: 15_000 });
+  await bouton.click();
+  await expect(feuille).toHaveCount(0);
+  const f = await page.evaluate(async (i) => {
+    const all = (window as unknown as { __partages: ShareData[] }).__partages.filter((x) => x.files?.length);
+    const file = all[i ?? all.length - 1].files![0];
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bin = '';
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return { name: file.name, type: file.type, b64: btoa(bin) };
+  }, opts.partage);
+  const dir = mkdtempSync(join(tmpdir(), 'asp-pdf-'));
+  const chemin = join(dir, f.name);
+  writeFileSync(chemin, Buffer.from(f.b64, 'base64'));
+  const texte = execFileSync('pdftotext', ['-layout', chemin, '-'], { encoding: 'utf8' });
+  // Images du PDF (sans les masques de transparence).
+  const images = execFileSync('pdfimages', ['-list', chemin], { encoding: 'utf8' })
+    .trim()
+    .split('\n')
+    .slice(2)
+    .filter((l) => l.trim().split(/\s+/)[2] === 'image').length;
+  return { name: f.name, type: f.type, texte, plat: texte.replace(/\s+/g, ' '), images, chemin };
+}

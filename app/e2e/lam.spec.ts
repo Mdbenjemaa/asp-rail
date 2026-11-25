@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { EXERCICES_LAM } from '../src/lam/ordre';
-import { expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
+import { exporterPdf, expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -109,13 +109,12 @@ test('AP S9 : contrôle DSh en direct, bouclage par dépêches, passage d’un t
   // Retrait jusqu'à la fin, puis le journal partagé.
   await avancer(page, mission, mission.getByRole('heading', { name: 'Mission terminée' }), numeros);
   await mission.getByRole('button', { name: 'Journal', exact: true }).click();
-  const partage = await page.evaluate(() => (window as unknown as { __partages: ShareData[] }).__partages[0]);
-  expect(partage.text).toContain('AP S9 · A3');
-  expect(partage.text).toContain('RPTx : M. Jean');
-  expect(partage.text).toContain('Passage du train travaux n° 1');
-  expect(partage.text).toContain('Aléa : aléa ou doute pendant une mission S9');
-  expect(partage.text).toMatch(/Dépêches\n/);
-  for (const x of numeros) expect(partage.text).toContain(x);
+  const pdf = await exporterPdf(page, { nom: 'Moo Test' });
+  expect(pdf.name).toMatch(/^Journal-AP-S9-A3-\d{4}-\d{2}-\d{2}-\d{4}\.pdf$/);
+  for (const x of ['Journal de mission AP S9', 'AP S9 · A3 · ligne 830 000', 'Agent : Moo Test', 'Plan de situation', 'Carnet de dépêches', 'M. Jean', 'Passage du train travaux n° 1', 'Aléa : aléa ou doute pendant une mission S9'])
+    expect(pdf.plat, x).toContain(x);
+  for (const x of numeros) expect(pdf.plat).toMatch(new RegExp(`\\b${x}\\b`));
+  expect(pdf.images).toBe(0);
   await shot(page, '34-mission-s9-fin');
 });
 

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, fakeShare, fmtPkTest, openApp, pkValue, pointAtPk, shot, showPoint, test } from './helpers';
+import { exporterPdf, expect, fakeShare, fmtPkTest, openApp, pkValue, pointAtPk, shot, showPoint, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -229,15 +229,14 @@ test('nouveau chantier pas à pas : position, vitesse de la ligne, résultat, an
   expect(resume).toContain(`890 m → point d’annonce PK ${fmtPkTest(debut - 0.89)}`);
   await fiche.getByRole('button', { name: 'Partager' }).click();
   await page.getByRole('dialog', { name: 'Partager' }).getByRole('button', { name: /Fiche CADA en PDF/ }).click();
+  const pdf = await exporterPdf(page, { nom: 'Moo Test', signer: true });
   await expect(page.locator('.ds-snack')).toContainText('PDF envoyé');
-  const pdf = await page.evaluate(async () => {
-    const f = (window as unknown as { __partages: ShareData[] }).__partages[1].files![0];
-    return { name: f.name, type: f.type, size: f.size, head: await f.slice(0, 5).text() };
-  });
-  expect(pdf.name).toMatch(/^CADA-.+\.pdf$/);
+  expect(pdf.name).toMatch(/^CADA-.+-\d{4}-\d{2}-\d{2}-\d{4}\.pdf$/);
   expect(pdf.type).toBe('application/pdf');
-  expect(pdf.head).toBe('%PDF-');
-  expect(pdf.size).toBeGreaterThan(5000);
+  expect(pdf.texte).toMatch(/Créé le\s+\d{2}\/\d{2}\/\d{4} à \d{2}:\d{2}/);
+  for (const x of ['Fiche CADA', 'Agent : Moo Test', 'Plan de situation', 'Distances et points d’annonce', 'Signatures', 'Signé sur le téléphone le'])
+    expect(pdf.texte, x).toContain(x);
+  expect(pdf.images).toBe(1);
 
   // Retour à l'accueil : c'est le chantier du jour, avec ses points d'annonce.
   await fiche.getByRole('button', { name: 'Retour' }).click();

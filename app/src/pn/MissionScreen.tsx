@@ -9,7 +9,9 @@ import { fmtLine, fmtPk } from '../lib/format';
 import type { Ctx } from '../asp/contexte';
 import { Feuille } from '../asp/Fiche';
 import { Ecran, Ligne, Section } from '../asp/kit';
-import { partagerTexte } from '../asp/partage';
+import { FeuilleExportPdf } from '../asp/ExportPdf';
+import { messageEnvoi, partagerTexte } from '../asp/partage';
+import { loadLine } from '../lib/data';
 import {
   ajouterNote,
   avancement,
@@ -19,6 +21,7 @@ import {
   enregistrerMission,
   heure,
   journalTexte,
+  missionParId,
   phases,
   procedure,
   PROCEDURE_TITRE,
@@ -41,7 +44,7 @@ const duree = (ms: number) => {
 export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
   const m = useMissions().find((x) => x.id === p.id) ?? null;
   const [note, setNote] = useState('');
-  const [feuille, setFeuille] = useState<null | 'plus' | 'note'>(null);
+  const [feuille, setFeuille] = useState<null | 'plus' | 'note' | 'pdf'>(null);
   const [texteNote, setTexteNote] = useState('');
   const now = useHorloge();
   if (!m) {
@@ -90,7 +93,7 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
       }
       actions={
         <>
-          <button className="ds-btn" onClick={partager}>
+          <button className="ds-btn" onClick={() => setFeuille('pdf')}>
             <Icon name="share" size={20} />
             Journal
           </button>
@@ -241,6 +244,21 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
       </Section>
       <p className="ds-foot">Aide à la mission, d’après le support TES F : la fiche de travail, la consigne PN et le livret de service priment. Le carnet du PN et les dépêches font foi.</p>
 
+      {feuille === 'pdf' && (
+        <FeuilleExportPdf
+          titre={`Journal · ${titreMission(m)}`}
+          docId={m.id}
+          preparer={async () => {
+            const [{ journalPnPdf }, ligne] = await Promise.all([import('./pdf'), m.pn.ligne ? loadLine(m.pn.ligne).catch(() => null) : Promise.resolve(null)]);
+            return (info) => journalPnPdf(missionParId(m.id) ?? m, info, ligne);
+          }}
+          onClose={() => setFeuille(null)}
+          onFini={(e) => {
+            setFeuille(null);
+            p.ctx.onToast(messageEnvoi(e));
+          }}
+        />
+      )}
       {feuille === 'note' && (
         <Feuille title="Ajouter une note au journal" onClose={() => setFeuille(null)}>
           <div className="asp-field">
@@ -273,7 +291,21 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
               }}
             />
           )}
-          <Ligne icon="share" title="Partager le journal" chevron={false} onClick={partager} />
+          <Ligne
+            icon="file"
+            title="Journal en PDF"
+            chevron={false}
+            onClick={() => setFeuille('pdf')}
+          />
+          <Ligne
+            icon="message"
+            title="Journal en texte, par message"
+            chevron={false}
+            onClick={() => {
+              setFeuille(null);
+              partager();
+            }}
+          />
           <Ligne
             icon="trash"
             title="Supprimer la mission"

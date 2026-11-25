@@ -85,6 +85,10 @@ export async function partagerTexte(title: string, text: string): Promise<Envoi>
   }
 }
 
+/** Message après l'envoi d'un PDF. */
+export const messageEnvoi = (e: Envoi) =>
+  e === 'partage' ? 'PDF envoyé.' : e === 'telecharge' ? 'PDF enregistré dans les téléchargements.' : e === 'copie' ? 'PDF prêt.' : 'Envoi annulé.';
+
 /** Envoi d'un fichier (PDF) par le partage du téléphone, sinon téléchargement. */
 export async function partagerFichier(file: File, title: string): Promise<Envoi> {
   try {
@@ -104,15 +108,4 @@ export async function partagerFichier(file: File, title: string): Promise<Envoi>
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
   return 'telecharge';
-}
-
-/** Nom de fichier sans accents ni espaces. */
-export function nomFichier(c: Chantier): string {
-  const base = titreChantier(c)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40);
-  return `CADA-${base || 'chantier'}-${c.date}.pdf`;
 }

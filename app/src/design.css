@@ -266,6 +266,8 @@ body { background: var(--page); }
 }
 .ds-snack.above-nav { bottom: calc(var(--nav-h) + var(--bottom) + 12px); }
 .night .ds-snack { background: #eceef2; color: #10131a; }
+/* Une feuille est ouverte (signature, dépêche…) : le message passe en haut et laisse passer les touchers. */
+body:has(.modal-back) .ds-snack { top: calc(env(safe-area-inset-top, 0px) + 12px); bottom: auto; pointer-events: none; }
 @keyframes ds-up { from { transform: translateY(12px); opacity: 0; } }
 
 /* ---------- Feuilles (bas d'écran) ---------- */
@@ -441,3 +443,13 @@ body { background: var(--page); }
 .ds-quick.dsh-ok .ds-dsh-titre { color: var(--ok-ink); }
 .ds-quick.dsh-interdit { box-shadow: inset 0 0 0 2px #dc2626, var(--elev); }
 .ds-quick.dsh-verifier { box-shadow: inset 0 0 0 2px var(--brand-line), var(--elev); }
+
+/* ---------- Export PDF : signature au doigt ---------- */
+.ds-sig { position: relative; height: 150px; border: 2px dashed var(--line); border-radius: 18px; background: #fff; overflow: hidden; }
+.ds-sig canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.ds-sig-aide { position: absolute; inset: 0; display: grid; place-items: center; color: #94a3b8; font-size: 15px; font-weight: 700; pointer-events: none; }
+.ds-sig-effacer { position: absolute; top: 4px; right: 4px; }
+.ds-sig-gardee { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; border-radius: 18px; background: #fff; border: 1px solid var(--line); }
+.ds-sig-gardee img { max-width: 100%; height: 90px; object-fit: contain; }
+.ds-sig-gardee small { color: #64748b; font-size: 13px; font-weight: 700; }
+.ds-sig-gardee span { display: flex; gap: 4px; flex-wrap: wrap; }

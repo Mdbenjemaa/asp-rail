@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { EXERCICES_ORDRE } from '../src/pn/ordre';
-import { expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
+import { exporterPdf, expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -91,12 +91,28 @@ test('activité PN : bascule sur l’accueil, PN le plus proche en direct, missi
   // Fin des travaux jusqu'à l'ARF, puis le journal partagé.
   await avancer(mission, mission.getByRole('heading', { name: 'Mission terminée' }), depeches);
   await expect(mission.getByText(/^Terminée à \d{2}:\d{2}/)).toBeVisible();
+  // Journal en PDF : créé le, agent, plan, étapes, événements, signature au doigt.
   await mission.getByRole('button', { name: 'Journal', exact: true }).click();
-  const partage = await page.evaluate(() => (window as unknown as { __partages: ShareData[] }).__partages[0]);
-  expect(partage.text).toContain('PN 26');
-  expect(partage.text).toContain('Passage du mobile travaux n° 1');
-  expect(partage.text).toContain('Raté de fermeture'.toLowerCase());
-  for (const d of depeches) expect(partage.text).toContain(d);
+  const pdf = await exporterPdf(page, { nom: 'Moo Test', signer: true });
+  await expect(page.locator('.ds-snack')).toContainText('PDF envoyé');
+  expect(pdf.name).toMatch(/^Journal-PN-PN26-\d{4}-\d{2}-\d{2}-\d{4}\.pdf$/);
+  expect(pdf.plat).toMatch(/Créé le \d{2}\/\d{2}\/\d{4} à \d{2}:\d{2}/);
+  for (const x of ['Journal de mission PN', 'PN 26 · ligne 830 000', 'Agent : Moo Test', 'Plan de situation', 'Les étapes', 'Passage du mobile travaux n° 1', 'raté de fermeture', 'Signé sur le téléphone le'])
+    expect(pdf.plat, x).toContain(x);
+  for (const d of depeches) expect(pdf.plat).toContain(`Dépêche ${d}`);
+  expect(pdf.images).toBe(1);
+  // Deuxième export : le nom et la signature sont gardés.
+  await mission.getByRole('button', { name: 'Plus d’actions' }).click();
+  await page.getByRole('dialog', { name: /^PN 26/ }).getByRole('button', { name: 'Journal en PDF' }).click();
+  await expect(page.getByRole('dialog', { name: 'Exporter en PDF' }).getByLabel('Ton nom (agent)')).toHaveValue('Moo Test');
+  await expect(page.getByRole('dialog', { name: 'Exporter en PDF' }).getByRole('img', { name: 'Ta signature' })).toBeVisible();
+  await shot(page, '27-export-pdf');
+  expect((await exporterPdf(page)).images).toBe(1);
+  // Le journal en texte reste possible, par message.
+  await mission.getByRole('button', { name: 'Plus d’actions' }).click();
+  await page.getByRole('dialog', { name: /^PN 26/ }).getByRole('button', { name: 'Journal en texte, par message' }).click();
+  const texte = await page.evaluate(() => (window as unknown as { __partages: ShareData[] }).__partages.filter((x) => x.text).at(-1)!.text!);
+  expect(texte).toContain('Passage du mobile travaux n° 1');
 
   // Retour à l'accueil : l'activité et la mission restent sur le téléphone.
   await mission.getByRole('button', { name: 'Retour' }).click();
