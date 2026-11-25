@@ -196,7 +196,10 @@ export const test = base.extend<{ pageErrors: string[] }>({
   pageErrors: [
     async ({ page }, use) => {
       const errors: string[] = [];
-      page.on('pageerror', (e) => errors.push(`Erreur : ${e.message}`));
+      // Safari : un chargement coupé par un rechargement de la page est signalé « due to access control checks ».
+      page.on('pageerror', (e) => {
+        if (!/due to access control checks/.test(e.message)) errors.push(`Erreur : ${e.message}`);
+      });
       page.on('console', (m) => {
         if (m.type() === 'error' && !EXPECTED.test(m.text())) errors.push(`Console : ${m.text()}`);
       });
