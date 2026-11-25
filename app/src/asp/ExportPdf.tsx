@@ -112,6 +112,17 @@ export function FeuilleExportPdf(p: {
   );
 }
 
+/** Image PNG du cadre, réduite à 500 px de large : assez net à l'impression, léger dans le PDF. */
+function versPng(c: HTMLCanvasElement): string {
+  const k = Math.min(1, 500 / c.width);
+  if (k === 1) return c.toDataURL('image/png');
+  const o = document.createElement('canvas');
+  o.width = Math.round(c.width * k);
+  o.height = Math.round(c.height * k);
+  o.getContext('2d')?.drawImage(c, 0, 0, o.width, o.height);
+  return o.toDataURL('image/png');
+}
+
 /** Cadre où signer au doigt (ou à la souris). Rend l'image PNG du trait, ou null si le cadre est vide. */
 function PadSignature({ onChange }: { onChange: (png: string | null) => void }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
@@ -166,7 +177,7 @@ function PadSignature({ onChange }: { onChange: (png: string | null) => void }) 
           if (!dessin.current) return;
           dessin.current = false;
           setVide(false);
-          onChange(ref.current?.toDataURL('image/png') ?? null);
+          onChange(ref.current ? versPng(ref.current) : null);
         }}
         onPointerCancel={() => {
           dessin.current = false;

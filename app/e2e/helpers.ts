@@ -261,5 +261,5 @@ export async function exporterPdf(page: Page, opts: { nom?: string; signer?: boo
     .split('\n')
     .slice(2)
     .filter((l) => l.trim().split(/\s+/)[2] === 'image').length;
-  return { name: f.name, type: f.type, texte, plat: texte.replace(/\s+/g, ' '), images, chemin };
+  return { name: f.name, type: f.type, texte, plat: texte.replace(/\s+/g, ' '), images, chemin, taille: Buffer.from(f.b64, 'base64').length };
 }

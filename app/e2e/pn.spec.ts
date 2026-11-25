@@ -101,6 +101,7 @@ test('activité PN : bascule sur l’accueil, PN le plus proche en direct, missi
     expect(pdf.plat, x).toContain(x);
   for (const d of depeches) expect(pdf.plat).toContain(`Dépêche ${d}`);
   expect(pdf.images).toBe(1);
+  expect(pdf.taille, 'PDF léger').toBeLessThan(200_000);
   // Deuxième export : le nom et la signature sont gardés.
   await mission.getByRole('button', { name: 'Plus d’actions' }).click();
   await page.getByRole('dialog', { name: /^PN 26/ }).getByRole('button', { name: 'Journal en PDF' }).click();

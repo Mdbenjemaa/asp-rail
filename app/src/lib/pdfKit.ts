@@ -244,7 +244,7 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
             const maxW = w - 10;
             const maxH = h - 19;
             const k = Math.min(maxW / props.width, maxH / props.height);
-            doc.addImage(c.png, 'PNG', x + (w - props.width * k) / 2, y + 12, props.width * k, props.height * k);
+            doc.addImage(c.png, 'PNG', x + (w - props.width * k) / 2, y + 12, props.width * k, props.height * k, undefined, 'FAST');
           } catch {
             /* image illisible : le cadre reste à signer à la main */
           }
