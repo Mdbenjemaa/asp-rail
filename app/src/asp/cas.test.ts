@@ -3,7 +3,7 @@ import { CAS } from './cas';
 import { calculChantier, cleSens, nouveauChantier, nouvelleVoie, zoneAnnonce, type Chantier } from './chantier';
 import { codesAgents, controlesDispositif, visibilites } from './dispositif';
 import { resumeTexte } from './partage';
-import { pdfText } from './pdf';
+import { pdfText } from '../lib/pdfKit';
 
 /** Ce que disent les corrections : délai d'annonce, puis [voie, sens, distance, point d'annonce]. */
 const ATTENDU: Record<string, { da: number; ms: number; voies: [string, string, number, number][] }> = {
