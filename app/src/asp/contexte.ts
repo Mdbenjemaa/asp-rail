@@ -32,7 +32,8 @@ export type Vue =
   | { k: 'lam-urgences'; id?: string }
   | { k: 'lam-ordre' }
   | { k: 'lam-missions' }
-  | { k: 'lam-dsh' };
+  | { k: 'lam-dsh' }
+  | { k: 'planning' };
 
 export type EtapePn = 'role' | 'pn' | 'equipement' | 'chantier';
 export type EtapeLam = 'type' | 'lieu' | 'detail' | 'chantier';

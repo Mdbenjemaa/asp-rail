@@ -89,6 +89,26 @@ Les noms et notes en arabe ou avec des lettres hors alphabet latin s'impriment c
 - Une mise à jour de l'appli n'interrompt jamais une feuille ouverte (signature, note…) ; le zoom à deux doigts reste
   possible partout.
 
+### Mon planning ETF
+
+Le planning « Sécurité chantiers » reçu chaque semaine par mail (PDF) s'importe depuis l'accueil ou l'écran
+« Mon planning ETF ». Le PDF est lu sur le téléphone (pdf.js) : l'appli retrouve les jours (en-têtes « lun 23 nov »)
+et la ligne de l'agent (choisie une fois dans la liste au premier import, puis retrouvée seule), et **ne garde que
+cette ligne**, jamais le PDF ni les autres agents.
+
+- **Accueil** : le service du moment (la nuit d'hier tant qu'elle n'est pas finie, sinon le jour), la semaine en un
+  coup d'œil (L M M J V S D), et « Préparer » : chantier d'annonce, mission PN ou LAM / S9 selon le poste ([ANN],
+  [APN], [APLAM/S9]…).
+- **Préremplissage** : un nouveau chantier ou une nouvelle mission reprend la date, jour ou nuit, le chantier, le lieu
+  et la prise de service du service du moment (modifiables), et le résumé du planning dans les notes.
+- **Codes** : RH (repos hebdomadaire), Z (fin de la nuit du vendredi, comptée en grand déplacement), AMO (attente de
+  mission), CP, JF ; les autres sont montrés tels quels.
+- Un définitif n'est jamais remplacé par le provisoire de la même semaine (statut lu dans le nom du fichier). Les
+  provisoires « courts » (3 pages) n'ont qu'une partie des agents : l'appli le dit si la ligne n'y est pas.
+
+Code : `app/src/planning/` (`lire.ts` lecture du tableau par la position du texte, `jour.ts` sens d'une case,
+`store.ts` semaines gardées). Vérifié sur 28 plannings réels (S20 à S49) : chaque case retrouvée à l'identique.
+
 ## Repérage (repris de PK Rail)
 
 | Fonction | Ce qu'elle fait |
@@ -140,7 +160,8 @@ PK, couches, mes accès, signalements, menu, GPS refusé, petit écran, sans ré
 accepté, gardé, coupé, lien reçu), espace administrateur, nouveau chantier pas à pas (position, vitesse de la ligne,
 résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
 obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
-LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Dans
+LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Planning
+ETF : import d'un faux planning (agents fictifs), choix de sa ligne, semaine, chantier prérempli. Dans
 Safari, six tests qui simulent des capteurs ou des gestes propres à Chrome sont sautés (raison indiquée dans le test).
 Internet est coupé pendant les tests (le serveur du code est simulé). `SHOTS=1` enregistre des captures dans
 `app/e2e-shots/`.

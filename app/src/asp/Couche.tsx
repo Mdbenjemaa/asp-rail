@@ -25,6 +25,7 @@ import { Diagnostic } from '../pn/Diagnostic';
 import { MissionScreen, MissionsScreen, ProcedureScreen } from '../pn/MissionScreen';
 import { NouvelleMission } from '../pn/NouvelleMission';
 import { OrdreScreen } from '../pn/OrdreScreen';
+import { PlanningScreen } from '../planning/Planning';
 
 export function Couche(p: {
   tab: Onglet;
@@ -95,6 +96,8 @@ export function Couche(p: {
             return <MissionsLamScreen key={key} hidden={hidden} ctx={ctx} onNew={p.onNewMissionLam} />;
           case 'lam-dsh':
             return <ControleDsh key={key} ctx={ctx} hidden={hidden} />;
+          case 'planning':
+            return <PlanningScreen key={key} ctx={ctx} hidden={hidden} />;
           case 'cas':
             return (
               <CasScreen

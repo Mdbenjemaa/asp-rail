@@ -15,6 +15,7 @@ import { choisirActivite, useActivite } from './activite';
 import { usePositionDirecte } from './direct';
 import { AccueilLam } from '../lam/AccueilLam';
 import { AccueilPn } from '../pn/AccueilPn';
+import { CartePlanning, type ActivitePlanning } from '../planning/Planning';
 import { Annonce, Bascule, Etat } from './kit';
 import { CaseCalcul, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from './Widgets';
 import { useActif, useChantiers } from './store';
@@ -41,6 +42,13 @@ export function Accueil(p: {
   const heure = maintenant.getHours();
   const prenom = (loadAccess()?.nom ?? '').split(/\s+/)[0];
   const date = maintenant.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  // « Préparer » depuis le planning : la bonne activité, puis la création préremplie.
+  const preparer = (a: ActivitePlanning) => {
+    choisirActivite(a);
+    if (a === 'asp') p.onNew();
+    else if (a === 'pn') p.onNewMission();
+    else p.onNewMissionLam();
+  };
 
   return (
     <main className="ds-page" aria-label="Accueil">
@@ -56,6 +64,8 @@ export function Accueil(p: {
           <Icon name="dots" size={22} />
         </button>
       </header>
+      <CartePlanning ctx={p.ctx} activite={activite} onPreparer={preparer} />
+      <div className="ds-activite-gap" />
       <Bascule
         label="Activité"
         value={activite}

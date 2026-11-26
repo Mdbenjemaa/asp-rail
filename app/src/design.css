@@ -457,3 +457,33 @@ body:has(.modal-back) .ds-snack { top: calc(env(safe-area-inset-top, 0px) + 12px
 .ds-journal.annule .ds-row-txt b { text-decoration: line-through; color: var(--muted); font-weight: 700; }
 .ds-journal.annule .ds-journal-h { text-decoration: line-through; }
 .ds-journal.annule .ds-nums { opacity: 0.55; }
+
+/* ---------- Mon planning ETF ---------- */
+.ds-planning.vide { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 14px; }
+.ds-planning.vide > .ds-btn.text { grid-column: 1 / -1; justify-self: start; margin: -6px 0 -8px; }
+.ds-planning-ico { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: var(--brand); color: var(--brand-ink); }
+.ds-planning-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-planning-txt b { font-size: 16px; font-weight: 800; }
+.ds-planning-txt small { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+.ds-planning .ds-hero-top .ds-btn.text { min-height: 36px; padding: 0 4px; }
+.ds-planning .ds-hero-sub + .ds-hero-sub { margin-top: 2px; }
+.ds-semaine { list-style: none; display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin: 14px 0 0; padding: 0; }
+.ds-semaine li { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 12px; background: var(--page); color: var(--muted); min-width: 0; }
+.ds-semaine li span { font-size: 12px; font-weight: 800; }
+.ds-semaine li b { font-size: 12.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: clip; white-space: nowrap; }
+.ds-semaine li.travail { background: var(--brand-soft); color: var(--ink); }
+.ds-semaine li.travail.nuit { background: var(--navy); color: var(--navy-ink); }
+.ds-semaine li.auj { outline: 2.5px solid var(--ink); outline-offset: -2.5px; }
+.ds-jours { margin-top: 10px; }
+.ds-jour { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.ds-jour:first-child { border-top: 0; }
+.ds-jour.auj { background: var(--brand-soft); }
+.ds-jour-date { flex: none; width: 44px; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.ds-jour-date small { font-size: 12.5px; font-weight: 800; color: var(--muted); text-transform: capitalize; }
+.ds-jour-date b { font-size: 22px; font-weight: 850; }
+.ds-jour-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ds-jour-txt b { font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.ds-jour-txt small { font-size: 14px; color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.ds-jour.repos .ds-jour-txt b { color: var(--muted); font-weight: 700; }
+.ds-jour-nuit { flex: none; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--navy); color: var(--navy-ink); }
+.ds-btn.text.inline { min-height: 0; padding: 0; font-size: inherit; display: inline; vertical-align: baseline; }

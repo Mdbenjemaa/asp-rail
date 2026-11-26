@@ -488,9 +488,14 @@ export default function App() {
     setPile([]);
     setTab('carte');
   };
-  const nouveau = () => setPile((s) => [...s, creer('chantier')]);
-  const nouvelleMissionLam = () => setPile((s) => [...s, creer('lam')]);
-  const nouvelleMissionPn = () => setPile((s) => [...s, creer('pn')]);
+  const ouvrirCreation = (quoi: 'chantier' | 'pn' | 'lam') => {
+    const r = creer(quoi);
+    setPile((s) => [...s, r.vue]);
+    if (r.prerempli) showToast(`Prérempli depuis ton planning ETF : ${r.prerempli}. Modifie si besoin.`);
+  };
+  const nouveau = () => ouvrirCreation('chantier');
+  const nouvelleMissionLam = () => ouvrirCreation('lam');
+  const nouvelleMissionPn = () => ouvrirCreation('pn');
   const activite = useActivite();
 
   const showSet = (set: AccesSet) => {
