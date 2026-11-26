@@ -125,17 +125,30 @@ Code : `app/src/planning/` (`lire.ts` lecture du tableau par la position du text
 
 ## Code d'accès
 
-L'appli s'ouvre avec un code personnel de 8 signes (par exemple `ABCD-EF23`). Il est vérifié en ligne au premier
-lancement, puis gardé sur le téléphone : sans réseau, l'appli reste ouverte 30 jours après la dernière vérification.
-Un code coupé ferme l'appli à la vérification suivante.
+L'appli s'ouvre avec un code personnel de 8 signes (par exemple `ABCD-EF23`), vérifié en ligne au premier
+lancement, puis **chaque minute** tant que l'appli est ouverte et à chaque retour sur l'appli. Un code coupé,
+supprimé ou arrivé à sa fin ferme l'appli dans la minute sur les téléphones connectés.
+
+Chaque code a, au choix de l'administrateur à sa création :
+
+- **une durée** : 1 heure, 1 jour, 7 jours, 30 jours ou sans limite (l'appli se ferme à l'heure de fin, même sans
+  réseau) ;
+- **un temps sans réseau** : réseau obligatoire (5 minutes de tolérance), 24 heures, 7 jours ou 30 jours. Sans
+  réseau, la coupure ne peut pas arriver jusqu'au téléphone : l'appli reste ouverte ce temps-là après la dernière
+  vérification, puis demande du réseau.
 
 L'administrateur ouvre `https://mdbenjemaa.github.io/asp-rail/#admin` (lien « Espace administrateur » sous l'écran du
-code), se connecte avec le même compte que l'administration de PK Rail, puis crée un code par personne, le partage
-(le lien remplit le code tout seul), le coupe, le réactive ou le supprime.
+code), se connecte avec le même compte que l'administration de PK Rail, puis crée un code par personne (ou par
+session), le partage (le lien remplit le code tout seul), le coupe, le réactive (un code arrivé à sa fin repart sans
+limite) ou le supprime. La liste, mise à jour toutes les 30 secondes, montre qui est **en ligne maintenant**, la
+dernière utilisation, et **les téléphones** de chaque code (« Android · Chrome · appli installée », vu il y a…) : un
+identifiant tiré au hasard sur le téléphone, rien d'autre (au plus 20 téléphones par code).
 
-Côté serveur (projet Supabase « repere-rail ») : tables `asp_codes` et `asp_admins` (lecture et écriture réservées aux
-administrateurs connectés), fonctions `asp_verifier_code` (seule ouverte sans compte : répond juste oui/non et le nom
-du code), `asp_creer_code` et `asp_est_admin`. Les chantiers, eux, ne quittent jamais le téléphone.
+Côté serveur (projet Supabase « repere-rail ») : tables `asp_codes` (avec `expire_le` et `hors_ligne_h`),
+`asp_appareils` et `asp_admins` (lecture et écriture réservées aux administrateurs connectés), fonctions
+`asp_verifier_code` (seule ouverte sans compte : répond oui ou non, pourquoi — coupé, fini, inconnu —, le nom du code,
+sa fin et son temps sans réseau ; note le téléphone), `asp_creer_code` et `asp_est_admin`. Les chantiers, missions et
+plannings, eux, ne quittent jamais le téléphone.
 
 ## Développement
 
@@ -162,7 +175,7 @@ le navigateur ne peut pas lire Google directement.
 (`npx playwright install webkit`), dans Safari (WebKit, le moteur de l'iPhone), en téléphone simulé avec un GPS simulé
 le long de la ligne 830 000 à Lieusaint. Repérage : premier lancement, Me repérer, suivi du PK, recherche, Aller au
 PK, couches, mes accès, signalements, menu, GPS refusé, petit écran, sans réseau. ASP : code d'accès (refusé,
-accepté, gardé, coupé, lien reçu), espace administrateur, nouveau chantier pas à pas (position, vitesse de la ligne,
+accepté, gardé, coupé pendant que l'appli est ouverte, arrivé à sa fin, réseau obligatoire, lien reçu), espace administrateur (durée, sans réseau, en ligne, téléphones), nouveau chantier pas à pas (position, vitesse de la ligne,
 résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
 obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
 LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Planning

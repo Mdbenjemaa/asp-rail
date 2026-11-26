@@ -196,6 +196,18 @@
 .admin-codes small { color: var(--muted); }
 .admin-code-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .admin-exit { display: block; margin: 18px auto 0; }
+.admin-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.admin-options label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.admin-options select { height: 46px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-size: 16px; font-weight: 600; padding: 0 10px; }
+.admin-creer { width: 100%; margin-top: 10px; }
+.admin-new .admin-input { width: 100%; box-sizing: border-box; }
+.admin-appareils li small { white-space: nowrap; }
+.admin-resume { margin: 0 0 10px; }
+.admin-enligne { color: var(--ok); }
+.admin-codes small { display: block; margin-top: 2px; }
+.admin-appareils { list-style: none; margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--ok-bg); display: flex; flex-direction: column; gap: 4px; }
+.admin-appareils li { display: flex; justify-content: space-between; gap: 10px; padding: 0; border: 0; font-size: 14px; }
+.admin-appareils small { display: inline; margin: 0; }
 
 /* Couleur de chaque rôle (classes « role-… » construites dans AgentCard). */
 .asp-agent.role-asp { border-left-color: #13305c; }

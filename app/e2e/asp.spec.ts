@@ -3,20 +3,26 @@ import { exporterPdf, expect, fakeShare, fmtPkTest, openApp, pkValue, pointAtPk,
 
 test.describe.configure({ mode: 'parallel' });
 
-/** Vérification du code par le serveur, simulée : seul ABCDEF23 est valable (tant que `actif()`). */
-async function fakeCodeServer(page: Page, actif: () => boolean = () => true) {
+/**
+ * Vérification du code par le serveur, simulée : seul ABCDEF23 est valable, tant que `etat()` vaut « actif »
+ * (sinon : coupé ou arrivé à sa fin). Garde les appels (code et téléphone).
+ */
+async function fakeCodeServer(page: Page, etat: () => 'actif' | 'coupe' | 'fin' = () => 'actif', extra: Record<string, unknown> = {}) {
   const appels: string[] = [];
+  const appareils = new Set<string>();
   await page.route('**/rest/v1/rpc/asp_verifier_code', async (route) => {
-    const { p_code } = route.request().postDataJSON() as { p_code: string };
+    const { p_code, p_appareil } = route.request().postDataJSON() as { p_code: string; p_appareil?: string };
     appels.push(p_code);
-    await route.fulfill({ json: p_code === 'ABCDEF23' && actif() ? { ok: true, nom: 'Équipe test' } : { ok: false } });
+    if (p_appareil) appareils.add(p_appareil);
+    const e = p_code === 'ABCDEF23' ? etat() : 'inconnu';
+    await route.fulfill({ json: e === 'actif' ? { ok: true, nom: 'Équipe test', hors_ligne_h: 720, expire_le: null, ...extra } : { ok: false, raison: e } });
   });
-  return appels;
+  return Object.assign(appels, { appareils });
 }
 
 test('code d’accès : mauvais code refusé, bon code gardé sur le téléphone, puis code coupé', async ({ page }) => {
   let actif = true;
-  const appels = await fakeCodeServer(page, () => actif);
+  const appels = await fakeCodeServer(page, () => (actif ? 'actif' : 'coupe'));
   await openApp(page, { gate: true });
   await expect(page.getByRole('heading', { name: 'ASP Rail' })).toBeVisible();
   await shot(page, '01-code');
@@ -42,11 +48,40 @@ test('code d’accès : mauvais code refusé, bon code gardé sur le téléphone
   await page.getByRole('button', { name: /^Réglages/ }).click();
   await expect(page.getByRole('dialog', { name: 'Menu' })).toContainText('ABCD-EF23 · Équipe test');
 
-  // Coupé par l'administrateur : à la vérification suivante, l'appli se ferme.
+  // Un seul identifiant de téléphone, toujours le même (pour la liste des téléphones de l'administrateur).
+  expect(appels.appareils.size).toBe(1);
+
+  // Coupé par l'administrateur pendant que l'appli est ouverte : elle se ferme dès le retour sur l'appli.
   actif = false;
-  await page.reload();
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(page.getByText('Ton code n’est plus actif')).toBeVisible();
   await expect(page.locator('.map canvas')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText('Accès réservé')).toBeVisible();
+});
+
+test('code coupé : l’appli ouverte se ferme d’elle-même dans la minute', async ({ page }) => {
+  let etat: 'actif' | 'coupe' | 'fin' = 'actif';
+  await fakeCodeServer(page, () => etat);
+  await page.clock.install();
+  await openApp(page, { gate: true, path: './#code=ABCD-EF23', home: true });
+  await expect(page.getByRole('main', { name: 'Accueil' })).toBeVisible();
+  etat = 'fin';
+  await page.clock.runFor(61_000);
+  await expect(page.getByText('Ton code est arrivé à sa fin')).toBeVisible();
+});
+
+test('code arrivé à sa fin : l’appli ne s’ouvre plus, même sans réseau', async ({ page }) => {
+  const maintenant = Date.now();
+  // Fin passée gardée sur le téléphone : l'appli ne s'ouvre pas, même hors ligne.
+  await openApp(page, { gate: true, storage: { 'asp-acces': JSON.stringify({ code: 'ABCDEF23', nom: 'Démo', verifie: maintenant - 60_000, horsLigneH: 720, fin: maintenant - 1000 }) } });
+  await expect(page.getByText('Ton code est arrivé à sa fin')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Code d’accès' })).toHaveValue('ABCD-EF23');
+});
+
+test('réseau obligatoire : sans vérification récente, l’appli demande du réseau', async ({ page }) => {
+  await openApp(page, { gate: true, storage: { 'asp-acces': JSON.stringify({ code: 'ABCDEF23', nom: 'Démo', verifie: Date.now() - 10 * 60_000, horsLigneH: 0, fin: null }) } });
+  await expect(page.getByText('Ce code demande du réseau')).toBeVisible();
 });
 
 test('lien reçu par message : le code se remplit tout seul et l’appli s’ouvre', async ({ page }) => {
@@ -80,12 +115,19 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
   });
   await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, body: '' }));
   await page.route('**/rest/v1/rpc/asp_est_admin', (route) => route.fulfill({ json: true }));
+  let creation: Record<string, unknown> = {};
   await page.route('**/rest/v1/rpc/asp_creer_code', async (route) => {
-    const { p_nom } = route.request().postDataJSON() as { p_nom: string };
-    const c = { id: 'c1', code: 'KM7PQ2XZ', nom: p_nom, cree_le: new Date().toISOString(), coupe_le: null, derniere_utilisation: null };
+    creation = route.request().postDataJSON() as Record<string, unknown>;
+    const { p_nom, p_duree_h, p_hors_ligne_h } = creation as { p_nom: string; p_duree_h: number | null; p_hors_ligne_h: number };
+    const expire_le = p_duree_h ? new Date(Date.now() + p_duree_h * 3600_000).toISOString() : null;
+    const c = { id: 'c1', code: 'KM7PQ2XZ', nom: p_nom, cree_le: new Date().toISOString(), coupe_le: null, derniere_utilisation: null, expire_le, hors_ligne_h: p_hors_ligne_h };
     codes.unshift(c);
     await route.fulfill({ json: c });
   });
+  // Téléphones vus pour chaque code (le premier code créé est « en ligne » sur un Android).
+  await page.route('**/rest/v1/asp_appareils**', (route) =>
+    route.fulfill({ json: codes.length ? [{ id: 'a1', code_id: 'c1', agent: 'Android · Chrome · appli installée', premier: new Date().toISOString(), dernier: new Date().toISOString() }] : [] }),
+  );
   await page.route('**/rest/v1/asp_codes**', async (route) => {
     const req = route.request();
     if (req.method() === 'GET') return route.fulfill({ json: codes });
@@ -109,11 +151,26 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
   await expect(page.getByText('Aucun code ici.')).toBeVisible();
 
   await page.getByRole('textbox', { name: 'Nouveau code pour…' }).fill('Karim B.');
-  await page.getByRole('button', { name: 'Créer', exact: true }).click();
-  const item = page.locator('.admin-codes li').first();
+  await page.getByRole('combobox', { name: 'Durée du code' }).selectOption({ label: '1 jour' });
+  await page.getByRole('combobox', { name: 'Utilisation sans réseau' }).selectOption({ label: 'Réseau obligatoire' });
+  await page.getByRole('button', { name: 'Créer le code' }).click();
+  expect(creation).toEqual({ p_nom: 'Karim B.', p_duree_h: 24, p_hors_ligne_h: 0 });
+  const item = page.locator('.admin-codes > li').first();
   await expect(item).toContainText('Karim B.');
   await expect(item).toContainText('KM7P-Q2XZ');
+  await expect(item).toContainText(/Jusqu’au .* · réseau obligatoire/);
   await expect(item).toContainText('pas encore utilisé');
+  await expect(page.locator('.admin-msg')).toContainText('jusqu’au');
+
+  // Quelqu'un l'utilise : en ligne, et son téléphone.
+  codes[0].derniere_utilisation = new Date().toISOString();
+  await page.reload();
+  await expect(page.getByText('Connecté : admin@test.fr')).toBeVisible();
+  await expect(page.locator('.admin-resume')).toContainText('1 en ligne maintenant');
+  await expect(item).toContainText('en ligne maintenant');
+  await item.getByRole('button', { name: '1 téléphone' }).click();
+  await expect(item.getByRole('list', { name: 'Téléphones de Karim B.' })).toContainText('Android · Chrome · appli installée');
+  await shot(page, '02-admin-telephones');
   await shot(page, '02-admin');
   await item.getByRole('button', { name: 'Partager' }).click();
   const partage = await page.evaluate(() => (window as unknown as { __partages: ShareData[] }).__partages[0]);
@@ -121,18 +178,18 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
   expect(partage.text).toContain('/#code=KM7P-Q2XZ');
 
   await item.getByRole('button', { name: 'Couper' }).click();
-  await expect(page.locator('.admin-msg')).toContainText('Code de Karim B. coupé');
+  await expect(page.locator('.admin-msg')).toContainText('Code de Karim B. coupé : l’appli se ferme dans la minute');
   expect(codes[0].coupe_le).toBeTruthy();
   await expect(page.getByText('Aucun code ici.')).toBeVisible();
-  await page.getByRole('radio', { name: 'Coupés' }).click();
-  await page.locator('.admin-codes li').first().getByRole('button', { name: 'Réactiver' }).click();
+  await page.getByRole('radio', { name: 'Arrêtés' }).click();
+  await page.locator('.admin-codes > li').first().getByRole('button', { name: 'Réactiver' }).click();
   await expect(page.locator('.admin-msg')).toContainText('Code de Karim B. réactivé');
   expect(codes[0].coupe_le).toBeNull();
 
   // La session reste ouverte après un rechargement.
   await page.reload();
   await expect(page.getByText('Connecté : admin@test.fr')).toBeVisible();
-  await page.locator('.admin-codes li').first().getByRole('button', { name: 'Supprimer' }).click();
+  await page.locator('.admin-codes > li').first().getByRole('button', { name: 'Supprimer' }).click();
   await expect(page.getByText('Aucun code ici.')).toBeVisible();
   expect(codes).toHaveLength(0);
   await page.getByRole('button', { name: 'se déconnecter' }).click();

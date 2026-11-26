@@ -1,10 +1,11 @@
 /**
  * Espace administrateur d'ASP Rail : connexion par e-mail et mot de passe (compte Supabase), puis gestion des codes
- * d'accès : créer un code nommé, le partager, le couper ou le réactiver, le supprimer.
+ * d'accès : créer un code nommé (durée de vie, temps hors ligne), le partager, le couper ou le réactiver, le supprimer ;
+ * voir qui est en ligne et sur quels téléphones chaque code est utilisé.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
-import { formatCode, lienCode } from '../access/gate';
+import { dureeTexte, formatCode, lienCode } from '../access/gate';
 import { SB_KEY, SB_URL } from '../lib/server';
 
 interface Code {
@@ -14,7 +15,40 @@ interface Code {
   cree_le: string;
   coupe_le: string | null;
   derniere_utilisation: string | null;
+  /** Fin du code (null : sans limite). */
+  expire_le?: string | null;
+  /** Heures d'utilisation sans réseau (0 : réseau obligatoire). */
+  hors_ligne_h?: number;
 }
+
+interface Appareil {
+  id: string;
+  code_id: string;
+  agent: string;
+  premier: string;
+  dernier: string;
+}
+
+/** Durées proposées à la création (heures ; null : sans limite). */
+const DUREES: [number | null, string][] = [
+  [1, '1 heure'],
+  [24, '1 jour'],
+  [168, '7 jours'],
+  [720, '30 jours'],
+  [null, 'Sans limite'],
+];
+const HORS_LIGNE: [number, string][] = [
+  [0, 'Réseau obligatoire'],
+  [24, '24 heures'],
+  [168, '7 jours'],
+  [720, '30 jours'],
+];
+/** Vu dans les 2 dernières minutes : en ligne (l'appli vérifie le code chaque minute). */
+const EN_LIGNE_MS = 2 * 60_000;
+const enLigne = (iso: string | null | undefined, now: number) => !!iso && now - Date.parse(iso) < EN_LIGNE_MS;
+const termine = (c: Code, now: number) => !!c.expire_le && Date.parse(c.expire_le) <= now;
+const quand = (iso: string) =>
+  new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' à');
 
 type Etat = { k: 'chargement' } | { k: 'connexion' } | { k: 'nouveau-mdp' } | { k: 'pas-admin'; email: string } | { k: 'admin'; email: string };
 
@@ -38,6 +72,10 @@ async function etatSession(): Promise<Etat> {
 
 const ago = (iso: string) => {
   const d = new Date(iso);
+  const min = Math.floor((Date.now() - d.getTime()) / 60_000);
+  if (min < 1) return 'à l’instant';
+  if (min < 60) return `il y a ${min} min`;
+  if (min < 12 * 60) return `il y a ${Math.floor(min / 60)} h`;
   const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
   if (days <= 0) return 'aujourd’hui';
   if (days === 1) return 'hier';
@@ -208,33 +246,49 @@ function NouveauMdp({ onDone, onMsg }: { onDone: () => void; onMsg: (m: string) 
 
 function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) => void; onLogout: () => void }) {
   const [codes, setCodes] = useState<Code[] | null>(null);
+  const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [nom, setNom] = useState('');
+  const [duree, setDuree] = useState<number | null>(null);
+  const [horsLigne, setHorsLigne] = useState(720);
   const [busy, setBusy] = useState(false);
   const [filtre, setFiltre] = useState<'actifs' | 'coupes' | 'tous'>('actifs');
+  const [ouvert, setOuvert] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const charger = async () => {
-    const { data, error } = await sb().from('asp_codes').select('*').order('cree_le', { ascending: false });
-    if (error) onMsg('Liste des codes indisponible.');
-    else setCodes(data as Code[]);
+    const [c, a] = await Promise.all([
+      sb().from('asp_codes').select('*').order('cree_le', { ascending: false }),
+      sb().from('asp_appareils').select('*').order('dernier', { ascending: false }),
+    ]);
+    setNow(Date.now());
+    if (c.error) onMsg('Liste des codes indisponible.');
+    else setCodes(c.data as Code[]);
+    if (!a.error) setAppareils(a.data as Appareil[]);
   };
+  // Liste à jour toutes les 30 secondes : qui est en ligne, codes arrivés à leur fin.
   useEffect(() => {
     void charger();
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') void charger();
+    }, 30_000);
+    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const creer = async () => {
     setBusy(true);
-    const { data, error } = await sb().rpc('asp_creer_code', { p_nom: nom.trim() });
+    const { data, error } = await sb().rpc('asp_creer_code', { p_nom: nom.trim(), p_duree_h: duree, p_hors_ligne_h: horsLigne });
     setBusy(false);
     if (error) return onMsg(error.message || 'Création impossible.');
     setNom('');
     const c = data as Code;
     setCodes((cur) => [c, ...(cur ?? [])]);
-    onMsg(`Code ${formatCode(c.code)} créé pour « ${c.nom} ». Touche « Partager » pour l’envoyer.`);
+    onMsg(`Code ${formatCode(c.code)} créé pour « ${c.nom} »${c.expire_le ? `, jusqu’au ${quand(c.expire_le)}` : ''}. Touche « Partager » pour l’envoyer.`);
   };
 
   const partager = async (c: Code) => {
-    const text = `Ton code d’accès ASP Rail : ${formatCode(c.code)}\nOuvre ce lien sur ton téléphone, le code se remplit tout seul :\n${lienCode(c.code)}`;
+    const fin = c.expire_le ? `\nValable jusqu’au ${quand(c.expire_le)}.` : '';
+    const text = `Ton code d’accès ASP Rail : ${formatCode(c.code)}${fin}\nOuvre ce lien sur ton téléphone, le code se remplit tout seul :\n${lienCode(c.code)}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Code ASP Rail', text });
@@ -253,10 +307,18 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
 
   const couper = async (c: Code, coupe: boolean) => {
     const coupe_le = coupe ? new Date().toISOString() : null;
-    const { error } = await sb().from('asp_codes').update({ coupe_le }).eq('id', c.id);
+    // Réactiver un code arrivé à sa fin : il repart sans limite de durée.
+    const patch: Partial<Code> = { coupe_le };
+    if (!coupe && termine(c, Date.now())) patch.expire_le = null;
+    const { error } = await sb().from('asp_codes').update(patch).eq('id', c.id);
     if (error) return onMsg('Modification impossible.');
-    setCodes((cur) => (cur ?? []).map((x) => (x.id === c.id ? { ...x, coupe_le } : x)));
-    onMsg(coupe ? `Code de ${c.nom} coupé : l’appli se fermera à sa prochaine vérification.` : `Code de ${c.nom} réactivé.`);
+    setCodes((cur) => (cur ?? []).map((x) => (x.id === c.id ? { ...x, ...patch } : x)));
+    const h = c.hors_ligne_h ?? 720;
+    onMsg(
+      coupe
+        ? `Code de ${c.nom} coupé : l’appli se ferme dans la minute sur ses téléphones connectés${h ? ` (sans réseau : au plus tard après ${dureeTexte(h)})` : ''}.`
+        : `Code de ${c.nom} réactivé${patch.expire_le === null ? ', sans limite de durée' : ''}.`,
+    );
   };
 
   const supprimer = async (c: Code) => {
@@ -266,10 +328,13 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
     setCodes((cur) => (cur ?? []).filter((x) => x.id !== c.id));
   };
 
+  const actif = (c: Code) => !c.coupe_le && !termine(c, now);
   const liste = useMemo(
-    () => (codes ?? []).filter((c) => (filtre === 'tous' ? true : filtre === 'actifs' ? !c.coupe_le : !!c.coupe_le)),
-    [codes, filtre],
+    () => (codes ?? []).filter((c) => (filtre === 'tous' ? true : filtre === 'actifs' ? actif(c) : !actif(c))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [codes, filtre, now],
   );
+  const enLigneMaintenant = (codes ?? []).filter((c) => actif(c) && enLigne(c.derniere_utilisation, now)).length;
 
   return (
     <>
@@ -289,18 +354,48 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
         <label className="gate-label" htmlFor="adm-nom">
           Nouveau code pour…
         </label>
-        <div className="admin-new-row">
-          <input id="adm-nom" className="gate-input admin-input" placeholder="Nom de la personne ou de l’équipe" maxLength={60} value={nom} onChange={(e) => setNom(e.target.value)} />
-          <button className="btn primary" disabled={busy || !nom.trim()}>
-            Créer
-          </button>
+        <input id="adm-nom" className="gate-input admin-input" placeholder="Nom de la personne ou de l’équipe" maxLength={60} value={nom} onChange={(e) => setNom(e.target.value)} />
+        <div className="admin-options">
+          <label>
+            <span>Durée</span>
+            <select value={duree ?? ''} onChange={(e) => setDuree(e.target.value ? Number(e.target.value) : null)} aria-label="Durée du code">
+              {DUREES.map(([v, l]) => (
+                <option key={l} value={v ?? ''}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Sans réseau</span>
+            <select value={horsLigne} onChange={(e) => setHorsLigne(Number(e.target.value))} aria-label="Utilisation sans réseau">
+              {HORS_LIGNE.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
+        <button className="btn primary admin-creer" disabled={busy || !nom.trim()}>
+          Créer le code
+        </button>
       </form>
+      <p className="muted small admin-resume" aria-live="polite">
+        {enLigneMaintenant ? (
+          <>
+            <span className="admin-enligne">●</span> {enLigneMaintenant} en ligne maintenant
+          </>
+        ) : (
+          'Personne en ligne en ce moment'
+        )}{' '}
+        · mis à jour toutes les 30 s
+      </p>
       <div className="seg seg-3 admin-filtre" role="radiogroup" aria-label="Codes affichés">
         {(
           [
             ['actifs', 'Actifs'],
-            ['coupes', 'Coupés'],
+            ['coupes', 'Arrêtés'],
             ['tous', 'Tous'],
           ] as const
         ).map(([v, l]) => (
@@ -315,30 +410,80 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
         <p className="muted">Aucun code ici.</p>
       ) : (
         <ul className="admin-codes">
-          {liste.map((c) => (
-            <li key={c.id} className={c.coupe_le ? 'coupe' : ''}>
-              <div className="admin-code-top">
-                <b>{c.nom}</b>
-                <code>{formatCode(c.code)}</code>
-              </div>
-              <small>
-                Créé {ago(c.cree_le)} · {c.coupe_le ? `coupé ${ago(c.coupe_le)}` : c.derniere_utilisation ? `utilisé ${ago(c.derniere_utilisation)}` : 'pas encore utilisé'}
-              </small>
-              <div className="admin-code-actions">
-                {!c.coupe_le && (
-                  <button className="btn btn-small primary" onClick={() => void partager(c)}>
-                    Partager
-                  </button>
+          {liste.map((c) => {
+            const tel = appareils.filter((a) => a.code_id === c.id);
+            const fini = termine(c, now);
+            const h = c.hors_ligne_h ?? 720;
+            return (
+              <li key={c.id} className={!actif(c) ? 'coupe' : ''}>
+                <div className="admin-code-top">
+                  <b>
+                    {actif(c) && enLigne(c.derniere_utilisation, now) && (
+                      <span className="admin-enligne" aria-label="En ligne">
+                        ●{' '}
+                      </span>
+                    )}
+                    {c.nom}
+                  </b>
+                  <code>{formatCode(c.code)}</code>
+                </div>
+                <small>
+                  {c.coupe_le
+                    ? `Coupé ${ago(c.coupe_le)}`
+                    : fini
+                      ? `Fini depuis le ${quand(c.expire_le!)}`
+                      : c.expire_le
+                        ? `Jusqu’au ${quand(c.expire_le)}`
+                        : 'Sans limite de durée'}
+                  {' · '}
+                  {h === 0 ? 'réseau obligatoire' : `${dureeTexte(h)} sans réseau`}
+                </small>
+                <small>
+                  Créé {ago(c.cree_le)} ·{' '}
+                  {actif(c) && enLigne(c.derniere_utilisation, now) ? 'en ligne maintenant' : c.derniere_utilisation ? `utilisé ${ago(c.derniere_utilisation)}` : 'pas encore utilisé'}
+                  {tel.length > 0 && (
+                    <>
+                      {' · '}
+                      <button className="link-btn" aria-expanded={ouvert === c.id} onClick={() => setOuvert(ouvert === c.id ? null : c.id)}>
+                        {tel.length} téléphone{tel.length > 1 ? 's' : ''}
+                      </button>
+                    </>
+                  )}
+                </small>
+                {ouvert === c.id && (
+                  <ul className="admin-appareils" aria-label={`Téléphones de ${c.nom}`}>
+                    {tel.map((a) => (
+                      <li key={a.id}>
+                        <span>{a.agent || 'Téléphone'}</span>
+                        <small>
+                          {enLigne(a.dernier, now) ? (
+                            <>
+                              <span className="admin-enligne">●</span> en ligne
+                            </>
+                          ) : (
+                            `vu ${ago(a.dernier)}`
+                          )}
+                        </small>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-                <button className="btn btn-small" onClick={() => void couper(c, !c.coupe_le)}>
-                  {c.coupe_le ? 'Réactiver' : 'Couper'}
-                </button>
-                <button className="btn btn-small danger" onClick={() => void supprimer(c)}>
-                  Supprimer
-                </button>
-              </div>
-            </li>
-          ))}
+                <div className="admin-code-actions">
+                  {actif(c) && (
+                    <button className="btn btn-small primary" onClick={() => void partager(c)}>
+                      Partager
+                    </button>
+                  )}
+                  <button className="btn btn-small" onClick={() => void couper(c, actif(c))}>
+                    {actif(c) ? 'Couper' : 'Réactiver'}
+                  </button>
+                  <button className="btn btn-small danger" onClick={() => void supprimer(c)}>
+                    Supprimer
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>
