@@ -103,6 +103,11 @@ cette ligne**, jamais le PDF ni les autres agents.
   et la prise de service du service du moment (modifiables), et le résumé du planning dans les notes.
 - **Codes** : RH (repos hebdomadaire), Z (fin de la nuit du vendredi, comptée en grand déplacement), AMO (attente de
   mission), CP, JF ; les autres sont montrés tels quels.
+- **Partager depuis Gmail (Android)** : l'appli installée apparaît dans le menu « Partager » d'un PDF
+  (`share_target` du manifeste). Le service worker reçoit le PDF (`app/public/partage-sw.js`), le garde un instant
+  dans le cache « asp-partage », puis ouvre « Mon planning » qui l'importe et vide le cache. Sur iPhone, ce menu
+  n'existe pas pour les applis web : on enregistre le PDF puis on l'importe. Plusieurs PDF peuvent être choisis ou
+  partagés ensemble (un seul message à la fin).
 - Un définitif n'est jamais remplacé par le provisoire de la même semaine (statut lu dans le nom du fichier). Les
   provisoires « courts » (3 pages) n'ont qu'une partie des agents : l'appli le dit si la ligne n'y est pas.
 
@@ -161,7 +166,8 @@ accepté, gardé, coupé, lien reçu), espace administrateur, nouveau chantier p
 résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
 obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
 LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Planning
-ETF : import d'un faux planning (agents fictifs), choix de sa ligne, semaine, chantier prérempli. Dans
+ETF : import d'un faux planning (agents fictifs), choix de sa ligne, semaine, chantier prérempli, plusieurs PDF
+d'un coup, partage depuis Gmail (envoi au service worker, Chrome). Dans
 Safari, six tests qui simulent des capteurs ou des gestes propres à Chrome sont sautés (raison indiquée dans le test).
 Internet est coupé pendant les tests (le serveur du code est simulé). `SHOTS=1` enregistre des captures dans
 `app/e2e-shots/`.

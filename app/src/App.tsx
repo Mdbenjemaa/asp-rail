@@ -28,6 +28,7 @@ import { fmtLine, fmtPk } from './lib/format';
 import { decodeGeom, parsePk, pkRange, positionsAtPk } from './lib/pk';
 import { REFUS_STOCKAGE } from './lib/collection';
 import { creer } from './app/creation';
+import { partageEnAttente } from './planning/partage';
 import { dataUpdate, keepAround, loadCell, loadLine, loadManifest, OFFLINE_MESSAGE, type Manifest } from './lib/data';
 import { distance, type LonLat } from './lib/geo';
 import { acquire, follow, geoErrorMessage, type Acquisition, type Fix } from './lib/gps';
@@ -81,7 +82,8 @@ export default function App() {
   };
   /** Onglet ouvert (l'appli s'ouvre sur l'accueil) et écrans ouverts par-dessus. */
   const [tab, setTab] = useState<Onglet>('accueil');
-  const [pile, setPile] = useState<Vue[]>([]);
+  // PDF partagé depuis Gmail (Android) : l'appli s'ouvre sur « Mon planning », qui l'importe.
+  const [pile, setPile] = useState<Vue[]>(() => (partageEnAttente() ? [{ k: 'planning', partage: true }] : []));
   const actif = useActif();
   const chantiers = useChantiers();
   const [aspFC, setAspFC] = useState<FeatureCollection | null>(null);

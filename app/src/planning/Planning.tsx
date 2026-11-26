@@ -2,7 +2,7 @@
  * Mon planning ETF : la carte de l'accueil (service du jour, la semaine en un coup d'œil, « Préparer ») et l'écran
  * de la semaine. Import du PDF reçu par mail : lu sur le téléphone, seule ma ligne est gardée.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { loadAccess } from '../access/gate';
 import { Icon } from '../components/parts';
@@ -13,6 +13,7 @@ import { nomAgent } from '../lib/signature';
 import { jourDe } from '../lib/temps';
 import { activitesDuPoste, horaireTexte, interpreter, prochainService, serviceDuMoment, titreJour, travaille, type JourPlanning } from './jour';
 import { lirePlanning, memeAgent, nomNormal, proches, type AgentLu, type PlanningLu } from './lire';
+import { oublierPartage, recupererPartage } from './partage';
 import { garderNomPlanning, garderSemaine, joursDe, jourDans, nomPlanning, oublierSemaine, statutDuFichier, useSemaines, type SemainePlanning } from './store';
 
 export type ActivitePlanning = 'asp' | 'pn' | 'lam';
@@ -58,57 +59,63 @@ interface Choix {
   fichier: string;
 }
 
-/** Import : lecture du PDF, recherche de ma ligne, puis (au premier import) le choix de mon nom dans la liste. */
+/**
+ * Import : lecture des PDF, recherche de ma ligne, puis (au premier import) le choix de mon nom dans la liste.
+ * Plusieurs PDF (choisis ensemble ou partagés depuis Gmail) passent l'un après l'autre ; un seul message à la fin.
+ */
 function useImport(ctx: Ctx, apres?: (id: string) => void) {
   const entree = useRef<HTMLInputElement>(null);
   const [lecture, setLecture] = useState(false);
   const [choix, setChoix] = useState<Choix | null>(null);
+  /** PDF qui attendent que l'agent ait choisi sa ligne. */
+  const attente = useRef<File[]>([]);
 
-  const garder = (lu: PlanningLu, agent: AgentLu, fichier: string) => {
+  const garder = (lu: PlanningLu, agent: AgentLu, fichier: string): string | null => {
     const statut = statutDuFichier(fichier);
-    const r = garderSemaine({
-      semaine: lu.semaine,
-      annee: lu.annee,
-      lundi: lu.lundi,
-      statut,
-      fichier,
-      nom: agent.nom,
-      jours: agent.jours,
-    });
-    if (r === 'refusee') return;
-    const jours = agent.jours.filter((l) => travaille(interpreter(l, lu.lundi))).length;
-    if (r === 'gardee-definitive') ctx.onToast(`S${lu.semaine} : le définitif déjà importé est gardé (ce PDF est le provisoire).`);
-    else
-      ctx.onToast(
-        `${r === 'remplacee' ? 'Mise à jour' : 'Importé'} : semaine ${lu.semaine}${statut === 'provisoire' ? ' (provisoire)' : statut === 'definitif' ? ' (définitif)' : ''}, ${jours} jour${jours > 1 ? 's' : ''} de travail.`,
-      );
+    const r = garderSemaine({ semaine: lu.semaine, annee: lu.annee, lundi: lu.lundi, statut, fichier, nom: agent.nom, jours: agent.jours });
+    if (r === 'refusee') return null;
     apres?.(`${lu.annee}-S${String(lu.semaine).padStart(2, '0')}`);
+    if (r === 'gardee-definitive') return `S${lu.semaine} : le définitif déjà importé est gardé (ce PDF est le provisoire).`;
+    const jours = agent.jours.filter((l) => travaille(interpreter(l, lu.lundi))).length;
+    const st = statut === 'provisoire' ? ' (provisoire)' : statut === 'definitif' ? ' (définitif)' : '';
+    return `${r === 'remplacee' ? 'Mise à jour' : 'Importé'} : semaine ${lu.semaine}${st}, ${jours} jour${jours > 1 ? 's' : ''} de travail.`;
   };
 
-  const lire = async (f: File) => {
-    setLecture(true);
+  /** Un PDF : le message à afficher, ou 'choix' si l'agent doit d'abord choisir sa ligne. */
+  const lire = async (f: File): Promise<string | null | 'choix'> => {
     try {
       const { morceauxDuPdf } = await import('./pdf');
       const lu = lirePlanning(await morceauxDuPdf(await f.arrayBuffer()));
-      if (!lu) {
-        ctx.onToast('Ce PDF ne ressemble pas à un planning ETF : pas de colonnes « lun … dim » ni de noms d’agents.');
-        return;
-      }
+      if (!lu) return `« ${f.name} » ne ressemble pas à un planning ETF : pas de colonnes « lun … dim » ni de noms d’agents.`;
       const retenu = nomPlanning();
       const moi =
         (retenu && lu.agents.find((a) => nomNormal(a.nom) === nomNormal(retenu))) || (retenu && lu.agents.find((a) => memeAgent(a.nom, retenu))) || null;
       if (moi) return garder(lu, moi, f.name);
-      if (retenu) {
-        ctx.onToast(`Ta ligne (${retenu}) n’est pas dans ce planning de la semaine ${lu.semaine}. Les provisoires « courts » n’ont qu’une partie des agents.`);
-        return;
-      }
+      if (retenu) return `Ta ligne (${retenu}) n’est pas dans ce planning de la semaine ${lu.semaine}. Les provisoires « courts » n’ont qu’une partie des agents.`;
       // Premier import : on demande qui on est (le nom du code d'accès ou de l'export PDF est proposé en premier).
       setChoix({ lu, fichier: f.name });
+      return 'choix';
     } catch (e) {
-      ctx.onToast(`Lecture du PDF impossible : ${e instanceof Error ? e.message : 'fichier abîmé ?'}`);
+      return `Lecture de « ${f.name} » impossible : ${e instanceof Error ? e.message : 'fichier abîmé ?'}`;
+    }
+  };
+
+  const importer = async (fichiers: File[], deja: string[] = []) => {
+    setLecture(true);
+    const messages = [...deja];
+    try {
+      for (let k = 0; k < fichiers.length; k++) {
+        const r = await lire(fichiers[k]);
+        if (r === 'choix') {
+          attente.current = fichiers.slice(k + 1);
+          break;
+        }
+        if (r) messages.push(r);
+      }
     } finally {
       setLecture(false);
     }
+    if (messages.length) ctx.onToast(messages.join(' '));
   };
 
   const champ = (
@@ -116,12 +123,13 @@ function useImport(ctx: Ctx, apres?: (id: string) => void) {
       ref={entree}
       type="file"
       accept="application/pdf,.pdf"
+      multiple
       hidden
       aria-label="Planning ETF (PDF)"
       onChange={(e) => {
-        const f = e.target.files?.[0];
+        const fs = [...(e.target.files ?? [])];
         e.target.value = '';
-        if (f) void lire(f);
+        if (fs.length) void importer(fs);
       }}
     />
   );
@@ -131,16 +139,22 @@ function useImport(ctx: Ctx, apres?: (id: string) => void) {
     createPortal(
       <ChoixNom
         choix={choix}
-        onClose={() => setChoix(null)}
+        onClose={() => {
+          attente.current = [];
+          setChoix(null);
+        }}
         onChoisir={(a) => {
           garderNomPlanning(a.nom);
           setChoix(null);
-          garder(choix.lu, a, choix.fichier);
+          const msg = garder(choix.lu, a, choix.fichier);
+          const reste = attente.current;
+          attente.current = [];
+          void importer(reste, msg ? [msg] : []);
         }}
       />,
       document.body,
     );
-  return { ouvrir: () => entree.current?.click(), lecture, champ, feuille };
+  return { ouvrir: () => entree.current?.click(), importer, lecture, champ, feuille };
 }
 
 function ChoixNom(p: { choix: Choix; onClose: () => void; onChoisir: (a: AgentLu) => void }) {
@@ -272,7 +286,7 @@ export function CartePlanning(p: { ctx: Ctx; onPreparer: (a: ActivitePlanning) =
 
 /* ---------- Écran « Mon planning » ---------- */
 
-export function PlanningScreen(p: { ctx: Ctx; hidden?: boolean }) {
+export function PlanningScreen(p: { ctx: Ctx; hidden?: boolean; partage?: boolean }) {
   const semaines = useSemaines();
   const tri = useMemo(() => [...semaines].sort((a, b) => a.lundi.localeCompare(b.lundi)), [semaines]);
   const [maintenant] = useState(() => Date.now());
@@ -280,6 +294,20 @@ export function PlanningScreen(p: { ctx: Ctx; hidden?: boolean }) {
   const actuelle = tri.find((s) => joursDe(s).some((j) => j.date === auj)) ?? tri[tri.length - 1] ?? null;
   const [choisie, setChoisie] = useState<string | null>(null);
   const imp = useImport(p.ctx, setChoisie);
+  // Ouvert par un partage depuis Gmail : on importe le ou les PDF reçus, une seule fois.
+  const partageLu = useRef(false);
+  const importer = useRef(imp.importer);
+  useEffect(() => {
+    importer.current = imp.importer;
+  });
+  useEffect(() => {
+    if (!p.partage || partageLu.current) return;
+    partageLu.current = true;
+    oublierPartage();
+    void recupererPartage()
+      .catch(() => [] as File[])
+      .then((fs) => (fs.length ? importer.current(fs) : p.ctx.onToast('Aucun PDF reçu par le partage : importe-le avec le bouton ci-dessous.')));
+  }, [p.partage, p.ctx]);
   const sem: SemainePlanning | null = tri.find((s) => s.id === choisie) ?? actuelle;
   const [nom, setNom] = useState(nomPlanning);
   return (
@@ -368,7 +396,7 @@ export function PlanningScreen(p: { ctx: Ctx; hidden?: boolean }) {
           </div>
           <h2>Importe ton planning ETF</h2>
           <p>
-            Ouvre le mail « Planning Sécurité chantiers », enregistre le PDF, puis choisis-le ici. L’appli lit le PDF sur le téléphone et ne garde que ta ligne.
+            Sur Android, dans Gmail : ouvre le PDF du mail « Planning Sécurité chantiers », puis Partager → ASP Rail. Sinon, enregistre le PDF et choisis-le ici. L’appli lit le PDF sur le téléphone et ne garde que ta ligne.
           </p>
         </section>
       )}

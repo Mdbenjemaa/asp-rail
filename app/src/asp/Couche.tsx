@@ -97,7 +97,7 @@ export function Couche(p: {
           case 'lam-dsh':
             return <ControleDsh key={key} ctx={ctx} hidden={hidden} />;
           case 'planning':
-            return <PlanningScreen key={key} ctx={ctx} hidden={hidden} />;
+            return <PlanningScreen key={key} ctx={ctx} hidden={hidden} partage={v.partage} />;
           case 'cas':
             return (
               <CasScreen

@@ -52,6 +52,13 @@ export default defineConfig({
         theme_color: '#0b1220',
         start_url: '.',
         scope: '.',
+        // Android : « Partager » un PDF depuis Gmail vers ASP Rail importe le planning (public/partage-sw.js).
+        share_target: {
+          action: './partage-planning',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: { files: [{ name: 'pdf', accept: ['application/pdf', '.pdf'] }] },
+        },
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -67,6 +74,8 @@ export default defineConfig({
         // mettre sur le téléphone.
         globIgnores: ['data/**', '**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js'],
         // La nouvelle version prend la main tout de suite (l'appli se recharge alors toute seule).
+        // Réception des PDF partagés vers l'appli (Android).
+        importScripts: ['partage-sw.js'],
         clientsClaim: true,
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

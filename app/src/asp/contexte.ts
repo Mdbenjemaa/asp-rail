@@ -33,7 +33,7 @@ export type Vue =
   | { k: 'lam-ordre' }
   | { k: 'lam-missions' }
   | { k: 'lam-dsh' }
-  | { k: 'planning' };
+  | { k: 'planning'; partage?: boolean };
 
 export type EtapePn = 'role' | 'pn' | 'equipement' | 'chantier';
 export type EtapeLam = 'type' | 'lieu' | 'detail' | 'chantier';
