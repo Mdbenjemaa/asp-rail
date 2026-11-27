@@ -1,7 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculChantier, nouveauChantier } from '../asp/chantier';
-import { fichePdf } from '../asp/pdf';
+import { compteRenduPdf, fichePdf } from '../asp/pdf';
+import { ajouterEvenementCr, ajouterTrain, noterJalon } from '../asp/deroule';
+import { annonceurParSens } from '../asp/dispositif';
 import { journalLamPdf } from '../lam/pdf';
 import { cocherLam, noterDepeche, nouvelleMissionLam, toutesEtapesLam } from '../lam/mission';
 import { journalPnPdf } from '../pn/pdf';
@@ -103,5 +105,41 @@ describe('PDF', () => {
     expect(f.name).toMatch(/^CADA-Remplacement-traverses-2026-11-25-1025\.pdf$/);
     const t = await contenu(f);
     for (const x of ['Fiche CADA', 'Plan de situation', 'Signatures', 'Responsable du chantier']) expect(t, x).toContain(x);
+  });
+
+  it('compte rendu d’intervention : horaires, trains, incidents, deux signatures', async () => {
+    const c0 = { ...nouveauChantier(), nom: 'Remplacement traverses', ligne: '830000', pkDebut: 47.1, pkFin: 47.3, date: '2026-11-25', horaire: 'nuit' as const, asp: 'Moo' };
+    c0.voies = c0.voies.map((v) => ({ ...v, vitesse: 160 }));
+    const c1 = annonceurParSens(c0, calculChantier(c0));
+    const r = calculChantier(c1);
+    const t = (h: number, m: number, j = 25) => new Date(2026, 10, j, h, m).getTime();
+    let d = c1.deroule;
+    d = noterJalon(d, 'arrivee', t(21, 40));
+    d = noterJalon(d, 'enPlace', t(22, 5));
+    d = noterJalon(d, 'debut', t(22, 10));
+    d = ajouterTrain(d, `${r.voies[0].voieId}:${r.voies[0].sens}`, t(22, 31));
+    d = ajouterTrain(d, `${r.voies[1].voieId}:${r.voies[1].sens}`, t(23, 2));
+    d = ajouterEvenementCr(d, 'incident', 'Annonce mal perçue sur V2, travaux arrêtés 5 min', t(23, 15));
+    d = noterJalon(d, 'fin', t(4, 50, 26));
+    d = noterJalon(d, 'leve', t(5, 5, 26));
+    const f = compteRenduPdf({ ...c1, deroule: d }, r, { ...info, second: { nom: 'M. Durand', signature: PNG, signeA: t(5, 10, 26) } }, doc);
+    expect(f.name).toBe('Compte-rendu-Remplacement-traverses-2026-11-25-1025.pdf');
+    const txt = await contenu(f);
+    for (const x of [
+      'Compte rendu d',
+      'Arriv',
+      '21:40',
+      '05:05 \\(26/11\\)', // parenthèses échappées dans le PDF
+      '7 h 25',
+      'Trains annonc',
+      '22:31',
+      'Annonce mal per',
+      'Plan de situation',
+      'M. Durand',
+      'Responsable du chantier',
+    ])
+      expect(txt, x).toContain(x);
+    // Deux signatures au doigt : deux images.
+    expect(txt.match(/\/Subtype \/Image/g)?.length).toBe(2);
   });
 });

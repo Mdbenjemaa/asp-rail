@@ -14,7 +14,7 @@ export type EtapeId = 'lieu' | 'type' | 'voies' | 'vitesses' | 'outillage' | 'de
 /** Écrans ouverts par-dessus les onglets (le dernier est au-dessus). */
 export type Vue =
   | { k: 'assistant'; id: string; etape?: EtapeId; seule?: boolean }
-  | { k: 'fiche'; id: string }
+  | { k: 'fiche'; id: string; ouvrir?: 'compte-rendu' | 'fin' }
   | { k: 'checklists'; id: string }
   | { k: 'chantiers' }
   | { k: 'memo'; section?: string; banque?: 'asp' | 'pn' | 'lam' }

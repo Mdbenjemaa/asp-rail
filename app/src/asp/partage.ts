@@ -4,7 +4,9 @@
  */
 import { fmtLine, fmtPk } from '../lib/format';
 import { ROLE_LABEL, SENS_FLECHE, SENS_TEXTE, titreChantier, zoneTexte, effectifAnnonce, type Chantier } from './chantier';
+import { durees, JALONS, trainsParSens } from './deroule';
 import { codesAgents, controlesDispositif } from './dispositif';
+import { duree, heureDans } from '../lib/temps';
 import { outillageLabel, SITUATION_LABEL, type Resultat } from './rules';
 
 const fmtDate = (iso: string) => {
@@ -62,6 +64,32 @@ export function resumeTexte(c: Chantier, r: Resultat): string {
     for (const a of stop) l.push(`- ${a.texte}`);
   }
   l.push('', 'Calcul ASP Rail : aide à la préparation, à vérifier sur le terrain et dans les documents officiels.');
+  return l.join('\n');
+}
+
+/** Compte rendu d'intervention, lisible tel quel dans un message. */
+export function compteRenduTexte(c: Chantier, r: Resultat): string {
+  const d = c.deroule;
+  const h = (t: number) => heureDans(t, c.date);
+  const l: string[] = [];
+  l.push(`Compte rendu d’intervention · ${titreChantier(c)}`);
+  l.push(`${c.ligne ? `Ligne ${fmtLine(c.ligne)} · ` : ''}${zoneTexte(c)} · ${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`);
+  const qui = [c.asp && `ASP : ${c.asp}`, c.responsable && `Responsable : ${c.responsable}`, c.entreprise].filter(Boolean);
+  if (qui.length) l.push(qui.join(' · '));
+  l.push('', 'Horaires :');
+  for (const j of JALONS) l.push(`- ${j.titre} : ${d.jalons[j.id] ? h(d.jalons[j.id]!) : 'non noté'}`);
+  const ds = durees(d);
+  if (ds.length) l.push(`Durée : ${ds.map((x) => `${x.titre.toLowerCase()} ${duree(x.ms)}`).join(' · ')}`);
+  const parSens = trainsParSens(c, r, d);
+  l.push('', `Trains annoncés : ${d.trains.length}${parSens.length ? ` (${parSens.map((x) => `${x.nom} : ${x.heures.length}`).join(' · ')})` : ''}`);
+  l.push('', 'Incidents et observations :');
+  if (d.evenements.length) for (const e of d.evenements) l.push(`- ${h(e.t)} ${e.type === 'incident' ? 'Incident' : 'Observation'} : ${e.texte}`);
+  else l.push('- Aucun');
+  l.push('', `Dispositif (${effectifAnnonce(c)}) :`);
+  const codes = codesAgents(c.agents);
+  for (const a of c.agents) {
+    l.push(`- ${codes.get(a.id)} ${ROLE_LABEL[a.role].toLowerCase()}${a.nom.trim() ? ` ${a.nom.trim()}` : ''}${a.pk !== null ? ` · PK ${fmtPk(a.pk)}` : ''}`);
+  }
   return l.join('\n');
 }
 

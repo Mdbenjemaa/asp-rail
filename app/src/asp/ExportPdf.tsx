@@ -35,6 +35,68 @@ function chargerPolice(): Promise<string | null> {
 
 const quand = (t: number) => `${new Date(t).toLocaleDateString('fr-FR')} à ${new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
 
+/** Signature retenue pour l'export : celle déjà gardée, ou un nouveau trait (gardé au moment de l'export). */
+interface SigChoisie {
+  png: string;
+  t: number;
+  nouveau: boolean;
+}
+const dejaGardee = (cle: string): SigChoisie | null => {
+  const s = signatureDe(cle);
+  return s ? { ...s, nouveau: false } : null;
+};
+/** Garde un nouveau trait sous sa clé, avec l'heure de l'export. */
+function fixer(s: SigChoisie | null, cle: string, t: number): { png: string; t: number } | null {
+  if (!s) return null;
+  if (!s.nouveau) return s;
+  garderSignature(cle, s.png, t);
+  return { png: s.png, t };
+}
+
+/** Cadre de signature : celle déjà donnée pour ce document (refaire, retirer), sinon un cadre où signer. */
+function BlocSignature(p: { titre: string; cle: string; onChange: (s: SigChoisie | null) => void }) {
+  const [gardee, setGardee] = useState(() => signatureDe(p.cle));
+  const [refaire, setRefaire] = useState(false);
+  return (
+    <>
+      <span className="ds-label" style={{ marginTop: 14 }}>
+        {p.titre}
+      </span>
+      {!gardee || refaire ? (
+        <PadSignature onChange={(png) => p.onChange(png ? { png, t: Date.now(), nouveau: true } : null)} />
+      ) : (
+        <div className="ds-sig-gardee">
+          <img src={gardee.png} alt={p.titre} />
+          <small>Signé le {quand(gardee.t)}</small>
+          <span>
+            <button
+              type="button"
+              className="ds-btn text"
+              onClick={() => {
+                setRefaire(true);
+                p.onChange(null);
+              }}
+            >
+              Signer à nouveau
+            </button>
+            <button
+              type="button"
+              className="ds-btn text"
+              onClick={() => {
+                garderSignature(p.cle, null, Date.now());
+                setGardee(null);
+                p.onChange(null);
+              }}
+            >
+              Retirer
+            </button>
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function FeuilleExportPdf(p: {
   /** Titre du partage (« Journal · PN 26 · ligne 830 000 »). */
   titre: string;
@@ -44,11 +106,16 @@ export function FeuilleExportPdf(p: {
   preparer: () => Promise<Constructeur>;
   onClose: () => void;
   onFini: (e: Envoi) => void;
+  /** Deuxième signature (responsable du chantier) : son nom et sa signature au doigt, gardée pour ce document. */
+  second?: { titre: string; defautNom: string };
+  /** Texte d'aide au-dessus du formulaire. */
+  intro?: string;
 }) {
   const [nom, setNom] = useState(() => nomAgent() || p.defautNom || '');
-  const [gardee, setGardee] = useState(() => signatureDe(p.docId));
-  const [trace, setTrace] = useState<string | null>(null);
-  const [refaire, setRefaire] = useState(false);
+  const [sig, setSig] = useState(() => dejaGardee(p.docId));
+  const cle2 = `${p.docId}:second`;
+  const [nom2, setNom2] = useState(p.second?.defautNom ?? '');
+  const [sig2, setSig2] = useState(() => (p.second ? dejaGardee(cle2) : null));
   const [construire, setConstruire] = useState<Constructeur | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -65,20 +132,22 @@ export function FeuilleExportPdf(p: {
     };
   }, []);
 
-  const pad = !gardee || refaire;
   const exporter = async () => {
     if (!construire) return;
     const t = Date.now();
     garderNomAgent(nom);
-    let sig = gardee && !refaire ? gardee : null;
-    if (pad && trace) {
-      sig = { png: trace, t };
-      garderSignature(p.docId, trace, t);
-    }
+    const s1 = fixer(sig, p.docId, t);
+    const s2 = p.second ? fixer(sig2, cle2, t) : null;
     setEnvoi(true);
     try {
       // Assemblé et partagé dans le même toucher : le téléphone refuse un partage trop tardif.
-      const file = construire({ agent: nom, signature: sig?.png ?? null, signeA: sig?.t ?? null, cree: new Date(t) });
+      const file = construire({
+        agent: nom,
+        signature: s1?.png ?? null,
+        signeA: s1?.t ?? null,
+        cree: new Date(t),
+        second: p.second ? { nom: nom2.trim(), signature: s2?.png ?? null, signeA: s2?.t ?? null } : undefined,
+      });
       p.onFini(await partagerFichier(file, p.titre));
     } catch (e) {
       setErreur(e instanceof Error ? `PDF impossible : ${e.message}` : 'PDF impossible.');
@@ -90,36 +159,19 @@ export function FeuilleExportPdf(p: {
   return (
     <Modal title="Exporter en PDF" onClose={p.onClose}>
       <p className="ds-hint" style={{ marginTop: 0, marginBottom: 12 }}>
-        Le PDF se crée sur le téléphone, même sans réseau, avec la date et l’heure de création.
+        {p.intro ?? 'Le PDF se crée sur le téléphone, même sans réseau, avec la date et l’heure de création.'}
       </p>
       <div className="ds-fields">
         <Champ label="Ton nom (agent)" value={nom} placeholder="Prénom NOM" onChange={setNom} />
       </div>
-      <span className="ds-label" style={{ marginTop: 14 }}>
-        Ta signature (facultatif)
-      </span>
-      {pad ? (
-        <PadSignature onChange={setTrace} />
-      ) : (
-        <div className="ds-sig-gardee">
-          <img src={gardee!.png} alt="Ta signature" />
-          <small>Signé le {quand(gardee!.t)}</small>
-          <span>
-            <button type="button" className="ds-btn text" onClick={() => setRefaire(true)}>
-              Signer à nouveau
-            </button>
-            <button
-              type="button"
-              className="ds-btn text"
-              onClick={() => {
-                garderSignature(p.docId, null, Date.now());
-                setGardee(null);
-              }}
-            >
-              Retirer
-            </button>
-          </span>
-        </div>
+      <BlocSignature titre="Ta signature (facultatif)" cle={p.docId} onChange={setSig} />
+      {p.second && (
+        <>
+          <div className="ds-fields" style={{ marginTop: 16 }}>
+            <Champ label={`Nom : ${p.second.titre.toLowerCase()}`} value={nom2} placeholder="Prénom NOM" onChange={setNom2} />
+          </div>
+          <BlocSignature titre={`Signature : ${p.second.titre.toLowerCase()} (facultatif)`} cle={cle2} onChange={setSig2} />
+        </>
       )}
       {erreur && <p className="ds-hint error">{erreur}</p>}
       <button className="ds-btn primary big wide" style={{ marginTop: 16 }} disabled={!construire || envoi} onClick={() => void exporter()}>

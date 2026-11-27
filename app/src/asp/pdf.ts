@@ -1,14 +1,18 @@
 /**
- * Fiche CADA en PDF (A4), faite sur le téléphone avec jsPDF : chantier, plan de situation, plateforme, délais,
- * points d'annonce, dispositif, points à régler, check-lists et signatures. Chargé seulement quand on en a besoin.
+ * PDF d'un chantier (A4), faits sur le téléphone avec jsPDF. Fiche CADA : chantier, plan de situation, plateforme,
+ * délais, points d'annonce, dispositif, points à régler, check-lists et signatures. Compte rendu d'intervention :
+ * horaires notés sur place, dispositif, trains annoncés, incidents et observations, signatures de l'ASP et du
+ * responsable. Chargé seulement quand on en a besoin.
  */
 import type { LineDoc } from '../lib/data';
 import { fmtLine, fmtPk } from '../lib/format';
-import { creerPdf, nomPdf, type InfoExport } from '../lib/pdfKit';
+import { creerPdf, nomPdf, type InfoExport, type Kit } from '../lib/pdfKit';
+import { dateHeure, duree, heureDans } from '../lib/temps';
 import { planSituation, rayonPour, type MarquePlan } from '../lib/plan';
 import { ROLE_LABEL, SENS_FLECHE, SENS_LABEL, titreChantier, zoneTexte, effectifAnnonce, type Chantier, zoneAnnonce } from './chantier';
 import { CHECKLISTS } from './checklists';
-import { codesAgents, controlesDispositif } from './dispositif';
+import { JALONS, durees, trainsParSens } from './deroule';
+import { codesAgents, controlesDispositif, metres, pointsAnnonceAgent } from './dispositif';
 import { surveilleTexte } from './partage';
 import { outillageLabel, SITUATION_LABEL, type Particularites, type Resultat } from './rules';
 import { PARTICULARITES } from './textes';
@@ -21,6 +25,29 @@ const fmtDate = (iso: string) => {
 function particularitesTexte(p: Particularites): string {
   const on = PARTICULARITES.filter((x) => p[x.key]).map((x) => x.label);
   return on.length ? on.join(' ; ') : 'Aucune';
+}
+
+/** Plan de situation : zone de travail, points d'annonce et agents placés. */
+function planChantier(k: Kit, c: Chantier, r: Resultat, ligne: LineDoc | null) {
+  const z = zoneAnnonce(c);
+  const codes = codesAgents(c.agents);
+  if (ligne && c.ligne && z.debut !== null) {
+    const fin = z.fin ?? z.debut;
+    const milieu = (z.debut + fin) / 2;
+    const marques: MarquePlan[] = [
+      ...r.voies.filter((v) => v.pointAnnonce !== null).map((v) => ({ pk: v.pointAnnonce!, label: `Annonce ${v.voie} ${SENS_FLECHE[v.sens]}`, genre: 'annonce' as const })),
+      ...c.agents.filter((a) => a.pk !== null && a.role !== 'asp').map((a) => ({ pk: a.pk!, label: codes.get(a.id) ?? '', genre: 'agent' as const })),
+    ];
+    const p = planSituation(ligne, milieu, {
+      rayon: rayonPour(milieu, [z.debut, fin, ...marques.map((m) => m.pk)]),
+      zone: [z.debut, fin],
+      marques: [{ pk: milieu, label: `Chantier · PK ${fmtPk(z.debut)}${fin !== z.debut ? ` à ${fmtPk(fin)}` : ''}`, genre: 'ici' }, ...marques],
+    });
+    if (p) {
+      k.titre('Plan de situation', 100);
+      k.plan(p, { ligne: fmtLine(c.ligne), pk: milieu });
+    }
+  }
 }
 
 export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
@@ -50,23 +77,7 @@ export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: Line
 
   // Plan de situation : zone de travail, points d'annonce et agents placés.
   const codes = codesAgents(c.agents);
-  if (ligne && c.ligne && z.debut !== null) {
-    const fin = z.fin ?? z.debut;
-    const milieu = (z.debut + fin) / 2;
-    const marques: MarquePlan[] = [
-      ...r.voies.filter((v) => v.pointAnnonce !== null).map((v) => ({ pk: v.pointAnnonce!, label: `Annonce ${v.voie} ${SENS_FLECHE[v.sens]}`, genre: 'annonce' as const })),
-      ...c.agents.filter((a) => a.pk !== null && a.role !== 'asp').map((a) => ({ pk: a.pk!, label: codes.get(a.id) ?? '', genre: 'agent' as const })),
-    ];
-    const p = planSituation(ligne, milieu, {
-      rayon: rayonPour(milieu, [z.debut, fin, ...marques.map((m) => m.pk)]),
-      zone: [z.debut, fin],
-      marques: [{ pk: milieu, label: `Chantier · PK ${fmtPk(z.debut)}${fin !== z.debut ? ` à ${fmtPk(fin)}` : ''}`, genre: 'ici' }, ...marques],
-    });
-    if (p) {
-      k.titre('Plan de situation', 100);
-      k.plan(p, { ligne: fmtLine(c.ligne), pk: milieu });
-    }
-  }
+  planChantier(k, c, r, ligne);
 
   // Plateforme.
   k.titre('Plateforme');
@@ -148,4 +159,110 @@ export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: Line
   ]);
 
   return k.fichier(nomPdf('CADA', titreChantier(c), info.cree));
+}
+
+const signeLe = (t: number | null) => (t ? dateHeure(t) : null);
+
+/** Compte rendu d'intervention : ce qui s'est passé, d'après les heures notées sur place. */
+export function compteRenduPdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
+  const d = c.deroule;
+  const h = (t: number) => heureDans(t, c.date);
+  const codes = codesAgents(c.agents);
+  const k = creerPdf({
+    titre: 'Compte rendu d’intervention',
+    sousTitre: titreChantier(c),
+    ligne3: [c.ligne ? `Ligne ${fmtLine(c.ligne)}` : null, zoneTexte(c), `${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`].filter(Boolean).join(' · '),
+    info,
+    pied: 'Compte rendu établi sur le téléphone de l’ASP avec les heures notées pendant l’intervention. Le carnet CADA et l’AAn font foi.',
+  });
+
+  // L'intervention.
+  k.titre('Intervention');
+  k.kv([
+    ['Ligne', c.ligne ? `${fmtLine(c.ligne)}${c.ligneNom ? ` · ${c.ligneNom}` : ''}` : 'À préciser'],
+    ['Zone de travail', zoneTexte(c)],
+    ['Type de chantier', c.type === 'fixe' ? 'Fixe' : c.type === 'mobile' ? 'Mobile' : 'Itinérant'],
+    ['Date', `${fmtDate(c.date)} · ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`],
+    ['Entreprise', c.entreprise || '—'],
+    ['ASP', info.agent || c.asp || '—'],
+    ['Responsable du chantier', info.second?.nom || c.responsable || '—'],
+    ['Effectif travaux', c.effectif === null ? '—' : String(c.effectif)],
+    ['Effectif annonce', effectifAnnonce(c)],
+  ]);
+
+  // Horaires.
+  k.titre('Horaires');
+  k.table(
+    ['Moment', 'Heure'],
+    JALONS.map((j) => [j.titre, d.jalons[j.id] ? h(d.jalons[j.id]!) : 'Non noté']),
+    { widths: { 1: 40 } },
+  );
+  const ds = durees(d);
+  if (ds.length) k.kv(ds.map((x) => [`Durée : ${x.titre.toLowerCase()}`, duree(x.ms)]));
+  if (!d.jalons.leve) k.note('Fin de l’intervention (dispositif levé) pas encore notée.');
+
+  // Trains annoncés.
+  const parSens = trainsParSens(c, r, d);
+  k.titre(`Trains annoncés : ${d.trains.length}`);
+  if (parSens.length) {
+    k.table(
+      ['Voie', 'Nombre', 'Heures'],
+      parSens.map((x) => [x.nom, String(x.heures.length), x.heures.map(h).join(', ')]),
+      { widths: { 1: 22 } },
+    );
+  } else {
+    k.note('Aucun train noté pendant l’intervention.');
+  }
+
+  // Incidents et observations.
+  const incidents = d.evenements.filter((e) => e.type === 'incident').length;
+  k.titre(incidents ? `Incidents et observations (${incidents} incident${incidents > 1 ? 's' : ''})` : 'Incidents et observations');
+  if (d.evenements.length) {
+    k.table(
+      ['Heure', 'Type', 'Description'],
+      d.evenements.map((e) => [h(e.t), e.type === 'incident' ? 'Incident' : 'Observation', e.texte]),
+      { widths: { 0: 24, 1: 28 } },
+    );
+  } else {
+    k.note('Aucun incident ni observation noté.');
+  }
+
+  // Le dispositif en place : plan, points d'annonce, agents.
+  planChantier(k, c, r, ligne);
+
+  // Dispositif.
+  k.titre(`Dispositif d’annonce (${effectifAnnonce(c)})`);
+  k.kv([
+    ['Délai de dégagement', r.dd.retenu === null ? '—' : `${r.dd.retenu} s`],
+    ['Marge de sécurité', `${r.ms.valeur} s`],
+    ['Délai d’annonce', r.da === null ? '—' : `${r.da} s`],
+  ]);
+  if (r.exemption) k.note(`Annonce non obligatoire : ${r.exemption}`);
+  if (r.voies.length) {
+    k.table(
+      ['Voie', 'Sens', 'Vitesse', 'Distance', 'Point d’annonce'],
+      r.voies.map((v) => [v.voie, SENS_LABEL[v.sens], v.vitesse ? `${v.vitesse} km/h` : '?', v.distance ? `${v.distance} m` : '?', v.pointAnnonce === null ? '?' : `PK ${fmtPk(v.pointAnnonce)}`]),
+    );
+  }
+  k.table(
+    ['', 'Rôle', 'Nom', 'Position', 'Surveille', 'À voir'],
+    c.agents.map((a) => {
+      const pas = pointsAnnonceAgent(c, r, a.id);
+      const voir = pas.map((p) => (p.etat === 'au' ? `${p.titre} : au point` : p.etat === 'voir' ? `${p.titre} : ${metres(p.ecart)}` : `${p.titre} : au-delà`)).join(', ');
+      return [codes.get(a.id) ?? '', ROLE_LABEL[a.role], a.nom || '—', a.pk === null ? '—' : `PK ${fmtPk(a.pk)}`, surveilleTexte(c, a.surveille) || '—', voir || '—'];
+    }),
+  );
+
+  if (c.notes.trim()) {
+    k.titre('Notes');
+    k.note(c.notes.trim());
+  }
+
+  k.titre('Signatures', 56);
+  k.signatures([
+    { titre: 'ASP', nom: info.agent || c.asp, png: info.signature, quand: signeLe(info.signeA) },
+    { titre: 'Responsable du chantier', nom: info.second?.nom || c.responsable, png: info.second?.signature ?? null, quand: signeLe(info.second?.signeA ?? null) },
+  ]);
+
+  return k.fichier(nomPdf('Compte-rendu', titreChantier(c), info.cree));
 }

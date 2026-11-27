@@ -15,6 +15,8 @@ export interface InfoExport {
   signature: string | null;
   signeA: number | null;
   cree: Date;
+  /** Deuxième signataire (responsable du chantier), quand le document en demande un. */
+  second?: { nom: string; signature: string | null; signeA: number | null };
   /**
    * Police Unicode (DejaVu Sans, TrueType en base64) pour écrire ce que les polices standard du PDF ne savent pas :
    * arabe, polonais, grec, cyrillique… Ajoutée au PDF seulement si un texte en a besoin.

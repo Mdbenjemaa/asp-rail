@@ -329,6 +329,79 @@ test('nouveau chantier pas à pas : position, vitesse de la ligne, résultat, an
   await expect(page.locator('.ds-check input').first()).toBeChecked();
 });
 
+test('intervention : heures notées d’un toucher, trains annoncés, incident, fin et compte rendu PDF signé par l’ASP et le responsable', async ({ page }) => {
+  await fakeShare(page);
+  await openApp(page, { home: true });
+  const { ecran } = await creerChantier(page, { outillage: /^1re catégorie/ });
+  await ecran.getByRole('button', { name: 'Placer un annonceur par sens' }).click();
+  const fiche = page.getByRole('dialog', { name: /^Fiche chantier/ });
+  const section = fiche.locator('section').filter({ has: page.getByRole('heading', { name: /^Intervention/ }) });
+  await expect(section.locator('.ds-status')).toHaveText('Pas commencée');
+
+  // Un toucher par moment, dans l'ordre.
+  await section.getByRole('button', { name: 'Je suis arrivé sur le chantier' }).click();
+  await expect(section.locator('.ds-status')).toHaveText(/^En cours depuis \d+ min$/);
+  await expect(section.getByRole('button', { name: /^Arrivée sur le chantier : noté à \d{2}:\d{2}/ })).toBeVisible();
+  await section.getByRole('button', { name: 'Dispositif en place' }).click();
+  // Les boutons tiennent dans la largeur de l'écran.
+  const largeur = await section.locator('.ds-list').evaluate((el) => el.getBoundingClientRect().right);
+  for (const b of await section.locator('.cr-actions .ds-btn').all()) expect((await b.boundingBox())!.x + (await b.boundingBox())!.width).toBeLessThanOrEqual(largeur + 1);
+
+  // Trains annoncés : +1 par voie et sens, le dernier peut s'annuler.
+  await section.getByRole('button', { name: 'Train annoncé sur V1 ▲' }).click();
+  await section.getByRole('button', { name: 'Train annoncé sur V1 ▲' }).click();
+  await section.getByRole('button', { name: 'Train annoncé sur V2 ▼' }).click();
+  await expect(section.locator('.cr-compte')).toHaveText('3 trains annoncés');
+  await section.getByRole('button', { name: /^Annuler le dernier train/ }).click();
+  await expect(section.locator('.cr-compte')).toHaveText('2 trains annoncés');
+  await expect(section).toContainText('V1 ▲ : 2');
+
+  // Un incident, avec l'heure.
+  await section.getByRole('button', { name: 'Incident', exact: true }).click();
+  const evt = page.getByRole('dialog', { name: 'Noter un incident' });
+  await evt.getByLabel('Ce qui s’est passé').fill('Annonce mal perçue sur V2, travaux arrêtés 5 min');
+  await evt.getByRole('button', { name: /^Noter à \d{2}:\d{2}$/ }).click();
+  await expect(section).toContainText('Annonce mal perçue sur V2');
+
+  await section.getByRole('button', { name: 'Les travaux commencent' }).click();
+  await section.getByRole('button', { name: 'Travaux finis, voies dégagées' }).click();
+  // Une heure corrigée à la main.
+  await section.getByRole('button', { name: /^Fin des travaux : noté à/ }).click();
+  const heure = page.getByRole('dialog', { name: 'Fin des travaux' });
+  await expect(heure.getByLabel('Heure')).toHaveValue(/^\d{2}:\d{2}$/);
+  await heure.getByRole('button', { name: /^Enregistrer/ }).click();
+  await shot(page, '06-intervention');
+
+  // Dispositif levé : l'intervention est finie, le compte rendu est proposé.
+  await section.getByRole('button', { name: 'Dispositif levé : fin de l’intervention' }).click();
+  const finie = page.getByRole('dialog', { name: 'Intervention finie' });
+  await expect(finie).toContainText('2 (V1 ▲ : 2)');
+  await expect(finie).toContainText('Incidents1');
+  await shot(page, '06b-intervention-finie');
+  await finie.getByRole('button', { name: 'Compte rendu en PDF' }).click();
+  const pdf = await exporterPdf(page, { nom: 'Moo Test', signer: true, responsable: 'M. Durand', signerResponsable: true });
+  expect(pdf.name).toMatch(/^Compte-rendu-.+\.pdf$/);
+  for (const x of ['Compte rendu d’intervention', 'Horaires', 'Dispositif levé', 'Trains annoncés : 2', 'Annonce mal perçue sur V2', 'Plan de situation', 'Responsable du chantier', 'M. Durand'])
+    expect(pdf.plat, x).toContain(x);
+  expect(pdf.plat).not.toContain('Non noté');
+  expect(pdf.images).toBe(2);
+  // Le nom du responsable est gardé dans la fiche.
+  await expect(fiche.getByRole('button', { name: /^Équipe et notes/ })).toContainText('Resp. M. Durand');
+
+  await expect(section.getByRole('button', { name: /^Dispositif levé : noté à \d{2}:\d{2}/ })).toBeVisible();
+  await expect(section.locator('.ds-status')).toHaveText(/^Finie à \d{2}:\d{2}/);
+
+  // À l'accueil : fini, compte rendu à un toucher.
+  await fiche.getByRole('button', { name: 'Retour' }).click();
+  const hero = page.getByRole('region', { name: 'Mon chantier' });
+  await expect(hero.locator('.cr-rapide .ds-status')).toHaveText(/^Finie à/);
+  await shot(page, '06c-accueil-finie');
+  await hero.getByRole('button', { name: 'Compte rendu en PDF' }).click();
+  await expect(page.getByRole('dialog', { name: 'Exporter en PDF' })).toBeVisible();
+  // Les signatures sont gardées pour ce compte rendu.
+  await expect(page.getByRole('dialog', { name: 'Exporter en PDF' }).locator('.ds-sig-gardee')).toHaveCount(2);
+});
+
 test('carte du chantier : appui long sur un annonceur, on le glisse le long de la voie, son PK suit (et Annuler)', async ({ page, browserName }) => {
   await openApp(page, { home: true });
   const { ecran, debut } = await creerChantier(page, { outillage: /^1re catégorie/ });

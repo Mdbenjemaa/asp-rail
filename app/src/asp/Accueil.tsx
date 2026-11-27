@@ -18,7 +18,8 @@ import { AccueilPn } from '../pn/AccueilPn';
 import { CartePlanning, type ActivitePlanning } from '../planning/Planning';
 import { Annonce, Bascule, Etat } from './kit';
 import { CaseCalcul, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from './Widgets';
-import { useActif, useChantiers } from './store';
+import { enregistrer, useActif, useChantiers } from './store';
+import { InterventionRapide } from './Deroule';
 
 export function Accueil(p: {
   ctx: Ctx;
@@ -95,6 +96,17 @@ export function Accueil(p: {
             <h2>{titreChantier(c)}</h2>
             <div className="ds-hero-sub">{c.ligne ? `Ligne ${fmtLine(c.ligne)} · ${zoneTexte(c)}` : zoneTexte(c)}</div>
             <Annonce r={r} onGo={c.ligne ? (pk) => p.ctx.onGoPk(c.ligne!, pk) : undefined} manquePk={c.pkDebut === null} />
+            {(c.date === today() || Object.keys(c.deroule.jalons).length > 0) && (
+              <InterventionRapide
+                c={c}
+                r={r}
+                changer={(deroule, fin) => {
+                  enregistrer({ ...c, deroule });
+                  if (fin) p.ctx.open({ k: 'fiche', id: c.id, ouvrir: 'fin' });
+                }}
+                onCompteRendu={() => p.ctx.open({ k: 'fiche', id: c.id, ouvrir: 'compte-rendu' })}
+              />
+            )}
             <div className="ds-hero-actions">
               <button className="ds-btn primary" onClick={() => p.ctx.open({ k: 'fiche', id: c.id })}>
                 Ouvrir la fiche

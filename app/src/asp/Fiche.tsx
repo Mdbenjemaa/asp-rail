@@ -26,10 +26,12 @@ import { annonceurParSens, codesAgents, controlesDispositif, surveilleTexteCourt
 import { AlertesDs, Annonce, CorrectionDfv, Ecran, Etat, Ligne, Section } from './kit';
 import { useLigne } from './lignes';
 import { FeuilleExportPdf } from './ExportPdf';
-import { messageEnvoi, partagerTexte, resumeTexte, type Envoi } from './partage';
+import { derouleVide } from './deroule';
+import { compteRenduTexte, messageEnvoi, partagerTexte, resumeTexte, type Envoi } from './partage';
+import { FeuilleFinie, SectionIntervention } from './Deroule';
 import { loadLine } from '../lib/data';
 import type { Resultat } from './rules';
-import { definirActif, enregistrer, supprimer, useActif, useChantiers } from './store';
+import { chantierParId, definirActif, enregistrer, supprimer, useActif, useChantiers } from './store';
 import { Champ, Nombre } from './ui';
 
 const ETAPE_ICO: Record<EtapeId, string> = {
@@ -53,14 +55,23 @@ export function Feuille(p: { title: string; onClose: () => void; children: React
   );
 }
 
-type FeuilleOuverte = { k: 'agent'; id: string } | { k: 'ajouter' } | { k: 'equipe' } | { k: 'partager' } | { k: 'pdf' } | { k: 'plus' } | null;
+type FeuilleOuverte =
+  | { k: 'agent'; id: string }
+  | { k: 'ajouter' }
+  | { k: 'equipe' }
+  | { k: 'partager' }
+  | { k: 'pdf' }
+  | { k: 'plus' }
+  | { k: 'finie' }
+  | { k: 'cr' }
+  | null;
 
-export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
+export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx; ouvrir?: 'compte-rendu' | 'fin' }) {
   const c = useChantiers().find((x) => x.id === p.id) ?? null;
   const actif = useActif();
   const r = useMemo(() => (c ? calculChantier(c) : null), [c]);
   const { doc } = useLigne(c?.ligne ?? null);
-  const [feuille, setFeuille] = useState<FeuilleOuverte>(null);
+  const [feuille, setFeuille] = useState<FeuilleOuverte>(p.ouvrir === 'compte-rendu' ? { k: 'cr' } : p.ouvrir === 'fin' ? { k: 'finie' } : null);
   const [rappels, setRappels] = useState(false);
 
   if (!c || !r) {
@@ -149,6 +160,16 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
           {rappels && <AlertesDs list={infos} />}
         </>
       )}
+
+      <SectionIntervention
+        c={c}
+        r={r}
+        changer={(deroule, fin) => {
+          set({ deroule });
+          if (fin) setFeuille({ k: 'finie' });
+        }}
+        onCompteRendu={() => setFeuille({ k: 'cr' })}
+      />
 
       <Section
         title={`Dispositif · 1 + ${autres.length}`}
@@ -286,9 +307,55 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
           }}
         />
       )}
+      {feuille?.k === 'finie' && (
+        <FeuilleFinie
+          c={c}
+          r={r}
+          onClose={() => setFeuille(null)}
+          onPdf={() => setFeuille({ k: 'cr' })}
+          onTexte={() =>
+            void partagerTexte(`Compte rendu · ${titreChantier(c)}`, compteRenduTexte(c, r)).then((e) => {
+              envoi(e, 'Compte rendu');
+              setFeuille(null);
+            })
+          }
+        />
+      )}
+      {feuille?.k === 'cr' && (
+        <FeuilleExportPdf
+          titre={`Compte rendu · ${titreChantier(c)}`}
+          docId={`${c.id}:cr`}
+          defautNom={c.asp}
+          second={{ titre: 'Responsable du chantier', defautNom: c.responsable }}
+          intro={
+            c.deroule.jalons.leve
+              ? 'Compte rendu de l’intervention, créé sur le téléphone. Le responsable du chantier peut signer ici aussi.'
+              : 'Le dispositif n’est pas encore levé : les heures manquantes resteront « non noté ».'
+          }
+          preparer={async () => {
+            const [{ compteRenduPdf }, ligne] = await Promise.all([import('./pdf'), c.ligne ? loadLine(c.ligne).catch(() => null) : Promise.resolve(null)]);
+            return (info) => {
+              // Le nom du responsable tapé ici sert aussi à la fiche, s'il manquait.
+              if (info.second?.nom && !c.responsable) set({ responsable: info.second.nom });
+              return compteRenduPdf(chantierParId(c.id) ?? c, r, info, ligne);
+            };
+          }}
+          onClose={() => setFeuille(null)}
+          onFini={(e) => {
+            setFeuille(null);
+            p.ctx.onToast(messageEnvoi(e));
+          }}
+        />
+      )}
       {feuille?.k === 'partager' && (
         <Feuille title="Partager" onClose={() => setFeuille(null)}>
           <Ligne icon="file" title="Fiche CADA en PDF" sub="Avec le plan de situation et ta signature" onClick={() => setFeuille({ k: 'pdf' })} />
+          <Ligne
+            icon="file"
+            title="Compte rendu d’intervention en PDF"
+            sub="Horaires, trains annoncés, incidents, signatures"
+            onClick={() => setFeuille({ k: 'cr' })}
+          />
           <Ligne
             icon="message"
             title="Résumé par message"
@@ -320,7 +387,7 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx }) {
             sub="Pour un chantier qui ressemble à celui-ci"
             chevron={false}
             onClick={() => {
-              const copie: Chantier = { ...structuredClone(c), id: newId(), created: Date.now(), nom: `${titreChantier(c)} (copie)`, checks: {} };
+              const copie: Chantier = { ...structuredClone(c), id: newId(), created: Date.now(), nom: `${titreChantier(c)} (copie)`, checks: {}, deroule: derouleVide() };
               enregistrer(copie);
               setFeuille(null);
               p.ctx.replace({ k: 'fiche', id: copie.id });

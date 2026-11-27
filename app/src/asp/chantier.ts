@@ -3,6 +3,7 @@
  * check-lists. Gardé uniquement sur le téléphone (voir store.ts).
  */
 import { fmtLine, fmtPk } from '../lib/format';
+import { derouleVide, lireDeroule, type Deroule } from './deroule';
 import {
   AUCUNE_PARTICULARITE,
   calculer,
@@ -67,6 +68,8 @@ export interface Chantier {
   /** Cases cochées des check-lists. */
   checks: Record<string, boolean>;
   notes: string;
+  /** Le jour de l'intervention : heures notées, trains annoncés, incidents et observations. */
+  deroule: Deroule;
 }
 
 export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -109,6 +112,7 @@ export function nouveauChantier(init: Partial<Chantier> = {}): Chantier {
     agents: [{ id: newId(), role: 'asp', nom: init.asp ?? '', entreprise: init.entreprise ?? '', pk: null, surveille: [] }],
     checks: {},
     notes: '',
+    deroule: derouleVide(),
     ...init,
   };
 }
@@ -130,6 +134,7 @@ export function normaliser(c: Partial<Chantier> & { id: string }): Chantier {
       surveille: a.surveille ?? [],
     })),
     checks: c.checks ?? {},
+    deroule: lireDeroule(c.deroule),
   };
 }
 

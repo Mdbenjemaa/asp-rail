@@ -55,7 +55,7 @@ export function Couche(p: {
           case 'assistant':
             return <Assistant key={key} id={v.id} etape={v.etape} seule={v.seule} hidden={hidden} ctx={ctx} />;
           case 'fiche':
-            return <Fiche key={key} id={v.id} hidden={hidden} ctx={ctx} />;
+            return <Fiche key={key} id={v.id} hidden={hidden} ctx={ctx} ouvrir={v.ouvrir} />;
           case 'checklists':
             return <Checklists key={key} id={v.id} hidden={hidden} ctx={ctx} />;
           case 'chantiers':
