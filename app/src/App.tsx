@@ -656,26 +656,38 @@ export default function App() {
   const placerVu = placer && actif?.agents.some((a) => a.id === placer.id) ? placer : null;
 
   const agentDeplace = (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin' | 'annule'): LonLat | null => {
+    const doc = ligneChantier.current;
+    // Le chantier tel qu'il était avant de prendre l'agent (son trait revient avec lui).
+    const remettre = () => {
+      const g0 = glisse.current;
+      glisse.current = null;
+      setGlisseInfo(null);
+      if (g0 && doc) setAspFC(chantierFeatures(g0.c, doc, g0.r));
+    };
     if (phase === 'annule') {
       // Deux doigts : on zoome, l'agent reste où il était (le mode « placer » continue).
-      setGlisseInfo(null);
-      glisse.current = null;
+      remettre();
       return null;
     }
     if (phase === 'fin') setPlacer(null);
-    const doc = ligneChantier.current;
     if (!actif || !doc || doc.code !== actif.ligne) return null;
     if (phase === 'debut') glisse.current = { c: actif, r: calculChantier(actif), avant: actif.agents.find((a) => a.id === id)?.pk ?? null, pk: null };
     const g = glisse.current;
     if (!g) return null;
     const p = pkPres(doc, at);
-    if (!p) return null;
+    if (!p) {
+      if (phase === 'fin') remettre();
+      return null;
+    }
     const pk = Math.round(p.pk * 1000) / 1000;
-    g.pk = pk;
     if (phase !== 'fin') {
       setGlisseInfo(infoDeplacement(g.c, g.r, id, pk));
+      // Son trait jusqu'au point d'annonce suit, et sa distance avec.
+      if (g.pk !== pk) setAspFC(chantierFeatures(avecAgentA(g.c, id, pk), doc, g.r));
+      g.pk = pk;
       return p.point;
     }
+    g.pk = pk;
     setGlisseInfo(null);
     glisse.current = null;
     if (g.avant !== null && Math.abs(g.avant - pk) < 0.0005) return p.point;

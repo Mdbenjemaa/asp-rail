@@ -379,6 +379,10 @@ test('carte du chantier : appui long sur un annonceur, on le glisse le long de l
       await page.waitForTimeout(16);
     }
     await expect(bulle).toContainText(/^A1 · PK \d+\+\d{3} · PA V1 ▲ à \d+ m$/);
+    // Son trait jusqu'au point d'annonce suit le doigt.
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __aspMap: M }).__aspMap.querySourceFeatures('asp').find((f) => f.properties?.role === 'vue')?.properties?.label))
+      .toMatch(/^A1 → PA V1 ▲ · \d+ m$/);
     await shot(page, '05b-deplacer-agent');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await cdp.detach();
@@ -417,6 +421,22 @@ test('carte du chantier : appui long sur un annonceur, on le glisse le long de l
   await page.touchscreen.tap(arrivee.x, arrivee.y);
   await expect(page.locator('.toast').filter({ hasText: 'A1 déplacé au PK' })).toBeVisible();
   expect(Math.abs((await pkGarde()) - debut)).toBeLessThan(0.02);
+
+  // Au chantier, A1 doit voir arriver les trains jusqu'au point d'annonce : un trait pointillé, avec la distance.
+  const trait = () =>
+    page.evaluate(() => {
+      const m = (window as unknown as { __aspMap: M }).__aspMap;
+      return m.queryRenderedFeatures({ layers: ['u-asp-vue'] }).map((f) => f.properties?.label as string);
+    });
+  await expect.poll(async () => (await trait()).join()).toMatch(/A1 → PA V1 ▲ · 4\d\d m/);
+  // En le touchant : son point d'annonce, ce qu'il doit voir, et le calcul.
+  await page.waitForTimeout(600); // juste après l'avoir posé, un toucher n'ouvre pas sa fiche
+  await page.touchscreen.tap(arrivee.x, arrivee.y);
+  const fiche2 = page.locator('.card').filter({ hasText: 'Son point d’annonce' });
+  await expect(fiche2.locator('.pa-ligne.voir')).toContainText(`PA V1 ▲ · PK ${fmtPkTest(debut - 0.45)}`);
+  await expect(fiche2.locator('.pa-ligne.voir')).toContainText(/Doit voir arriver les trains sur 4\d\d m, jusqu’au PK/);
+  await expect(fiche2.locator('.pa-calcul')).toContainText(/km\/h × \d+ s \(dégagement \d+ s \+ marge \d+ s\) = 450 m avant le chantier/);
+  await shot(page, '05c-point-annonce-agent');
 });
 
 test('interdiction obligatoire : signalée, puis réglée en un toucher', async ({ page }) => {

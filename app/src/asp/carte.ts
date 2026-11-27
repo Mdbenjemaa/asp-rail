@@ -1,13 +1,14 @@
 /**
  * Le chantier sur la carte : zone de travail (trait épais le long de la ligne), points d'annonce et agents
- * du dispositif, placés à leur PK sur la ligne du chantier.
+ * du dispositif, placés à leur PK sur la ligne du chantier, avec le trait de chaque annonceur jusqu'au point
+ * d'annonce qu'il doit voir.
  */
 import type { Feature, FeatureCollection } from 'geojson';
 import type { LineDoc } from '../lib/data';
 import { fmtPk } from '../lib/format';
 import { lineBetween, positionsAtPk } from '../lib/pk';
 import { ROLE_LABEL, SENS_FLECHE, titreChantier, zoneAnnonce, type Chantier } from './chantier';
-import { codesAgents } from './dispositif';
+import { codesAgents, metres, pointsAnnonceAgent, sansPaTexte } from './dispositif';
 import type { Resultat } from './rules';
 
 /** Position d'un PK sur la ligne (la première, si la ligne passe deux fois par ce PK). */
@@ -57,11 +58,30 @@ export function chantierFeatures(c: Chantier, doc: LineDoc, r: Resultat): Featur
       geometry: { type: 'Point', coordinates: at },
     });
   }
-  // Agents du dispositif.
+  // Agents du dispositif, et ce que chacun doit voir : un trait le long de la voie jusqu'au point d'annonce.
   const codes = codesAgents(c.agents);
+  let decalage = 0;
   for (const a of c.agents) {
     const at = auPk(doc, a.pk);
     if (!at || a.pk === null) continue;
+    const pas = pointsAnnonceAgent(c, r, a.id);
+    for (const pa of pas) {
+      if (pa.etat === 'au') continue;
+      // Deux agents qui regardent le même point : traits côte à côte plutôt que l'un sur l'autre.
+      const o = [0, 5, -5, 10, -10][decalage++ % 5];
+      for (const part of lineBetween(doc, a.pk, pa.pk)) {
+        features.push({
+          type: 'Feature',
+          properties: {
+            role: 'vue',
+            etat: pa.etat,
+            o,
+            label: pa.etat === 'voir' ? `${codes.get(a.id)} → ${pa.titre} · ${metres(pa.ecart)}` : `${codes.get(a.id)} au-delà du ${pa.titre} · ${metres(pa.ecart)}`,
+          },
+          geometry: { type: 'LineString', coordinates: part },
+        });
+      }
+    }
     features.push({
       type: 'Feature',
       properties: {
@@ -72,6 +92,9 @@ export function chantierFeatures(c: Chantier, doc: LineDoc, r: Resultat): Featur
         n: `${codes.get(a.id)} · ${ROLE_LABEL[a.role]}${a.nom.trim() ? ` · ${a.nom.trim()}` : ''}`,
         pk: fmtPk(a.pk),
         c: c.ligne ?? '',
+        /** Pour sa fiche : ses points d'annonce (les propriétés d'une carte ne gardent que du texte). */
+        pas: JSON.stringify(pas.map((p) => ({ t: p.titre, pk: fmtPk(p.pk), e: p.etat, x: p.texte, k: p.calcul }))),
+        sansPa: pas.length ? '' : sansPaTexte(a),
       },
       geometry: { type: 'Point', coordinates: at },
     });

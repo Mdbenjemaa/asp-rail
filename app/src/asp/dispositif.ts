@@ -4,7 +4,7 @@
  */
 import { fmtDist, fmtPk } from '../lib/format';
 import { ROLE_COURT, type Agent, type Chantier, cleSens, newId, SENS_FLECHE, SENS_TEXTE } from './chantier';
-import type { Alerte, Resultat } from './rules';
+import type { Alerte, Resultat, ResultatVoie } from './rules';
 
 /** Nom court de chaque agent : ASP, A1, A2, R1, S1… dans l'ordre de la liste. */
 export function codesAgents(agents: Agent[]): Map<string, string> {
@@ -197,4 +197,61 @@ export function nouveauxProblemes(avant: Chantier, apres: Chantier, r: Resultat)
     .filter((a) => !deja.has(a.texte))
     .sort((x, y) => rang[x.niveau] - rang[y.niveau])
     .map((a) => a.texte);
+}
+
+/** Distance au mètre près (« 1 240 m ») : pour ce qu'un annonceur doit voir, « 1,2 km » ne suffit pas. */
+export const metres = (m: number) => `${Math.round(m).toLocaleString('fr-FR')} m`;
+
+/** Le point d'annonce d'un sens surveillé par un agent, et où l'agent est par rapport à lui. */
+export interface PaAgent {
+  cle: string;
+  /** « PA V1 ▲ ». */
+  titre: string;
+  pk: number;
+  /** au : posé au point d'annonce (à 5 m près) ; voir : entre le point et le chantier, il doit le voir ; audela : plus loin que le point. */
+  etat: 'au' | 'voir' | 'audela';
+  /** Écart entre l'agent et le point d'annonce, le long de la ligne (m). */
+  ecart: number;
+  /** Où il est, en une phrase. */
+  texte: string;
+  /** Comment le point est calculé : vitesse × délai = distance avant le chantier. */
+  calcul: string;
+}
+
+/** Comment le point d'annonce d'une voie est obtenu : « 160 km/h × 20 s (dégagement 5 s + marge 15 s) = 890 m avant le chantier (PK 28+718) ». */
+export function calculPa(v: ResultatVoie, r: Resultat): string {
+  const dd = r.dd.retenu;
+  const detail = v.note ? ' (minimum au-delà de 160 km/h)' : dd !== null ? ` (dégagement ${dd} s + marge ${r.ms.valeur} s)` : '';
+  const amont = v.limiteAmont !== null ? ` (PK ${fmtPk(v.limiteAmont)})` : '';
+  return `${v.vitesse} km/h × ${v.da} s${detail} = ${metres(v.distance)} avant le chantier${amont}.`;
+}
+
+/** Les points d'annonce que doit voir un agent placé (un par sens surveillé), du plus loin à voir au plus proche. */
+export function pointsAnnonceAgent(c: Chantier, r: Resultat, id: string): PaAgent[] {
+  const a = c.agents.find((x) => x.id === id);
+  if (!a || a.pk === null) return [];
+  const out: PaAgent[] = [];
+  for (const vis of visibilites(c, r).filter((v) => v.agentId === id)) {
+    const v = r.voies.find((x) => cleSens(x.voieId, x.sens) === vis.cle)!;
+    const ecart = Math.round(Math.abs(a.pk - vis.pointAnnonce) * 1000);
+    const etat = ecart <= 5 ? 'au' : vis.auDela ? 'audela' : 'voir';
+    const titre = `PA ${vis.voie} ${SENS_FLECHE[vis.sens]}`;
+    const texte =
+      etat === 'au'
+        ? 'Posé au point d’annonce : il annonce dès qu’il voit la circulation arriver.'
+        : etat === 'voir'
+          ? `Doit voir arriver les trains sur ${metres(ecart)}, jusqu’au PK ${fmtPk(vis.pointAnnonce)} : à vérifier sur place.`
+          : `${metres(ecart)} au-delà du point d’annonce : il annonce plus tôt que nécessaire.`;
+    out.push({ cle: vis.cle, titre, pk: vis.pointAnnonce, etat, ecart, texte, calcul: calculPa(v, r) });
+  }
+  const aVoir = (p: PaAgent) => (p.etat === 'voir' ? p.ecart : -1);
+  return out.sort((x, y) => aVoir(y) - aVoir(x));
+}
+
+/** Pourquoi un agent placé n'a pas de point d'annonce à voir. */
+export function sansPaTexte(a: Agent): string {
+  if (a.role === 'repetiteur') return 'Répète l’annonce : pas de point d’annonce à voir.';
+  if (a.role === 'asp') return 'Ne surveille pas lui-même l’approche des circulations.';
+  if (!a.surveille.length) return 'Ne surveille encore aucune voie : choisis-les dans le chantier, onglet Dispositif.';
+  return 'Point d’annonce pas encore calculé : indique la vitesse des voies et le délai de dégagement.';
 }

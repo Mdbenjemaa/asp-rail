@@ -275,9 +275,11 @@ export function MapView({
       };
       const poser = (id: string, at: LonLat) => {
         if (!glisse) return;
+        // Le chantier le plus récent (l'appli redessine le trait de l'agent jusqu'à son point d'annonce).
+        const base = latest.current.asp ?? glisse.fc;
         glisse.fc = {
-          ...glisse.fc,
-          features: glisse.fc.features.map((f) => (f.properties?.aid === id && f.geometry.type === 'Point' ? { ...f, geometry: { type: 'Point', coordinates: at } } : f)),
+          ...base,
+          features: base.features.map((f) => (f.properties?.aid === id && f.geometry.type === 'Point' ? { ...f, geometry: { type: 'Point', coordinates: at } } : f)),
         };
         setSource(created, 'asp', glisse.fc);
       };

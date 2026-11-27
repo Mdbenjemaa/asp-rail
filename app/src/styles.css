@@ -518,3 +518,11 @@ button:disabled { cursor: default; }
   .tool-btn { width: 50px; height: 50px; border-radius: 16px; }
   .tool-btn span { display: none; }
 }
+
+/* Fiche d'un agent du chantier : ses points d'annonce. */
+.pa-agent { margin: 4px 0 12px; display: grid; gap: 8px; }
+.pa-ligne { border-left: 4px solid #db2777; background: rgba(219, 39, 119, 0.07); border-radius: 8px; padding: 8px 10px; font-size: 14px; line-height: 1.35; }
+.pa-ligne.au { border-left-color: #0f766e; background: rgba(15, 118, 110, 0.08); }
+.pa-ligne.audela { border-left-color: #6b7280; background: rgba(107, 114, 128, 0.1); }
+.pa-titre { font-weight: 700; margin-bottom: 2px; }
+.pa-calcul { font-size: 12.5px; opacity: 0.75; margin-top: 3px; }

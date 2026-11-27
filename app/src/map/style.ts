@@ -207,6 +207,16 @@ function overlayLayers(filters: Filters, photo: boolean, night: boolean): LayerS
       id: 'u-asp-equipe', type: 'line', source: 'asp', filter: ['==', ['get', 'role'], 'equipe'], layout: { visibility: asp, 'line-cap': 'round' },
       paint: { 'line-color': '#dc2626', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 9] },
     },
+    // Ce que chaque annonceur doit voir : de lui jusqu'à son point d'annonce, le long de la voie.
+    {
+      id: 'u-asp-vue', type: 'line', source: 'asp', filter: ['==', ['get', 'role'], 'vue'], layout: { visibility: asp, 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['match', ['get', 'etat'], 'audela', '#6b7280', '#db2777'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 4.5],
+        'line-dasharray': [1.6, 1.1],
+        'line-offset': ['get', 'o'],
+      },
+    },
     {
       id: 'u-acces', type: 'circle', source: 'acces', layout: { visibility: filters.acces ? 'visible' : 'none' },
       paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 15, 8], 'circle-color': '#047857', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 },
@@ -226,6 +236,11 @@ function overlayLayers(filters: Filters, photo: boolean, night: boolean): LayerS
       paint: { 'text-color': dark ? '#fed7aa' : '#9a3412', 'text-halo-color': halo, 'text-halo-width': 1.6 },
     },
     // Points d'annonce (rose) et agents du dispositif : annonceurs et répétiteurs (vert), sentinelles (violet), ASP (bleu nuit).
+    {
+      id: 'u-asp-vue-label', type: 'symbol', source: 'asp', filter: ['==', ['get', 'role'], 'vue'], minzoom: 12,
+      layout: { visibility: asp, 'symbol-placement': 'line-center', 'text-field': ['get', 'label'], 'text-font': BOLD, 'text-size': 12, 'text-offset': [0, -0.9], 'text-optional': true },
+      paint: { 'text-color': ['match', ['get', 'etat'], 'audela', dark ? '#d1d5db' : '#374151', dark ? '#f9a8d4' : '#9d174d'], 'text-halo-color': halo, 'text-halo-width': 2 },
+    },
     {
       id: 'u-asp-pa', type: 'circle', source: 'asp', filter: ['==', ['get', 'role'], 'pa'], layout: { visibility: asp },
       paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 6, 16, 11], 'circle-color': '#db2777', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 },

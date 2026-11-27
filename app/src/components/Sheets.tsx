@@ -460,6 +460,16 @@ const LAYER_TITLE: Record<string, string> = {
   'u-asp-pa': 'Point d’annonce', 'u-asp-agent': 'Dispositif d’annonce', 'u-asp-zone': 'Zone de travail',
 };
 
+/** Points d'annonce d'un agent, rangés en texte dans la carte (voir asp/carte.ts). */
+function lirePas(json: string | undefined): { t: string; pk: string; e: 'au' | 'voir' | 'audela'; x: string; k: string }[] {
+  try {
+    const v: unknown = JSON.parse(json ?? '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
 export function FeatureCard(p: {
   feature: MapGeoJSONFeature;
   at: LonLat;
@@ -483,6 +493,7 @@ export function FeatureCard(p: {
   const lineName = pr.c ? p.manifest?.lines[pr.c]?.n : null;
   const point = f.geometry.type === 'Point' ? ((f.geometry as Point).coordinates as LonLat) : p.at;
   const dessin = SIGNAL_ICONS && pr.ic ? pr.ic : null;
+  const pas = layer === 'u-asp-agent' ? lirePas(pr.pas) : [];
 
   return (
     <section className="card">
@@ -550,6 +561,21 @@ export function FeatureCard(p: {
           </>
         )}
       </dl>
+      {layer === 'u-asp-agent' && (pas.length > 0 || pr.sansPa) && (
+        <div className="pa-agent">
+          <div className="field-label">{pas.length > 1 ? 'Ses points d’annonce' : 'Son point d’annonce'}</div>
+          {pas.map((x) => (
+            <div key={x.t} className={`pa-ligne ${x.e}`}>
+              <div className="pa-titre">
+                {x.t} · PK {x.pk}
+              </div>
+              <div>{x.x}</div>
+              <div className="pa-calcul">{x.k}</div>
+            </div>
+          ))}
+          {!pas.length && <div className="pa-ligne">{pr.sansPa}</div>}
+        </div>
+      )}
       {f.geometry.type === 'Point' && (
         <>
           <div className="field-label">Itinéraire en voiture</div>
