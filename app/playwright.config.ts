@@ -10,6 +10,9 @@ import { defineConfig, webkit } from '@playwright/test';
  * Chrome : celui du système s'il existe (CHROME_PATH pour en choisir un autre), sinon celui de Playwright
  * (npx playwright install chromium). Safari (WebKit) aussi quand il est installé : npx playwright install webkit.
  */
+// Les tests calculent « aujourd'hui » à l'heure de Paris, comme le navigateur simulé (timezoneId) : sinon, entre
+// minuit à Paris et minuit UTC, le jour du test et celui de l'appli ne sont pas les mêmes.
+process.env.TZ = 'Europe/Paris';
 const base = process.env.BASE_PATH ?? '/';
 const port = Number(process.env.E2E_PORT ?? 4180);
 const webkitPret = (() => {
