@@ -140,7 +140,7 @@ test('espace administrateur : mot de passe oublié, le lien du mail collé sans 
   await expect(page.getByRole('alert')).toContainText('Lien expiré ou déjà utilisé');
   await page.getByLabel('Lien reçu par mail').fill(lien);
   await page.getByRole('button', { name: 'Choisir mon mot de passe' }).click();
-  expect(verifie).toMatchObject({ token_hash: jeton, type: 'recovery' });
+  await expect.poll(() => verifie).toMatchObject({ token_hash: jeton, type: 'recovery' });
   await page.getByLabel('Nouveau mot de passe').fill('mon-nouveau-mdp-1');
   await page.getByRole('button', { name: /^Enregistrer/ }).click();
   await expect.poll(() => nouveau).toBe('mon-nouveau-mdp-1');
