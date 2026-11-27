@@ -4,6 +4,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import App from '../App';
 import { PREVIEW } from '../lib/env';
+import { oublierEntreprise, retenirEntreprise } from './entreprise';
 import { checkCode, clearAccess, cleanCode, codeFromHash, decide, dureeTexte, formatCode, isAdminRoute, loadAccess, saveAccess, type StoredAccess, type Verification } from './gate';
 
 // L'espace administrateur (et la bibliothèque Supabase) ne se charge que quand on l'ouvre.
@@ -43,7 +44,10 @@ export function Root() {
     let enCours = false;
     const fermer = (r: Raison) => {
       if (cancel) return;
-      if (r === 'coupe') clearAccess();
+      if (r === 'coupe') {
+        clearAccess();
+        oublierEntreprise();
+      }
       setRaison(r);
       setOpen(false);
     };
@@ -58,7 +62,10 @@ export function Root() {
         .then(
           (r) => {
             if (cancel) return;
-            if (r.ok) saveAccess(apresVerif(stored, r));
+            if (r.ok) {
+              saveAccess(apresVerif(stored, r));
+              retenirEntreprise(stored.code, r.entreprise);
+            }
             else fermer(r.raison === 'fin' ? 'fin' : 'coupe');
           },
           () => undefined, // pas de réseau, serveur lent : on garde l'accès le temps permis
@@ -102,6 +109,7 @@ export function Root() {
       autoSubmit={!!linkCode || raison === 'expire'}
       onOk={(code, r) => {
         saveAccess(apresVerif({ code, nom: '', verifie: Date.now() }, r));
+        retenirEntreprise(code, r.entreprise);
         if (linkCode) history.replaceState(null, '', location.pathname);
         setLinkCode(null);
         setOpen(true);

@@ -4,6 +4,7 @@
  */
 import { useState } from 'react';
 import { Icon } from '../components/parts';
+import { useModules } from '../access/entreprise';
 import type { Ctx } from '../asp/contexte';
 import { Ecran, Tuiles } from '../asp/kit';
 import { heure, missionParId, enregistrerMission, newId, titreMission } from './mission';
@@ -45,6 +46,7 @@ const VERDICT: Record<Verdict, { titre: string; texte: string }> = {
 };
 
 export function Diagnostic(p: { ctx: Ctx; missionId?: string; onglet?: boolean; hidden?: boolean }) {
+  const modules = useModules();
   const [quand, setQuand] = useState<Quand | null>(null);
   const [vu, setVu] = useState<string | null>(null);
   const [note, setNote] = useState(false);
@@ -137,9 +139,11 @@ export function Diagnostic(p: { ctx: Ctx; missionId?: string; onglet?: boolean; 
           <button className="ds-btn wide" style={{ marginTop: 10 }} onClick={recommencer}>
             Recommencer
           </button>
-          <button className="ds-btn text" onClick={() => p.ctx.open({ k: 'memo', banque: 'pn', section: 'pn-derangement' })}>
-            Mémo : les dérangements
-          </button>
+          {modules.memo && (
+            <button className="ds-btn text" onClick={() => p.ctx.open({ k: 'memo', banque: 'pn', section: 'pn-derangement' })}>
+              Mémo : les dérangements
+            </button>
+          )}
         </>
       )}
     </>

@@ -208,6 +208,29 @@
 .admin-appareils { list-style: none; margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--ok-bg); display: flex; flex-direction: column; gap: 4px; }
 .admin-appareils li { display: flex; justify-content: space-between; gap: 10px; padding: 0; border: 0; font-size: 14px; }
 .admin-appareils small { display: inline; margin: 0; }
+.admin-choix { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; font-weight: 800; color: var(--muted); }
+.admin-choix select { flex: 1; min-width: 0; height: 46px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); font-size: 16px; font-weight: 700; padding: 0 10px; }
+.admin-ent section { margin: 0 0 22px; }
+.admin-h2 { margin: 0 0 10px; font-size: 17px; }
+.admin-logo { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; }
+.admin-logo img, .admin-logo-vide { width: 72px; height: 72px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; object-fit: contain; padding: 4px; box-sizing: border-box; }
+.admin-logo-vide { display: grid; place-items: center; font-size: 12px; color: var(--muted); text-align: center; background: var(--bg); }
+.admin-logo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-logo-actions label { cursor: pointer; }
+.admin-module { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.admin-module input { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--brand); flex: none; }
+.admin-module span { display: flex; flex-direction: column; gap: 2px; }
+.admin-module small { color: var(--muted); }
+.admin-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.admin-stats div { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; border-radius: 12px; background: var(--ok-bg); }
+.admin-stats b { font-size: 22px; }
+.admin-stats small { font-size: 12px; color: var(--muted); text-align: center; }
+.admin-lien-pret { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--warn-bg); display: grid; gap: 8px; }
+.admin-lien-pret p { margin: 0; }
+.admin-suppr-ent { margin-top: 12px; }
+.admin-invit li { flex-direction: column; gap: 2px; }
+.admin-invit li small { white-space: normal; }
+.admin-invite p { margin: 0 0 4px; }
 
 /* Couleur de chaque rôle (classes « role-… » construites dans AgentCard). */
 .asp-agent.role-asp { border-left-color: #13305c; }

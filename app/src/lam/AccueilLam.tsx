@@ -1,5 +1,6 @@
 /** Accueil en activité « LAM / S9 » : ma mission du jour, contrôle de pose d'un DSh en direct, urgences, révisions. */
 import { Icon } from '../components/parts';
+import { useModules } from '../access/entreprise';
 import type { Ctx } from '../asp/contexte';
 import type { Direct, EtatDirect } from '../asp/direct';
 import { CaseDsh, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from '../asp/Widgets';
@@ -8,6 +9,7 @@ import { avancementLam, heure, missionLamDuJour, OUTIL_COURT, titreMissionLam, T
 import { ListeMissionsLam } from './MissionLamScreen';
 
 export function AccueilLam(p: { ctx: Ctx; direct: { etat: EtatDirect; pos: Direct | null }; onNew: () => void; onWhere: () => void }) {
+  const modules = useModules();
   const list = useMissionsLam();
   const m = missionLamDuJour(list);
   const autres = list.filter((x) => x.id !== m?.id);
@@ -77,10 +79,10 @@ export function AccueilLam(p: { ctx: Ctx; direct: { etat: EtatDirect; pos: Direc
       <div className="ds-grid">
         <CaseDsh etat={p.direct.etat} pos={p.direct.pos} onClick={() => p.ctx.open({ k: 'lam-dsh' })} />
         <CaseOu etat={p.direct.etat} pos={p.direct.pos} onClick={p.onWhere} />
-        <CaseMemo regles={REGLES_LAM} titre="Mémo LAM / S9" onClick={() => p.ctx.open({ k: 'memo', banque: 'lam' })} />
-        <CaseQuiz banque="lam" onClick={() => p.ctx.open({ k: 'quiz', banque: 'lam' })} />
+        {modules.memo && <CaseMemo regles={REGLES_LAM} titre="Mémo LAM / S9" onClick={() => p.ctx.open({ k: 'memo', banque: 'lam' })} />}
+        {modules.quiz && <CaseQuiz banque="lam" onClick={() => p.ctx.open({ k: 'quiz', banque: 'lam' })} />}
       </div>
-      <QuestionDuJour banque="lam" onQuiz={() => p.ctx.open({ k: 'quiz', banque: 'lam' })} />
+      {modules.quiz && <QuestionDuJour banque="lam" onQuiz={() => p.ctx.open({ k: 'quiz', banque: 'lam' })} />}
 
       {autres.length > 0 && (
         <>

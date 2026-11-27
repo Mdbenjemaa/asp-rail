@@ -13,10 +13,25 @@ const ONGLETS: [Onglet, string, string][] = [
 const TROISIEME: Record<'asp' | 'pn' | 'lam', [string, string]> = { asp: ['Calcul', 'calc'], pn: ['Dérangement', 'alert'], lam: ['Urgences', 'alert'] };
 
 /** Barre du bas, comme les applis du téléphone : quatre onglets, celui ouvert en jaune. */
-export function BottomNav({ tab, onTab, alerte, activite = 'asp' }: { tab: Onglet; onTab: (t: Onglet) => void; alerte?: boolean; activite?: 'asp' | 'pn' | 'lam' }) {
-  const onglets: [Onglet, string, string][] = ONGLETS.map(([id, label, ic]) => (id === 'calcul' ? [id, ...TROISIEME[activite]] : [id, label, ic]));
+export function BottomNav({
+  tab,
+  onTab,
+  alerte,
+  activite = 'asp',
+  sansReviser = false,
+}: {
+  tab: Onglet;
+  onTab: (t: Onglet) => void;
+  alerte?: boolean;
+  activite?: 'asp' | 'pn' | 'lam';
+  /** Pas de mémo ni de quiz pour l'entreprise : pas d'onglet « Réviser ». */
+  sansReviser?: boolean;
+}) {
+  const onglets: [Onglet, string, string][] = ONGLETS.filter(([id]) => !(sansReviser && id === 'reviser')).map(([id, label, ic]) =>
+    id === 'calcul' ? [id, ...TROISIEME[activite]] : [id, label, ic],
+  );
   return (
-    <nav className="ds-nav" aria-label="Navigation principale">
+    <nav className="ds-nav" aria-label="Navigation principale" style={{ gridTemplateColumns: `repeat(${onglets.length}, minmax(0, 1fr))` }}>
       {onglets.map(([id, label, ic]) => (
         <button key={id} className="ds-nav-btn" aria-current={tab === id ? 'page' : undefined} onClick={() => onTab(id)}>
           <span className="ds-nav-ico">

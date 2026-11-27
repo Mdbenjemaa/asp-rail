@@ -1,11 +1,19 @@
 /**
- * Espace administrateur d'ASP Rail : connexion par e-mail et mot de passe (compte Supabase), puis gestion des codes
- * d'accès : créer un code nommé (durée de vie, temps hors ligne), le partager, le couper ou le réactiver, le supprimer ;
- * voir qui est en ligne et sur quels téléphones chaque code est utilisé.
+ * Espace administrateur d'ASP Rail : connexion par e-mail et mot de passe (compte Supabase), puis, pour chaque
+ * entreprise que la personne gère :
+ *  - les codes d'accès : créer un code nommé (durée de vie, temps hors ligne), le partager, le couper ou le réactiver,
+ *    le supprimer ; voir qui est en ligne et sur quels téléphones chaque code est utilisé ;
+ *  - les chantiers partagés ;
+ *  - l'entreprise : nom, logo, agents actifs, administrateurs (et, pour l'administrateur d'ASP Rail, le contenu de
+ *    l'appli et les invitations).
+ * L'administrateur d'ASP Rail voit toutes les entreprises ; l'administrateur d'une entreprise ne voit que la sienne.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { dureeTexte, formatCode, lienCode } from '../access/gate';
-import { jetonDuLien, sb } from './client';
+import { loadPref, savePref } from '../lib/me';
+import { entrepriseChoisie, invitationDuHash, jetonDuLien, lireRole, sb, type Role } from './client';
+import { EntrepriseOnglet } from './Entreprise';
+import { Invitation } from './Invitation';
 import { Sessions } from './Sessions';
 
 interface Code {
@@ -50,8 +58,22 @@ const termine = (c: Code, now: number) => !!c.expire_le && Date.parse(c.expire_l
 const quand = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' à');
 
-type Etat = { k: 'chargement' } | { k: 'connexion' } | { k: 'nouveau-mdp' } | { k: 'pas-admin'; email: string } | { k: 'admin'; email: string };
+type Etat =
+  | { k: 'chargement' }
+  | { k: 'connexion' }
+  | { k: 'nouveau-mdp' }
+  | { k: 'invitation'; jeton: string }
+  | { k: 'pas-admin'; email: string }
+  | { k: 'admin'; role: Role };
 
+/** Ce que gère le compte connecté (null : pas administrateur). */
+async function monRole(email: string): Promise<Role | null> {
+  const { data, error } = await sb().rpc('asp_mon_role');
+  if (error) throw error;
+  const r = lireRole(data);
+  if (!r || (!r.super && !r.entreprises.length)) return null;
+  return { ...r, email: r.email || email };
+}
 
 /** Session en cours sur ce téléphone : administrateur, autre compte, ou pas connecté. */
 async function etatSession(): Promise<Etat> {
@@ -59,9 +81,12 @@ async function etatSession(): Promise<Etat> {
   const { data } = await s.auth.getSession();
   const email = data.session?.user.email;
   if (!email) return { k: 'connexion' };
-  const { data: estAdmin, error } = await s.rpc('asp_est_admin');
-  if (error) return { k: 'connexion' };
-  return estAdmin ? { k: 'admin', email } : { k: 'pas-admin', email };
+  try {
+    const role = await monRole(email);
+    return role ? { k: 'admin', role } : { k: 'pas-admin', email };
+  } catch {
+    return { k: 'connexion' };
+  }
 }
 
 const ago = (iso: string) => {
@@ -80,7 +105,9 @@ const ago = (iso: string) => {
 export default function AdminScreen({ onExit }: { onExit: () => void }) {
   // Retour du lien « mot de passe oublié » (…#access_token=…&type=recovery) : lu avant que Supabase nettoie l'adresse.
   const [recovery] = useState(() => /type=recovery/.test(location.hash));
-  const [etat, setEtat] = useState<Etat>(recovery ? { k: 'nouveau-mdp' } : { k: 'chargement' });
+  // Lien d'invitation d'un administrateur d'entreprise (…#admin&invitation=…).
+  const [invitation] = useState(() => invitationDuHash(location.hash));
+  const [etat, setEtat] = useState<Etat>(recovery ? { k: 'nouveau-mdp' } : invitation ? { k: 'invitation', jeton: invitation } : { k: 'chargement' });
   const [msg, setMsg] = useState<string | null>(null);
 
   const verifier = () =>
@@ -94,13 +121,13 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
     const { data: sub } = s.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setEtat({ k: 'nouveau-mdp' });
     });
-    if (!recovery)
+    if (!recovery && !invitation)
       etatSession().then(setEtat, () => {
         setEtat({ k: 'connexion' });
         setMsg('Le serveur ne répond pas. Vérifie le réseau.');
       });
     return () => sub.subscription.unsubscribe();
-  }, [recovery]);
+  }, [recovery, invitation]);
 
   const deconnexion = async () => {
     await sb().auth.signOut();
@@ -114,7 +141,7 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
           <img src={`${import.meta.env.BASE_URL}icon-192.png`} alt="" width={44} height={44} />
           <div>
             <h1>Administration</h1>
-            <small>Codes d’accès d’ASP Rail</small>
+            <small>{etat.k === 'admin' && !etat.role.super && etat.role.entreprises.length === 1 ? `ASP Rail · ${etat.role.entreprises[0].nom}` : 'ASP Rail'}</small>
           </div>
         </div>
         {msg && (
@@ -125,7 +152,7 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
         {etat.k === 'chargement' && <p className="muted">Chargement…</p>}
         {etat.k === 'connexion' && (
           <Connexion
-            onOk={(email, admin) => setEtat(admin ? { k: 'admin', email } : { k: 'pas-admin', email })}
+            onOk={(email, role) => setEtat(role ? { k: 'admin', role } : { k: 'pas-admin', email })}
             onRecovery={() => setEtat({ k: 'nouveau-mdp' })}
             onMsg={setMsg}
           />
@@ -139,15 +166,46 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
             onMsg={setMsg}
           />
         )}
+        {etat.k === 'invitation' && (
+          <Invitation
+            jeton={etat.jeton}
+            onMsg={setMsg}
+            onFini={() => {
+              history.replaceState(null, '', `${location.pathname}#admin`);
+              setEtat({ k: 'chargement' });
+              void verifier();
+            }}
+            onAbandon={() => {
+              history.replaceState(null, '', `${location.pathname}#admin`);
+              setEtat({ k: 'chargement' });
+              void verifier();
+            }}
+          />
+        )}
         {etat.k === 'pas-admin' && (
           <>
-            <p className="error">Le compte {etat.email} n’est pas administrateur d’ASP Rail.</p>
+            <p className="error">Le compte {etat.email} n’administre aucune entreprise sur ASP Rail.</p>
             <button className="btn wide" onClick={() => void deconnexion()}>
               Changer de compte
             </button>
           </>
         )}
-        {etat.k === 'admin' && <Admin email={etat.email} onMsg={setMsg} onLogout={() => void deconnexion()} />}
+        {etat.k === 'admin' && (
+          <Admin
+            role={etat.role}
+            onMsg={setMsg}
+            onLogout={() => void deconnexion()}
+            onRole={async (choisir) => {
+              if (choisir !== undefined) savePref(CHOIX, choisir);
+              try {
+                const r = await monRole(etat.role.email);
+                setEtat(r ? { k: 'admin', role: r } : { k: 'pas-admin', email: etat.role.email });
+              } catch {
+                setMsg('Le serveur ne répond pas. Vérifie le réseau.');
+              }
+            }}
+          />
+        )}
         <button className="link-btn admin-exit" onClick={onExit}>
           ← Revenir à l’appli
         </button>
@@ -156,7 +214,7 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
   );
 }
 
-function Connexion({ onOk, onRecovery, onMsg }: { onOk: (email: string, admin: boolean) => void; onRecovery: () => void; onMsg: (m: string) => void }) {
+function Connexion({ onOk, onRecovery, onMsg }: { onOk: (email: string, role: Role | null) => void; onRecovery: () => void; onMsg: (m: string) => void }) {
   const [email, setEmail] = useState('');
   const [mdp, setMdp] = useState('');
   const [busy, setBusy] = useState(false);
@@ -181,8 +239,8 @@ function Connexion({ onOk, onRecovery, onMsg }: { onOk: (email: string, admin: b
         setErr(/confirm/i.test(error.message) ? 'Adresse pas encore confirmée : ouvre le lien reçu par e-mail.' : 'E-mail ou mot de passe incorrect.');
         return;
       }
-      const { data } = await sb().rpc('asp_est_admin');
-      onOk(email.trim().toLowerCase(), data === true);
+      const m = email.trim().toLowerCase();
+      onOk(m, await monRole(m));
     } catch {
       setErr('Le serveur ne répond pas. Vérifie le réseau.');
     } finally {
@@ -193,7 +251,11 @@ function Connexion({ onOk, onRecovery, onMsg }: { onOk: (email: string, admin: b
     if (!email.trim()) return setErr('Écris ton e-mail, puis touche « Mot de passe oublié ».');
     const redirectTo = `${location.origin}${import.meta.env.BASE_URL}?admin`;
     const { error } = await sb().auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo });
-    onMsg(error ? 'Envoi impossible pour le moment.' : 'Si ce compte existe, un lien pour changer le mot de passe vient d’être envoyé par e-mail.');
+    onMsg(
+      error
+        ? 'Envoi impossible pour le moment. Administrateur d’une entreprise : demande un nouveau lien d’accès à l’administrateur d’ASP Rail.'
+        : 'Si ce compte existe, un lien pour changer le mot de passe vient d’être envoyé par e-mail. Pas de mail ? Demande un nouveau lien d’accès à l’administrateur d’ASP Rail.',
+    );
     if (!error) setLien('');
   };
   return (
@@ -204,7 +266,7 @@ function Connexion({ onOk, onRecovery, onMsg }: { onOk: (email: string, admin: b
         void connecter();
       }}
     >
-      <p className="muted small">Même compte que l’espace administrateur de PK Rail.</p>
+      <p className="muted small">Administrateur d’ASP Rail ou d’une entreprise cliente.</p>
       <label className="gate-label" htmlFor="adm-email">
         E-mail
       </label>
@@ -268,29 +330,81 @@ function NouveauMdp({ onDone, onMsg }: { onDone: () => void; onMsg: (m: string) 
   );
 }
 
-/** Deux onglets : les codes d'accès, et les chantiers partagés. */
-function Admin(p: { email: string; onMsg: (m: string) => void; onLogout: () => void }) {
-  const [onglet, setOnglet] = useState<'codes' | 'chantiers'>('codes');
+/** Dernière entreprise choisie dans l'espace administrateur. */
+const CHOIX = 'asp-admin-entreprise';
+
+/** Trois onglets pour l'entreprise choisie : codes d'accès, chantiers partagés, l'entreprise elle-même. */
+function Admin(p: { role: Role; onMsg: (m: string) => void; onLogout: () => void; onRole: (choisir?: string | null) => void }) {
+  const [onglet, setOnglet] = useState<'codes' | 'chantiers' | 'entreprise'>('codes');
+  const [gardee, setGardee] = useState(() => loadPref<string | null>(CHOIX, null));
+  const id = entrepriseChoisie(p.role, gardee);
+  const ent = p.role.entreprises.find((e) => e.id === id) ?? null;
+  const choisir = (v: string) => {
+    setGardee(v);
+    savePref(CHOIX, v);
+  };
   return (
     <>
-      <div className="seg seg-2 admin-onglets" role="tablist" aria-label="Administration">
-        {(
-          [
-            ['codes', 'Codes d’accès'],
-            ['chantiers', 'Chantiers partagés'],
-          ] as const
-        ).map(([v, l]) => (
-          <button key={v} role="tab" aria-selected={onglet === v} className={`seg-btn ${onglet === v ? 'on' : ''}`} onClick={() => setOnglet(v)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      {onglet === 'codes' ? <Codes {...p} /> : <Sessions onMsg={p.onMsg} />}
+      <p className="muted small">
+        Connecté : {p.role.email}
+        {p.role.super ? ' (administrateur d’ASP Rail)' : ''} ·{' '}
+        <button className="link-btn" onClick={p.onLogout}>
+          se déconnecter
+        </button>
+      </p>
+      {(p.role.super || p.role.entreprises.length > 1) && ent && (
+        <label className="admin-choix">
+          <span>Entreprise</span>
+          <select value={ent.id} onChange={(e) => choisir(e.target.value)} aria-label="Entreprise">
+            {p.role.entreprises.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.nom}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {!ent ? (
+        <p className="muted">Aucune entreprise pour le moment.</p>
+      ) : (
+        <>
+          <div className="seg seg-3 admin-onglets" role="tablist" aria-label="Administration">
+            {(
+              [
+                ['codes', 'Codes'],
+                ['chantiers', 'Chantiers'],
+                ['entreprise', 'Entreprise'],
+              ] as const
+            ).map(([v, l]) => (
+              <button key={v} role="tab" aria-selected={onglet === v} className={`seg-btn ${onglet === v ? 'on' : ''}`} onClick={() => setOnglet(v)}>
+                {l}
+              </button>
+            ))}
+          </div>
+          {onglet === 'codes' && <Codes key={ent.id} entreprise={ent} onMsg={p.onMsg} />}
+          {onglet === 'chantiers' && <Sessions key={ent.id} entreprise={ent} onMsg={p.onMsg} />}
+          {onglet === 'entreprise' && (
+            <EntrepriseOnglet
+              key={ent.id}
+              role={p.role}
+              id={ent.id}
+              onMsg={p.onMsg}
+              onRole={(c) => {
+                if (c !== undefined) {
+                  setGardee(c);
+                  savePref(CHOIX, c);
+                }
+                p.onRole(c);
+              }}
+            />
+          )}
+        </>
+      )}
     </>
   );
 }
 
-function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) => void; onLogout: () => void }) {
+function Codes({ entreprise, onMsg }: { entreprise: { id: string; nom: string }; onMsg: (m: string) => void }) {
   const [codes, setCodes] = useState<Code[] | null>(null);
   const [appareils, setAppareils] = useState<Appareil[]>([]);
   const [nom, setNom] = useState('');
@@ -303,7 +417,7 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
 
   const charger = async () => {
     const [c, a] = await Promise.all([
-      sb().from('asp_codes').select('*').order('cree_le', { ascending: false }),
+      sb().from('asp_codes').select('*').eq('entreprise_id', entreprise.id).order('cree_le', { ascending: false }),
       sb().from('asp_appareils').select('*').order('dernier', { ascending: false }),
     ]);
     setNow(Date.now());
@@ -323,7 +437,7 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
 
   const creer = async () => {
     setBusy(true);
-    const { data, error } = await sb().rpc('asp_creer_code', { p_nom: nom.trim(), p_duree_h: duree, p_hors_ligne_h: horsLigne });
+    const { data, error } = await sb().rpc('asp_creer_code', { p_nom: nom.trim(), p_duree_h: duree, p_hors_ligne_h: horsLigne, p_entreprise: entreprise.id });
     setBusy(false);
     if (error) return onMsg(error.message || 'Création impossible.');
     setNom('');
@@ -384,12 +498,6 @@ function Codes({ email, onMsg, onLogout }: { email: string; onMsg: (m: string) =
 
   return (
     <>
-      <p className="muted small">
-        Connecté : {email} ·{' '}
-        <button className="link-btn" onClick={onLogout}>
-          se déconnecter
-        </button>
-      </p>
       <form
         className="admin-new"
         onSubmit={(e) => {

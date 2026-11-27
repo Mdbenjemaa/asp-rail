@@ -15,6 +15,8 @@ export interface InfoExport {
   signature: string | null;
   signeA: number | null;
   cree: Date;
+  /** Entreprise de l'agent (nom et logo en data URL PNG ou JPEG), en tête du document. */
+  entreprise?: { nom: string; logo: string | null };
   /** Deuxième signataire (responsable du chantier), quand le document en demande un. */
   second?: { nom: string; signature: string | null; signeA: number | null };
   /**
@@ -40,6 +42,12 @@ const dateDe = (d: Date) => `${deux(d.getDate())}/${deux(d.getMonth() + 1)}/${d.
 const fmtCree = (d: Date) => `${dateDe(d)} à ${heureDe(d)}`;
 /** « 2026-11-25-1025 », pour les noms de fichier. */
 const horodatage = (d: Date) => `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}-${deux(d.getHours())}${deux(d.getMinutes())}`;
+
+/** Logo utilisable par jsPDF (PNG ou JPEG en data URL), sinon null. */
+export function logoPdf(data: string | null | undefined): { data: string; format: 'PNG' | 'JPEG' } | null {
+  const m = /^data:image\/(png|jpeg);base64,/.exec(data ?? '');
+  return m && data ? { data, format: m[1] === 'png' ? 'PNG' : 'JPEG' } : null;
+}
 
 /** Nom de fichier sans accents ni espaces. */
 export function nomPdf(prefixe: string, titre: string, cree: Date): string {
@@ -144,21 +152,38 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
     }
   };
 
-  // Bandeau.
+  // Bandeau, avec le logo de l'entreprise dans un cadre blanc à gauche s'il y en a un.
   doc.setFillColor(...NAVY);
   doc.rect(0, 0, W, 31, 'F');
   doc.setFillColor(...YELLOW);
   doc.rect(0, 31, W, 2, 'F');
-  const gauche = W - 2 * M - 64;
+  const logo = logoPdf(e.info.entreprise?.logo);
+  let x0 = M;
+  if (logo) {
+    try {
+      const props = doc.getImageProperties(logo.data);
+      const cote = 23;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(M, 4, cote, cote, 2, 2, 'F');
+      const k = Math.min((cote - 3) / props.width, (cote - 3) / props.height);
+      const lw = props.width * k;
+      const lh = props.height * k;
+      doc.addImage(logo.data, logo.format, M + (cote - lw) / 2, 4 + (cote - lh) / 2, lw, lh, undefined, 'FAST');
+      x0 = M + cote + 4;
+    } catch {
+      x0 = M; // image illisible : pas de logo
+    }
+  }
+  const gauche = W - M - 64 - x0;
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(17);
-  doc.text(ecrit(e.titre, true), M, 12, { maxWidth: gauche });
+  doc.setFontSize(x0 > M ? 15 : 17);
+  doc.text(ecrit(e.titre, true), x0, 12, { maxWidth: gauche });
   doc.setFontSize(10.5);
-  doc.text(doc.splitTextToSize(ecrit(e.sousTitre, true), gauche)[0] as string, M, 19.5);
+  doc.text(doc.splitTextToSize(ecrit(e.sousTitre, true), gauche)[0] as string, x0, 19.5);
   if (e.ligne3) {
     doc.setFontSize(9);
     doc.setTextColor(203, 213, 225);
-    doc.text(doc.splitTextToSize(ecrit(e.ligne3), gauche)[0] as string, M, 25.5);
+    doc.text(doc.splitTextToSize(ecrit(e.ligne3), gauche)[0] as string, x0, 25.5);
   }
   doc.setTextColor(203, 213, 225);
   doc.setFont('helvetica', 'normal');
@@ -170,6 +195,12 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
   doc.text(pdfText(cree), W - M, 15, { align: 'right' });
   doc.setFontSize(9.5);
   doc.text(ecrit(`Agent : ${e.info.agent.trim() || 'non renseigné'}`), W - M, 21.5, { align: 'right', maxWidth: 64 });
+  const ent = e.info.entreprise?.nom.trim();
+  if (ent) {
+    doc.setTextColor(203, 213, 225);
+    doc.setFontSize(8.5);
+    doc.text(doc.splitTextToSize(ecrit(ent), 64)[0] as string, W - M, 27, { align: 'right' });
+  }
   doc.setTextColor(...INK);
   y = 42;
 
@@ -318,7 +349,8 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         doc.setTextColor(...MUTED);
-        const agent = e.info.agent.trim() ? ` par ${e.info.agent.trim()}` : '';
+        const nomEnt = e.info.entreprise?.nom.trim();
+        const agent = e.info.agent.trim() ? ` par ${e.info.agent.trim()}${nomEnt ? ` (${nomEnt})` : ''}` : nomEnt ? ` pour ${nomEnt}` : '';
         doc.text(ecrit(`Créé le ${cree}${agent} avec ASP Rail, sur le téléphone. ${e.pied}`), M, H - 8.5, { maxWidth: W - 2 * M - 18 });
         doc.setFont('helvetica', 'normal');
         doc.text(`${i}/${pages}`, W - M, H - 8.5, { align: 'right' });

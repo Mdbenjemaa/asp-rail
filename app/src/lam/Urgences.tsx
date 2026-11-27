@@ -1,12 +1,14 @@
 /** Fiches réflexes AP LAM / AP S9 : ce qu'on fait tout de suite, dans l'ordre, et la note au journal de la mission. */
 import { useState } from 'react';
 import { Icon } from '../components/parts';
+import { useModules } from '../access/entreprise';
 import type { Ctx } from '../asp/contexte';
 import { Ecran, Ligne, Section } from '../asp/kit';
 import { ajouterEvenement, enregistrerMissionLam, heure, missionLamParId, titreMissionLam } from './mission';
 import { S2B_MOYENS, URGENCES, type FicheUrgence } from './urgences';
 
 export function Urgences(p: { ctx: Ctx; missionId?: string; onglet?: boolean; hidden?: boolean }) {
+  const modules = useModules();
   const [fiche, setFiche] = useState<FicheUrgence | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const mission = p.missionId ? missionLamParId(p.missionId) : null;
@@ -82,9 +84,11 @@ export function Urgences(p: { ctx: Ctx; missionId?: string; onglet?: boolean; hi
         </button>
       )}
       {note && <p className="ds-hint">Noté au journal à {note}.</p>}
-      <button className="ds-btn text" onClick={() => p.ctx.open({ k: 'memo', banque: 'lam', section: fiche.genre === 'urgence' ? 'lam-urgences' : 'lam-aleas' })}>
-        Mémo : {fiche.genre === 'urgence' ? 'les urgences' : 'les aléas'}
-      </button>
+      {modules.memo && (
+        <button className="ds-btn text" onClick={() => p.ctx.open({ k: 'memo', banque: 'lam', section: fiche.genre === 'urgence' ? 'lam-urgences' : 'lam-aleas' })}>
+          Mémo : {fiche.genre === 'urgence' ? 'les urgences' : 'les aléas'}
+        </button>
+      )}
     </>
   );
 

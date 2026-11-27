@@ -1,5 +1,6 @@
 /** Onglet « Réviser » : mémo, quiz et cas pratiques de l'activité du jour d'abord, puis ceux des autres activités. */
 import type { ReactNode } from 'react';
+import { useModules, type Modules } from '../access/entreprise';
 import { MEMO_LAM } from '../lam/memo';
 import { EXERCICES_LAM } from '../lam/ordre';
 import { MEMO_PN } from '../pn/memo';
@@ -18,26 +19,27 @@ function Quiz({ ctx, banque, titre }: { ctx: Ctx; banque: Banque; titre: string 
   return <Ligne icon="sparkle" badgeClass="brand" title={titre} sub={progression(s)} onClick={() => ctx.open({ k: 'quiz', banque })} />;
 }
 
-const GROUPES: Record<Activite, (ctx: Ctx) => ReactNode> = {
-  asp: (ctx) => (
+/** Mémo, quiz et cas pratiques de chaque activité, selon le contenu de l'entreprise. */
+const GROUPES: Record<Activite, (ctx: Ctx, m: Modules) => ReactNode> = {
+  asp: (ctx, m) => (
     <Section key="asp" title="Annonce · TES M">
-      <Ligne icon="book" badgeClass="brand" title="Mémo ASP" sub={`${MEMO.length} fiches : outillage, marges, bruit, AAn, signaux…`} onClick={() => ctx.open({ k: 'memo' })} />
-      <Quiz ctx={ctx} banque="asp" titre="Quiz" />
-      <Ligne icon="calc" badgeClass="brand" title="Cas pratiques" sub="Les 7 exercices « Terrain et CADA », corrigés" onClick={() => ctx.open({ k: 'cas' })} />
+      {m.memo && <Ligne icon="book" badgeClass="brand" title="Mémo ASP" sub={`${MEMO.length} fiches : outillage, marges, bruit, AAn, signaux…`} onClick={() => ctx.open({ k: 'memo' })} />}
+      {m.quiz && <Quiz ctx={ctx} banque="asp" titre="Quiz" />}
+      {m.quiz && <Ligne icon="calc" badgeClass="brand" title="Cas pratiques" sub="Les 7 exercices « Terrain et CADA », corrigés" onClick={() => ctx.open({ k: 'cas' })} />}
     </Section>
   ),
-  pn: (ctx) => (
+  pn: (ctx, m) => (
     <Section key="pn" title="Agent PN · TES F">
-      <Ligne icon="book" badgeClass="brand" title="Mémo PN" sub={`${MEMO_PN.length} fiches : boîtier, Marche-Arrêt, dérangements, missions…`} onClick={() => ctx.open({ k: 'memo', banque: 'pn' })} />
-      <Quiz ctx={ctx} banque="pn" titre="Quiz PN" />
-      <Ligne icon="list" badgeClass="brand" title="Cas pratiques PN" sub={`${EXERCICES_ORDRE.length} procédures à remettre dans l’ordre`} onClick={() => ctx.open({ k: 'pn-ordre' })} />
+      {m.memo && <Ligne icon="book" badgeClass="brand" title="Mémo PN" sub={`${MEMO_PN.length} fiches : boîtier, Marche-Arrêt, dérangements, missions…`} onClick={() => ctx.open({ k: 'memo', banque: 'pn' })} />}
+      {m.quiz && <Quiz ctx={ctx} banque="pn" titre="Quiz PN" />}
+      {m.quiz && <Ligne icon="list" badgeClass="brand" title="Cas pratiques PN" sub={`${EXERCICES_ORDRE.length} procédures à remettre dans l’ordre`} onClick={() => ctx.open({ k: 'pn-ordre' })} />}
     </Section>
   ),
-  lam: (ctx) => (
+  lam: (ctx, m) => (
     <Section key="lam" title="AP LAM · AP S9">
-      <Ligne icon="book" badgeClass="brand" title="Mémo LAM / S9" sub={`${MEMO_LAM.length} fiches : mise en voie, limiteurs, DSh, dépêches, urgences…`} onClick={() => ctx.open({ k: 'memo', banque: 'lam' })} />
-      <Quiz ctx={ctx} banque="lam" titre="Quiz LAM / S9" />
-      <Ligne icon="list" badgeClass="brand" title="Cas pratiques LAM / S9" sub={`${EXERCICES_LAM.length} procédures à remettre dans l’ordre`} onClick={() => ctx.open({ k: 'lam-ordre' })} />
+      {m.memo && <Ligne icon="book" badgeClass="brand" title="Mémo LAM / S9" sub={`${MEMO_LAM.length} fiches : mise en voie, limiteurs, DSh, dépêches, urgences…`} onClick={() => ctx.open({ k: 'memo', banque: 'lam' })} />}
+      {m.quiz && <Quiz ctx={ctx} banque="lam" titre="Quiz LAM / S9" />}
+      {m.quiz && <Ligne icon="list" badgeClass="brand" title="Cas pratiques LAM / S9" sub={`${EXERCICES_LAM.length} procédures à remettre dans l’ordre`} onClick={() => ctx.open({ k: 'lam-ordre' })} />}
     </Section>
   ),
 };
@@ -68,6 +70,7 @@ const INCONTOURNABLES: Record<Activite, [string, string][]> = {
 
 export function Reviser({ ctx }: { ctx: Ctx }) {
   const activite = useActivite();
+  const m = useModules();
   const ordre: Activite[] = [activite, ...(['asp', 'pn', 'lam'] as Activite[]).filter((a) => a !== activite)];
   return (
     <main className="ds-page" aria-label="Réviser">
@@ -77,18 +80,20 @@ export function Reviser({ ctx }: { ctx: Ctx }) {
           <p>{SOURCE[activite]}</p>
         </div>
       </header>
-      {GROUPES[activite](ctx)}
-      <Section title="Les incontournables" flat>
-        <div className="ds-card ds-memo-flash">
-          {INCONTOURNABLES[activite].map(([b, t]) => (
-            <p key={b}>
-              <b>{b}</b>
-              {t.startsWith(' ') || t.startsWith(',') ? t : ` ${t}`}
-            </p>
-          ))}
-        </div>
-      </Section>
-      {ordre.slice(1).map((a) => GROUPES[a](ctx))}
+      {GROUPES[activite](ctx, m)}
+      {m.memo && (
+        <Section title="Les incontournables" flat>
+          <div className="ds-card ds-memo-flash">
+            {INCONTOURNABLES[activite].map(([b, t]) => (
+              <p key={b}>
+                <b>{b}</b>
+                {t.startsWith(' ') || t.startsWith(',') ? t : ` ${t}`}
+              </p>
+            ))}
+          </div>
+        </Section>
+      )}
+      {ordre.slice(1).map((a) => GROUPES[a](ctx, m))}
     </main>
   );
 }

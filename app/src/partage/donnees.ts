@@ -219,7 +219,7 @@ export function partagesFeatures(list: Partage[], moi: string): FeatureCollectio
           label: String(f.properties?.label ?? ''),
           act: p.activite,
           niv: d.niveau,
-          n: `${ACTIVITE_LABEL[p.activite]} · ${p.nom || 'Sans nom'}`,
+          n: `${ACTIVITE_LABEL[p.activite]} · ${p.nom || 'Sans nom'}${p.entreprise ? ` (${p.entreprise})` : ''}`,
           t: d.titre,
           e: d.etat,
           d: (d.details ?? []).join('\n'),

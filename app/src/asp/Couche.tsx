@@ -2,6 +2,7 @@
  * Tout ce qui passe par-dessus la carte : la page de l'onglet ouvert (Accueil, Calcul, Réviser), puis les écrans
  * ouverts les uns sur les autres (le dernier au-dessus ; ceux du dessous gardent leur état).
  */
+import { useModules, type Modules } from '../access/entreprise';
 import type { Onglet } from '../components/BottomNav';
 import { Accueil } from './Accueil';
 import { Assistant } from './Assistant';
@@ -9,6 +10,7 @@ import { CalculRapide } from './CalculRapide';
 import { CasScreen } from './CasScreen';
 import type { Ctx, Vue } from './contexte';
 import { Chantiers, Checklists, Fiche } from './Fiche';
+import { Ecran } from './kit';
 import { MemoScreen } from './MemoScreen';
 import { QuizScreen } from './QuizScreen';
 import { Reviser } from './Reviser';
@@ -28,6 +30,14 @@ import { OrdreScreen } from '../pn/OrdreScreen';
 import { PlanningScreen } from '../planning/Planning';
 import { GestesScreen, PosteEdit, PosteScreen } from '../chaine/PosteScreen';
 
+/** Écrans dont le contenu dépend de ce que l'entreprise a dans l'appli. */
+function permis(v: Vue, m: Modules): boolean {
+  if (v.k === 'memo') return m.memo;
+  if (v.k === 'quiz' || v.k === 'cas' || v.k === 'pn-ordre' || v.k === 'lam-ordre') return m.quiz;
+  if (v.k === 'planning') return m.planning;
+  return true;
+}
+
 export function Couche(p: {
   tab: Onglet;
   pile: Vue[];
@@ -41,6 +51,7 @@ export function Couche(p: {
 }) {
   const { ctx } = p;
   const activite = useActivite();
+  const modules = useModules();
   const top = p.pile.length - 1;
   return (
     <>
@@ -52,6 +63,12 @@ export function Couche(p: {
       {p.pile.map((v, k) => {
         const hidden = k < top;
         const key = `${k}-${v.k}-${'id' in v ? v.id : ''}`;
+        if (!permis(v, modules))
+          return (
+            <Ecran key={key} label="Contenu non inclus" title="Non inclus" onBack={ctx.back} hidden={hidden}>
+              <p className="ds-hint">Ce contenu n’est pas inclus dans l’espace de ton entreprise. Demande à ton administrateur.</p>
+            </Ecran>
+          );
         switch (v.k) {
           case 'assistant':
             return <Assistant key={key} id={v.id} etape={v.etape} seule={v.seule} hidden={hidden} ctx={ctx} />;

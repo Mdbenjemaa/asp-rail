@@ -156,4 +156,19 @@ describe('PDF', () => {
     for (const x of ['Compte rendu de poste', 'Annonceur A1', '22:05', '7 h 05', 'Trains annonc', '23:02', 'Perdu la vue de S1', '450 m', 'ASP']) expect(txt, x).toContain(x);
     expect(txt.match(/\/Subtype \/Image/g)?.length).toBe(2);
   });
+
+  it('entreprise de l’agent : son nom en tête et au pied, son logo dans le bandeau', async () => {
+    const p = nouveauPoste({ role: 'sentinelle', code: 'S1', chantier: 'Essai', date: '2026-11-25', horaire: 'jour' });
+    const sans = await contenu(compteRenduPostePdf(p, { ...info, signature: null }));
+    expect(sans.match(/\/Subtype \/Image/g)).toBeNull();
+    const avec = await contenu(compteRenduPostePdf(p, { ...info, signature: null, entreprise: { nom: 'Exemple Rail', logo: PNG } }));
+    expect(avec).toContain('Exemple Rail');
+    expect(avec).toContain('(Exemple Rail)');
+    // Le logo (avec sa transparence, d'où 2 objets image).
+    expect(avec.match(/\/Subtype \/Image/g)?.length).toBe(2);
+    // Logo d'un format que le PDF ne sait pas lire : ignoré, le reste du document est là.
+    const webp = await contenu(compteRenduPostePdf(p, { ...info, signature: null, entreprise: { nom: 'Exemple Rail', logo: 'data:image/webp;base64,AAAA' } }));
+    expect(webp).toContain('Exemple Rail');
+    expect(webp.match(/\/Subtype \/Image/g)).toBeNull();
+  });
 });

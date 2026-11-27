@@ -59,6 +59,7 @@ import { avecAgentA, codesAgents, infoDeplacement, nouveauxProblemes } from './a
 import type { Resultat } from './asp/rules';
 import type { LineDoc } from './lib/data';
 import { BottomNav, type Onglet } from './components/BottomNav';
+import { entreprise, reviserVisible, useModules } from './access/entreprise';
 import { useActivite, ouvrirMission } from './asp/activite';
 import { useRetour } from './lib/back';
 
@@ -92,9 +93,12 @@ export default function App() {
     savePref('asp-fiche-reduite', f);
   };
   /** Onglet ouvert (l'appli s'ouvre sur l'accueil) et écrans ouverts par-dessus. */
-  const [tab, setTab] = useState<Onglet>('accueil');
+  const [tabChoisi, setTab] = useState<Onglet>('accueil');
+  const modules = useModules();
+  // Sans mémo ni quiz pour l'entreprise, l'onglet « Réviser » n'existe pas.
+  const tab: Onglet = tabChoisi === 'reviser' && !reviserVisible(modules) ? 'accueil' : tabChoisi;
   // PDF partagé depuis Gmail (Android) : l'appli s'ouvre sur « Mon planning », qui l'importe.
-  const [pile, setPile] = useState<Vue[]>(() => (partageEnAttente() ? [{ k: 'planning', partage: true }] : []));
+  const [pile, setPile] = useState<Vue[]>(() => (partageEnAttente() && (entreprise()?.modules.planning ?? true) ? [{ k: 'planning', partage: true }] : []));
   const actif = useActif();
   const actifCourant = useRef(actif);
   useEffect(() => {
@@ -879,7 +883,7 @@ export default function App() {
         }}
         onTab={setTab}
       />
-      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={activite === 'asp' && jourARegler} activite={activite} />}
+      {showNav && <BottomNav tab={tab} onTab={setTab} alerte={activite === 'asp' && jourARegler} activite={activite} sansReviser={!reviserVisible(modules)} />}
 
       {panel === 'search' && (
         <SearchScreen

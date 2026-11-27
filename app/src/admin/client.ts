@@ -27,3 +27,33 @@ export function jetonDuLien(texte: string): string | null {
   const m = /[?&#]token=([A-Za-z0-9_-]{20,})/.exec(t);
   return m ? m[1] : null;
 }
+
+/** Jeton d'une invitation d'administrateur d'entreprise : « …/#admin&invitation=<48 signes hexadécimaux> ». */
+export function invitationDuHash(hash: string): string | null {
+  const m = /[#&?]invitation=([a-fA-F0-9]{48})(?:&|$)/.exec(hash);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** Lien à envoyer à la personne invitée. */
+export const lienInvitation = (jeton: string) => `${location.origin}${import.meta.env.BASE_URL}#admin&invitation=${jeton}`;
+
+/** Rôle de la personne connectée : administrateur d'ASP Rail (toutes les entreprises) ou d'une ou plusieurs entreprises. */
+export interface Role {
+  email: string;
+  super: boolean;
+  entreprises: { id: string; nom: string }[];
+}
+
+export function lireRole(x: unknown): Role | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as { email?: unknown; super?: unknown; entreprises?: unknown };
+  const entreprises = Array.isArray(o.entreprises)
+    ? o.entreprises.filter((e): e is { id: string; nom: string } => !!e && typeof e.id === 'string' && typeof e.nom === 'string')
+    : [];
+  return { email: typeof o.email === 'string' ? o.email : '', super: o.super === true, entreprises };
+}
+
+/** Entreprise à afficher : celle choisie la dernière fois si elle existe encore, sinon la première. */
+export function entrepriseChoisie(role: Role, gardee: string | null): string | null {
+  return role.entreprises.find((e) => e.id === gardee)?.id ?? role.entreprises[0]?.id ?? null;
+}

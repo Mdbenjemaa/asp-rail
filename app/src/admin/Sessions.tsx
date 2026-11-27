@@ -18,8 +18,10 @@ interface SessionAdmin {
 interface PartageAdmin {
   id: string;
   session_id: string;
-  activite: 'asp' | 'pn' | 'lam';
+  activite: 'asp' | 'pn' | 'lam' | 'chaine';
   nom: string;
+  /** Entreprise de l'intervenant (un chantier peut réunir plusieurs entreprises). */
+  entreprise?: string;
   maj: string;
   donnees: { titre?: string; etat?: string };
 }
@@ -31,12 +33,12 @@ const DUREES: [number, string][] = [
   [168, '7 jours'],
   [744, '31 jours'],
 ];
-const ACT = { asp: 'ASP', pn: 'Agent PN', lam: 'AP LAM / S9' } as const;
+const ACT = { asp: 'ASP', pn: 'Agent PN', lam: 'AP LAM / S9', chaine: 'Chaîne d’annonce' } as const;
 const quand = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' à');
 const ouverte = (s: SessionAdmin, now: number) => !s.coupe_le && Date.parse(s.expire_le) > now;
 
-export function Sessions({ onMsg }: { onMsg: (m: string) => void }) {
+export function Sessions({ entreprise, onMsg }: { entreprise: { id: string; nom: string }; onMsg: (m: string) => void }) {
   const [sessions, setSessions] = useState<SessionAdmin[] | null>(null);
   const [partages, setPartages] = useState<PartageAdmin[]>([]);
   const [nom, setNom] = useState('');
@@ -46,8 +48,8 @@ export function Sessions({ onMsg }: { onMsg: (m: string) => void }) {
 
   const charger = async () => {
     const [s, p] = await Promise.all([
-      sb().from('asp_sessions').select('*').order('cree_le', { ascending: false }),
-      sb().from('asp_partages').select('id, session_id, activite, nom, maj, donnees').order('maj', { ascending: false }),
+      sb().from('asp_sessions').select('*').eq('entreprise_id', entreprise.id).order('cree_le', { ascending: false }),
+      sb().from('asp_partages').select('id, session_id, activite, nom, entreprise, maj, donnees').order('maj', { ascending: false }),
     ]);
     setNow(Date.now());
     if (s.error) onMsg('Liste des chantiers partagés indisponible.');
@@ -65,7 +67,7 @@ export function Sessions({ onMsg }: { onMsg: (m: string) => void }) {
 
   const creer = async () => {
     setBusy(true);
-    const { data, error } = await sb().rpc('asp_creer_session', { p_nom: nom.trim(), p_duree_h: duree });
+    const { data, error } = await sb().rpc('asp_creer_session', { p_nom: nom.trim(), p_duree_h: duree, p_entreprise: entreprise.id });
     setBusy(false);
     if (error) return onMsg(error.message || 'Création impossible.');
     setNom('');
@@ -144,8 +146,8 @@ export function Sessions({ onMsg }: { onMsg: (m: string) => void }) {
         </button>
       </form>
       <p className="muted small">
-        Seuls les intervenants qui ont reçu le code du chantier se voient sur la carte ; chacun choisit ce qu’il partage. Le chantier s’arrête seul à la fin de
-        sa durée.
+        Seuls les intervenants qui ont reçu le code du chantier se voient sur la carte, même s’ils sont d’une autre entreprise ; chacun choisit ce qu’il
+        partage. Le chantier s’arrête seul à la fin de sa durée.
       </p>
       {sessions === null ? (
         <p className="muted">Chargement…</p>
@@ -168,7 +170,8 @@ export function Sessions({ onMsg }: { onMsg: (m: string) => void }) {
                     {qui.map((p) => (
                       <li key={p.id}>
                         <span>
-                          {ACT[p.activite]} · {p.nom || 'Sans nom'}
+                          {ACT[p.activite] ?? p.activite} · {p.nom || 'Sans nom'}
+                          {p.entreprise && p.entreprise !== entreprise.nom ? ` (${p.entreprise})` : ''}
                           {p.donnees?.etat ? ` · ${p.donnees.etat}` : ''}
                         </span>
                         <small>mis à jour {quand(p.maj)}</small>

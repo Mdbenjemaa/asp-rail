@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import policeUrl from '../assets/fonts/DejaVuSans.ttf?url';
 import { Icon } from '../components/parts';
+import { entreprisePdf } from '../access/entreprise';
 import type { InfoExport } from '../lib/pdfKit';
 import { garderNomAgent, garderSignature, nomAgent, signatureDe } from '../lib/signature';
 import { Modal } from '../components/Sheets';
@@ -149,6 +150,7 @@ export function FeuilleExportPdf(p: {
         signature: s1?.png ?? null,
         signeA: s1?.t ?? null,
         cree: new Date(t),
+        entreprise: entreprisePdf(),
         second: p.second ? { nom: nom2.trim(), signature: s2?.png ?? null, signeA: s2?.t ?? null } : undefined,
       });
       p.onFini(await partagerFichier(file, p.titre));

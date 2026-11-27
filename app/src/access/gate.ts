@@ -5,6 +5,7 @@
  * reste ouverte le temps choisi pour ce code (de « réseau obligatoire » à 30 jours) après la dernière vérification.
  */
 import { loadPref, savePref } from '../lib/me';
+import { lireEntreprise, type EntrepriseInfo } from './entreprise';
 import { SB_KEY, SB_URL } from '../lib/server';
 
 const ACCESS_KEY = 'asp-acces';
@@ -126,6 +127,8 @@ export interface Verification {
   raison?: 'inconnu' | 'coupe' | 'fin';
   horsLigneH?: number;
   fin?: number | null;
+  /** Entreprise du code (nom, contenu, version du logo) ; absente si le serveur ne la donne pas. */
+  entreprise?: EntrepriseInfo | null;
 }
 
 /** Vérifie un code auprès du serveur. Lève une erreur si le serveur ne répond pas (pas de réseau…). */
@@ -145,11 +148,17 @@ export async function checkCode(code: string, timeoutMs = 10_000): Promise<Verif
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`Serveur indisponible (${res.status})`);
-  const data = (await res.json()) as { ok?: boolean; nom?: string; raison?: string; hors_ligne_h?: number; expire_le?: string | null };
+  const data = (await res.json()) as { ok?: boolean; nom?: string; raison?: string; hors_ligne_h?: number; expire_le?: string | null; entreprise?: unknown };
   const raison = data.raison === 'coupe' || data.raison === 'fin' ? data.raison : 'inconnu';
   if (data.ok !== true) return { ok: false, raison };
   const fin = data.expire_le ? Date.parse(data.expire_le) : null;
-  return { ok: true, nom: data.nom, horsLigneH: typeof data.hors_ligne_h === 'number' ? data.hors_ligne_h : undefined, fin: Number.isFinite(fin) ? fin : null };
+  return {
+    ok: true,
+    nom: data.nom,
+    horsLigneH: typeof data.hors_ligne_h === 'number' ? data.hors_ligne_h : undefined,
+    fin: Number.isFinite(fin) ? fin : null,
+    entreprise: data.entreprise === undefined ? undefined : lireEntreprise(data.entreprise),
+  };
 }
 
 /** Lien à partager pour un code : ouvre l'appli et remplit le code. */

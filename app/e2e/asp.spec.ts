@@ -126,7 +126,7 @@ test('espace administrateur : mot de passe oublié, le lien du mail collé sans 
     if (route.request().method() === 'PUT') nouveau = (route.request().postDataJSON() as { password: string }).password;
     await route.fulfill({ json: user });
   });
-  await page.route('**/rest/v1/rpc/asp_est_admin', (route) => route.fulfill({ json: true }));
+  await page.route('**/rest/v1/rpc/asp_mon_role', (route) => route.fulfill({ json: { email: 'admin@test.fr', super: true, entreprises: [{ id: 'e1', nom: 'Entreprise test' }] } }));
   await page.route('**/rest/v1/asp_codes**', (route) => route.fulfill({ json: [] }));
   await page.route('**/rest/v1/asp_appareils**', (route) => route.fulfill({ json: [] }));
   await openApp(page, { gate: true, path: './#admin' });
@@ -144,7 +144,7 @@ test('espace administrateur : mot de passe oublié, le lien du mail collé sans 
   await page.getByLabel('Nouveau mot de passe').fill('mon-nouveau-mdp-1');
   await page.getByRole('button', { name: /^Enregistrer/ }).click();
   await expect.poll(() => nouveau).toBe('mon-nouveau-mdp-1');
-  await expect(page.getByRole('tab', { name: 'Chantiers partagés' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Chantiers' })).toBeVisible();
 });
 
 test('espace administrateur : connexion, créer un code, le partager, le couper, le réactiver, le supprimer', async ({ page }) => {
@@ -163,7 +163,7 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
     await route.fulfill({ json: { access_token: jwt, token_type: 'bearer', expires_in: 3600, expires_at: now + 3600, refresh_token: 'r1', user } });
   });
   await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, body: '' }));
-  await page.route('**/rest/v1/rpc/asp_est_admin', (route) => route.fulfill({ json: true }));
+  await page.route('**/rest/v1/rpc/asp_mon_role', (route) => route.fulfill({ json: { email: 'admin@test.fr', super: true, entreprises: [{ id: 'e1', nom: 'Entreprise test' }] } }));
   let creation: Record<string, unknown> = {};
   await page.route('**/rest/v1/rpc/asp_creer_code', async (route) => {
     creation = route.request().postDataJSON() as Record<string, unknown>;
@@ -203,7 +203,7 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
   await page.getByRole('combobox', { name: 'Durée du code' }).selectOption({ label: '1 jour' });
   await page.getByRole('combobox', { name: 'Utilisation sans réseau' }).selectOption({ label: 'Réseau obligatoire' });
   await page.getByRole('button', { name: 'Créer le code' }).click();
-  await expect.poll(() => creation).toEqual({ p_nom: 'Karim B.', p_duree_h: 24, p_hors_ligne_h: 0 });
+  await expect.poll(() => creation).toEqual({ p_nom: 'Karim B.', p_duree_h: 24, p_hors_ligne_h: 0, p_entreprise: 'e1' });
   const item = page.locator('.admin-codes > li').first();
   await expect(item).toContainText('Karim B.');
   await expect(item).toContainText('KM7P-Q2XZ');

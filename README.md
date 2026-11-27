@@ -144,21 +144,47 @@ Chaque code a, au choix de l'administrateur à sa création :
   vérification, puis demande du réseau.
 
 L'administrateur ouvre `https://mdbenjemaa.github.io/asp-rail/#admin` (lien « Espace administrateur » sous l'écran du
-code), se connecte avec le même compte que l'administration de PK Rail, puis crée un code par personne (ou par
-session), le partage (le lien remplit le code tout seul), le coupe, le réactive (un code arrivé à sa fin repart sans
+code), se connecte avec son e-mail et son mot de passe, choisit l'entreprise (voir « Espace par entreprise »), puis
+crée un code par personne (ou par session), le partage (le lien remplit le code tout seul), le coupe, le réactive (un code arrivé à sa fin repart sans
 limite) ou le supprime. La liste, mise à jour toutes les 30 secondes, montre qui est **en ligne maintenant**, la
 dernière utilisation, et **les téléphones** de chaque code (« Android · Chrome · appli installée », vu il y a…) : un
 identifiant tiré au hasard sur le téléphone, rien d'autre (au plus 20 téléphones par code).
 
-Côté serveur (projet Supabase « repere-rail ») : tables `asp_codes` (avec `expire_le` et `hors_ligne_h`),
-`asp_appareils` et `asp_admins` (lecture et écriture réservées aux administrateurs connectés), fonctions
+Côté serveur (projet Supabase « repere-rail ») : tables `asp_codes` (avec `expire_le`, `hors_ligne_h` et
+`entreprise_id`) et `asp_appareils` (lecture et écriture réservées aux administrateurs de l'entreprise), fonctions
 `asp_verifier_code` (seule ouverte sans compte : répond oui ou non, pourquoi — coupé, fini, inconnu —, le nom du code,
-sa fin et son temps sans réseau ; note le téléphone), `asp_creer_code` et `asp_est_admin`. Les chantiers, missions et
-plannings, eux, ne quittent le téléphone que si l'agent les partage sur un chantier partagé (ci-dessous).
+sa fin, son temps sans réseau et son entreprise ; note le téléphone), `asp_logo` et `asp_creer_code`. Les chantiers,
+missions et plannings, eux, ne quittent le téléphone que si l'agent les partage sur un chantier partagé (ci-dessous).
+
+## Espace par entreprise
+
+Chaque entreprise cliente a son espace : **ses codes d'accès, ses chantiers partagés, ses administrateurs, son nom et
+son logo**. L'espace administrateur a trois onglets pour l'entreprise choisie : Codes, Chantiers, Entreprise.
+
+- **L'administrateur d'ASP Rail** (table `asp_admins`) voit toutes les entreprises (liste en haut de la page). Il crée
+  une entreprise, règle **son contenu dans l'appli** (lecture du planning ETF, mémos, quiz et cas pratiques : rien
+  n'est activé pour une nouvelle entreprise) et **invite son administrateur** : un lien à envoyer (WhatsApp, SMS,
+  mail), valable 7 jours et une seule fois, où la personne choisit elle-même son mot de passe. « Nouveau lien » sert
+  aussi quand un administrateur d'entreprise a oublié son mot de passe.
+- **L'administrateur d'une entreprise** ne voit que la sienne : codes de ses agents, chantiers partagés, nom et logo,
+  agents actifs (aujourd'hui, 7 jours, 30 jours : quels codes ont servi et quand). Le contenu de l'appli est réglé par
+  l'administrateur d'ASP Rail.
+
+Côté agents : le nom et le logo de l'entreprise s'affichent sur l'accueil et en tête des PDF ; ce qui n'est pas inclus
+(carte « Mon planning ETF », mémos, quiz, question du jour, cas pratiques ; l'onglet « Réviser » s'il ne reste rien)
+disparaît à la vérification suivante du code. Les fiches réflexes des onglets Dérangement (PN) et Urgences (LAM / S9)
+et « Mes gestes et signaux » restent pour tous. Sur un chantier partagé, des agents de plusieurs entreprises peuvent se
+retrouver (il suffit d'un code d'accès valable et du code du chantier) : l'entreprise de chacun est indiquée.
+
+Côté serveur : tables `asp_entreprises` (nom, logo, contenu), `asp_entreprise_admins` et `asp_invitations` (jeton
+gardé en empreinte SHA-256 seulement) ; droits par entreprise sur toutes les tables (`asp_peut_gerer`) ; fonctions
+`asp_mon_role`, `asp_resume_entreprises`, `asp_creer_entreprise`, `asp_maj_entreprise`, `asp_supprimer_entreprise`,
+`asp_inviter_admin`, `asp_voir_invitation`, `asp_accepter_invitation`, et la fonction serveur `asp-invitation`
+(`supabase/functions/asp-invitation`), qui crée le compte de la personne invitée avec le mot de passe qu'elle a choisi.
 
 ## Chantier partagé
 
-L'administrateur crée un **chantier partagé** (onglet « Chantiers partagés » de l'espace administrateur : un nom, une
+L'administrateur crée un **chantier partagé** (onglet « Chantiers » de l'espace administrateur : un nom, une
 durée de 12 heures à 31 jours) et envoie son **code de 6 signes** (`K7P-3QX`, ou le lien `…/asp-rail/#chantier=K7P-3QX`)
 aux intervenants : ASP, agent PN, AP LAM / S9. Seuls ceux qui ont rejoint ce chantier se voient.
 
@@ -176,7 +202,7 @@ intervenants avec « Voir sur la carte » et « Appeler ». L'appli lit le chant
 qu'elle partage dès que ça change (au moins toutes les 2 minutes) ; un partage sans nouvelle depuis 12 heures n'est
 plus montré. Information entre intervenants, à titre indicatif : les dépêches, l'AAn et les annonces font foi.
 
-Côté serveur : tables `asp_sessions` et `asp_partages` (lisibles seulement par l'administrateur), fonctions
+Côté serveur : tables `asp_sessions` et `asp_partages` (lisibles seulement par les administrateurs de l'entreprise qui a créé le chantier), fonctions
 `asp_creer_session` (administrateur), `asp_rejoindre_session`, `asp_partager` et `asp_voir_session` (chacune vérifie
 le code d'accès et que le chantier partagé est ouvert ; 40 intervenants et 24 ko par partage au plus). Un chantier
 arrêté ou fini disparaît des téléphones ; il est effacé 7 jours après.
@@ -206,7 +232,7 @@ le navigateur ne peut pas lire Google directement.
 (`npx playwright install webkit`), dans Safari (WebKit, le moteur de l'iPhone), en téléphone simulé avec un GPS simulé
 le long de la ligne 830 000 à Lieusaint. Repérage : premier lancement, Me repérer, suivi du PK, recherche, Aller au
 PK, couches, mes accès, signalements, menu, GPS refusé, petit écran, sans réseau. ASP : code d'accès (refusé,
-accepté, gardé, coupé pendant que l'appli est ouverte, arrivé à sa fin, réseau obligatoire, lien reçu), espace administrateur (durée, sans réseau, en ligne, téléphones), nouveau chantier pas à pas (position, vitesse de la ligne,
+accepté, gardé, coupé pendant que l'appli est ouverte, arrivé à sa fin, réseau obligatoire, lien reçu), espace administrateur (durée, sans réseau, en ligne, téléphones), espace par entreprise (contenu, nom et logo, lien d'invitation, administrateur d'une seule entreprise), nouveau chantier pas à pas (position, vitesse de la ligne,
 résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
 obligatoire corrigée en un toucher, agent déplacé sur la carte (au doigt dans Chrome, à la souris dans Safari, PK enregistré, Annuler), bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
 LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Planning

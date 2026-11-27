@@ -7,6 +7,7 @@
 import { useSyncExternalStore } from 'react';
 import { appareilId, loadAccess } from '../access/gate';
 import { loadPref, savePref } from '../lib/me';
+import { magasin } from '../lib/magasin';
 import { SB_KEY, SB_URL } from '../lib/server';
 import type { Donnees } from './donnees';
 
@@ -37,6 +38,8 @@ export interface Partage {
   activite: Activite;
   nom: string;
   tel: string;
+  /** Entreprise de son code d'accès (un chantier peut réunir plusieurs entreprises). */
+  entreprise?: string;
   donnees: Donnees;
   /** Dernière mise à jour (ms). */
   maj: number;
@@ -65,21 +68,8 @@ export const lienSession = (code: string) => `${location.origin}${import.meta.en
 
 /* ---------- Petits magasins partagés par l'accueil, la carte et l'interrupteur ---------- */
 
-export function magasin<T>(lire: () => T) {
-  let valeur = lire();
-  const abonnes = new Set<() => void>();
-  return {
-    get: () => valeur,
-    set(v: T) {
-      valeur = v;
-      abonnes.forEach((f) => f());
-    },
-    abonner(f: () => void) {
-      abonnes.add(f);
-      return () => abonnes.delete(f);
-    },
-  };
-}
+export { magasin };
+
 
 const lireSession = (): Session | null => {
   const s = loadPref<Session | null>(SESSION, null);

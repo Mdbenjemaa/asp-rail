@@ -4,6 +4,7 @@
  * gestes et signaux.
  */
 import { Icon } from '../components/parts';
+import { useModules } from '../access/entreprise';
 import { fmtLine, fmtPk } from '../lib/format';
 import { useHorloge } from '../pn/horloge';
 import type { Ctx } from '../asp/contexte';
@@ -16,6 +17,7 @@ import { codeLibre, ecartPa, enregistrerPoste, etatPoste, nouveauPoste, posteDuJ
 import { OuJeSuis, ServicePoste } from './PosteScreen';
 
 export function AccueilChaine(p: { ctx: Ctx; direct: { etat: EtatDirect; pos: Direct | null }; onWhere: () => void }) {
+  const modules = useModules();
   const postes = usePostes();
   const poste = posteDuJour(postes);
   const prendre = usePrendrePoste();
@@ -114,8 +116,8 @@ export function AccueilChaine(p: { ctx: Ctx; direct: { etat: EtatDirect; pos: Di
       </div>
       <div className="ds-grid">
         <CaseOu etat={p.direct.etat} pos={p.direct.pos} onClick={p.onWhere} />
-        <CaseMemo onClick={() => p.ctx.open({ k: 'memo', section: 'placer' })} />
-        <CaseQuiz onClick={() => p.ctx.open({ k: 'quiz' })} />
+        {modules.memo && <CaseMemo onClick={() => p.ctx.open({ k: 'memo', section: 'placer' })} />}
+        {modules.quiz && <CaseQuiz onClick={() => p.ctx.open({ k: 'quiz' })} />}
       </div>
 
       {precedents.length > 0 && (

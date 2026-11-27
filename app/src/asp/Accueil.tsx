@@ -5,6 +5,7 @@
  * créer un, des raccourcis, et les autres chantiers.
  */
 import { useMemo, useState } from 'react';
+import { useEntreprise, useLogo, useModules } from '../access/entreprise';
 import { loadAccess } from '../access/gate';
 import { Icon } from '../components/parts';
 import { PREVIEW } from '../lib/env';
@@ -76,6 +77,19 @@ function Bonjour(p: { titre?: string; sous?: string; onMenu: () => void; onRetou
   );
 }
 
+/** Nom et logo de l'entreprise du code d'accès, sous le bonjour de l'accueil général. */
+function BandeauEntreprise() {
+  const e = useEntreprise();
+  const logo = useLogo();
+  if (!e) return null;
+  return (
+    <div className="ac-entreprise" aria-label={`Entreprise : ${e.nom}`}>
+      {logo && <img src={logo} alt="" />}
+      <span>{e.nom}</span>
+    </div>
+  );
+}
+
 export function Accueil(p: AccueilProps) {
   return useMissionOuverte() ? <AccueilMission {...p} /> : <AccueilGeneral {...p} />;
 }
@@ -112,6 +126,7 @@ function useEnCours(): Record<Activite, { titre: string; etat: string; niveau: s
 function AccueilGeneral(p: AccueilProps) {
   const derniere = useActivite();
   const enCours = useEnCours();
+  const modules = useModules();
   // « Préparer » depuis le planning : la bonne mission, puis la création préremplie.
   const preparer = (a: ActivitePlanning) => {
     ouvrirMission(a);
@@ -122,7 +137,8 @@ function AccueilGeneral(p: AccueilProps) {
   return (
     <main className="ds-page" aria-label="Accueil">
       <Bonjour onMenu={p.onMenu} />
-      <CartePlanning ctx={p.ctx} activite={derniere} onPreparer={preparer} />
+      <BandeauEntreprise />
+      {modules.planning && <CartePlanning ctx={p.ctx} activite={derniere} onPreparer={preparer} />}
       <h2 className="ds-section-title">Choisis ta mission</h2>
       <div className="ac-missions">
         {MISSIONS.map((m) => {
@@ -170,6 +186,7 @@ function AccueilMission(p: AccueilProps) {
   const cote = useCote();
   const chaine = activite === 'asp' && cote === 'chaine';
   const lies = useMaillonsLies();
+  const modules = useModules();
   return (
     <main className="ds-page" aria-label={`Accueil : ${NOM_MISSION[activite]}`}>
       <Bonjour titre={NOM_MISSION[activite]} sous={MISSIONS.find((m) => m.a === activite)!.sous} onMenu={p.onMenu} onRetour={fermerMission} />
@@ -263,10 +280,10 @@ function AccueilMission(p: AccueilProps) {
         <div className="ds-grid">
           <CaseOu etat={direct.etat} pos={direct.pos} onClick={p.onWhere} />
           <CaseCalcul pos={direct.etat === 'ok' ? direct.pos : null} onClick={() => p.onTab('calcul')} />
-          <CaseMemo onClick={() => p.ctx.open({ k: 'memo' })} />
-          <CaseQuiz onClick={() => p.ctx.open({ k: 'quiz' })} />
+          {modules.memo && <CaseMemo onClick={() => p.ctx.open({ k: 'memo' })} />}
+          {modules.quiz && <CaseQuiz onClick={() => p.ctx.open({ k: 'quiz' })} />}
         </div>
-        <QuestionDuJour onQuiz={() => p.ctx.open({ k: 'quiz' })} />
+        {modules.quiz && <QuestionDuJour onQuiz={() => p.ctx.open({ k: 'quiz' })} />}
 
         {autres.length > 0 && (
           <>

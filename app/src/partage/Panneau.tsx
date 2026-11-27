@@ -221,7 +221,8 @@ function Session({ ctx, activite, onVoir }: { ctx: Ctx; activite: Activite; onVo
                 </b>
                 <span className="pt-etat">{x.donnees.etat}</span>
                 <small>
-                  {ACTIVITE_LABEL[x.activite]} · mis à jour {depuis(x.maj, now)}
+                  {ACTIVITE_LABEL[x.activite]}
+                  {x.entreprise ? ` · ${x.entreprise}` : ''} · mis à jour {depuis(x.maj, now)}
                 </small>
               </div>
               <div className="pt-actions">
