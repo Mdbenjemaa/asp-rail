@@ -329,6 +329,86 @@ test('nouveau chantier pas à pas : position, vitesse de la ligne, résultat, an
   await expect(page.locator('.ds-check input').first()).toBeChecked();
 });
 
+test('carte du chantier : appui long sur un annonceur, on le glisse le long de la voie, son PK suit (et Annuler)', async ({ page, browserName }) => {
+  await openApp(page, { home: true });
+  const { ecran, debut } = await creerChantier(page, { outillage: /^1re catégorie/ });
+  await ecran.getByRole('button', { name: 'Placer un annonceur par sens' }).click();
+  const fiche = page.getByRole('dialog', { name: /^Fiche chantier/ });
+  await expect(fiche.getByRole('button', { name: /^A1 : Annonceur/ })).toContainText(`PK ${fmtPkTest(debut - 0.45)}`);
+  await fiche.getByRole('button', { name: 'Voir le chantier sur la carte' }).click();
+  await expect(page.locator('.toast')).toContainText('appui long sur un agent');
+  await page.locator('.toast').click(); // un toucher ferme l'astuce
+
+  // A1 (au point d'annonce, 450 m avant le chantier) et le début de la zone de travail, à l'écran.
+  type M = import('maplibre-gl').Map;
+  const pts = await page.waitForFunction(
+    () => {
+      const m = (window as unknown as { __aspMap: M }).__aspMap;
+      const a1 = m.queryRenderedFeatures({ layers: ['u-asp-agent'] }).find((f) => f.properties?.label === 'A1');
+      const zone = m.queryRenderedFeatures({ layers: ['u-asp-zone'] })[0];
+      if (!a1 || !zone) return null;
+      return { a1: (a1.geometry as GeoJSON.Point).coordinates as [number, number], zone: (zone.geometry as GeoJSON.LineString).coordinates[0] as [number, number] };
+    },
+    undefined,
+    { timeout: 15_000 },
+  );
+  const { a1, zone } = (await pts.jsonValue())!;
+  const ecranPts = await page.evaluate(
+    ([p, q]) =>
+      new Promise<{ x: number; y: number }[]>((resolve) => {
+        const m = (window as unknown as { __aspMap: M }).__aspMap;
+        // Entre le bandeau du PK (en haut) et la fiche « Autour de toi » (en bas).
+        m.jumpTo({ center: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], zoom: 14.6, bearing: 0, padding: { top: 230, bottom: 380, left: 0, right: 0 } });
+        m.once('idle', () => resolve([m.project(p), m.project(q)]));
+      }),
+    [a1, zone] as const,
+  );
+  const box = (await page.locator('.map').boundingBox())!;
+  const [depart, arrivee] = ecranPts.map((pt) => ({ x: box.x + pt.x, y: box.y + pt.y }));
+
+  // Appui long sur A1, puis glisser jusqu'au début de la zone : le PK suit en direct.
+  // Avec le doigt dans Chrome (vrai geste tactile), à la souris dans Safari.
+  const etapes = Array.from({ length: 12 }, (_, i) => ({ x: depart.x + ((arrivee.x - depart.x) * (i + 1)) / 12, y: depart.y + ((arrivee.y - depart.y) * (i + 1)) / 12 }));
+  const bulle = page.locator('.toast.glisse');
+  if (browserName === 'chromium') {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: depart.x, y: depart.y, id: 1 }] });
+    await page.waitForTimeout(600);
+    for (const pt of etapes) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...pt, id: 1 }] });
+      await page.waitForTimeout(16);
+    }
+    await expect(bulle).toContainText(/^A1 · PK \d+\+\d{3} · PA V1 ▲ à \d+ m$/);
+    await shot(page, '05b-deplacer-agent');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await cdp.detach();
+  } else {
+    await page.mouse.move(depart.x, depart.y);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    for (const pt of etapes) await page.mouse.move(pt.x, pt.y);
+    await expect(bulle).toContainText(/^A1 · PK \d+\+\d{3} · PA V1 ▲ à \d+ m$/);
+    await page.mouse.up();
+  }
+  // Le relâcher n'a pas déclenché « me placer ici » ni ouvert la fiche de l'agent.
+  await expect(page.locator('.card').getByRole('button', { name: 'Ouvrir le chantier' })).toHaveCount(0);
+
+  // Posé sur la voie, près du début de la zone ; enregistré dans la fiche.
+  const msg = page.locator('.toast').filter({ hasText: 'A1 déplacé au PK' });
+  await expect(msg).toContainText(`(avant : ${fmtPkTest(debut - 0.45)})`);
+  await expect(msg).toContainText('doit voir jusqu’au PK');
+  const nouveau = pkValue((await msg.innerText()).replace(/^.*déplacé au PK /s, ''));
+  expect(Math.abs(nouveau - debut)).toBeLessThan(0.02);
+  /** PK gardé du premier annonceur (A1). */
+  const pkGarde = () =>
+    page.evaluate(() => (JSON.parse(localStorage.getItem('asp-chantiers-v1') ?? '[]') as { agents: { role: string; pk: number }[] }[])[0].agents.find((a) => a.role === 'annonceur')!.pk);
+  expect(await pkGarde()).toBeCloseTo(nouveau, 3);
+
+  // Annuler : A1 revient au point d'annonce.
+  await msg.getByRole('button', { name: 'Annuler' }).click();
+  await expect.poll(pkGarde).toBeCloseTo(debut - 0.45, 3);
+});
+
 test('interdiction obligatoire : signalée, puis réglée en un toucher', async ({ page }) => {
   await openApp(page, { home: true });
   const { ecran } = await creerChantier(page, { nuit: true, outillage: /^2e catégorie/ });

@@ -25,7 +25,7 @@ import { useTheme } from './app/useTheme';
 import { setUpdateGate } from './lib/update';
 import { setCourse, startCompass } from './lib/heading';
 import { fmtLine, fmtPk } from './lib/format';
-import { decodeGeom, parsePk, pkRange, positionsAtPk } from './lib/pk';
+import { decodeGeom, parsePk, pkPres, pkRange, positionsAtPk } from './lib/pk';
 import { REFUS_STOCKAGE } from './lib/collection';
 import { creer } from './app/creation';
 import { partageEnAttente } from './planning/partage';
@@ -46,7 +46,10 @@ import { calculChantier, type Chantier } from './asp/chantier';
 import type { Ctx, Here, Vue } from './asp/contexte';
 import { Couche } from './asp/Couche';
 import { aRegler, chantierDuJour } from './asp/etat';
-import { definirActif, useActif, useChantiers } from './asp/store';
+import { definirActif, enregistrer as enregistrerChantier, useActif, useChantiers } from './asp/store';
+import { avecAgentA, codesAgents, infoDeplacement, nouveauxProblemes } from './asp/dispositif';
+import type { Resultat } from './asp/rules';
+import type { LineDoc } from './lib/data';
 import { BottomNav, type Onglet } from './components/BottomNav';
 import { useActivite } from './asp/activite';
 import { useRetour } from './lib/back';
@@ -85,6 +88,10 @@ export default function App() {
   // PDF partagé depuis Gmail (Android) : l'appli s'ouvre sur « Mon planning », qui l'importe.
   const [pile, setPile] = useState<Vue[]>(() => (partageEnAttente() ? [{ k: 'planning', partage: true }] : []));
   const actif = useActif();
+  const actifCourant = useRef(actif);
+  useEffect(() => {
+    actifCourant.current = actif;
+  });
   const chantiers = useChantiers();
   const [aspFC, setAspFC] = useState<FeatureCollection | null>(null);
   const [awake, setAwake] = useState<AwakeStatus | null>(null);
@@ -95,6 +102,12 @@ export default function App() {
   const [targetExpanded, setTargetExpanded] = useState(false);
   const { acces, importStatus, resnapAcces, importAcces, deleteSet, toggleSet } = useAcces(() => setFilters((f) => ({ ...f, acces: true })));
   const [toast, setToast] = useState<string | null>(null);
+  /** Action « Annuler » proposée avec le message (déplacement d'un agent sur la carte). */
+  const [annulerToast, setAnnulerToast] = useState<(() => void) | null>(null);
+  /** Pendant qu'on déplace un agent du chantier sur la carte : son PK et sa distance aux points d'annonce. */
+  const [glisseInfo, setGlisseInfo] = useState<string | null>(null);
+  const ligneChantier = useRef<LineDoc | null>(null);
+  const glisse = useRef<{ c: Chantier; r: Resultat; avant: number | null; pk: number | null } | null>(null);
   /** Suivi : problème en cours (données de la zone indisponibles sans réseau…). */
   const [followIssue, setFollowIssue] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,9 +200,10 @@ export default function App() {
     [manifest, focusOn],
   );
 
-  const showToast = (text: string) => {
+  const showToast = (text: string, annuler: (() => void) | null = null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(text);
+    setAnnulerToast(() => annuler);
     // Le temps de lire : 6 s, plus pour les longues explications (jusqu'à 14 s). Un toucher la ferme.
     toastTimer.current = setTimeout(() => setToast(null), Math.min(14000, Math.max(6000, text.length * 60)));
   };
@@ -456,7 +470,11 @@ export default function App() {
     }
     let cancel = false;
     loadLine(actif.ligne).then(
-      (doc) => !cancel && setAspFC(chantierFeatures(actif, doc, calculChantier(actif))),
+      (doc) => {
+        if (cancel) return;
+        ligneChantier.current = doc;
+        setAspFC(chantierFeatures(actif, doc, calculChantier(actif)));
+      },
       () => !cancel && setAspFC(null),
     );
     return () => {
@@ -474,10 +492,17 @@ export default function App() {
     if (!c.ligne) return showToast('Indique la ligne du chantier pour le voir sur la carte.');
     try {
       const doc = await loadLine(c.ligne);
+      ligneChantier.current = doc;
       const fc = chantierFeatures(c, doc, calculChantier(c));
       setAspFC(fc);
       const box = emprise(fc);
       if (!box) return showToast('Zone introuvable sur la ligne : vérifie les PK du chantier.');
+      // Les trois premières fois : comment déplacer un agent.
+      const vus = loadPref<number>('asp-astuce-glisser', 0);
+      if (vus < 3 && c.agents.some((a) => a.pk !== null)) {
+        savePref('asp-astuce-glisser', vus + 1);
+        showToast('Astuce : appui long sur un agent (A1, R1…), puis glisse-le le long de la voie. Son PK suit.');
+      }
       if (following) setMapFree(true);
       setFocus((f) => ({ center: [(box[0][0] + box[1][0]) / 2, (box[0][1] + box[1][1]) / 2], bounds: box, seq: (f?.seq ?? 0) + 1 }));
     } catch {
@@ -612,6 +637,42 @@ export default function App() {
     );
   }
 
+  /**
+   * Agent du chantier déplacé à la main sur la carte : posé sur la voie du chantier, son PK suit ; au relâcher, il est
+   * enregistré (avec « Annuler ») et ce qui devient à régler est signalé.
+   */
+  const agentDeplace = (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin'): LonLat | null => {
+    const doc = ligneChantier.current;
+    if (!actif || !doc || doc.code !== actif.ligne) return null;
+    if (phase === 'debut') glisse.current = { c: actif, r: calculChantier(actif), avant: actif.agents.find((a) => a.id === id)?.pk ?? null, pk: null };
+    const g = glisse.current;
+    if (!g) return null;
+    const p = pkPres(doc, at);
+    if (!p) return null;
+    const pk = Math.round(p.pk * 1000) / 1000;
+    g.pk = pk;
+    if (phase !== 'fin') {
+      setGlisseInfo(infoDeplacement(g.c, g.r, id, pk));
+      return p.point;
+    }
+    setGlisseInfo(null);
+    glisse.current = null;
+    if (g.avant !== null && Math.abs(g.avant - pk) < 0.0005) return p.point;
+    const apres = avecAgentA(g.c, id, pk);
+    enregistrerChantier(apres);
+    const code = codesAgents(g.c.agents).get(id) ?? 'Agent';
+    const soucis = nouveauxProblemes(g.c, apres, g.r);
+    showToast(
+      `${code} déplacé au PK ${fmtPk(pk)}${g.avant !== null ? ` (avant : ${fmtPk(g.avant)})` : ''}.${soucis.length ? ` À vérifier : ${soucis.join(' ')}` : ''}`,
+      () => {
+        const ici = actifCourant.current;
+        if (ici && ici.id === g.c.id) enregistrerChantier(avecAgentA(ici, id, g.avant ?? pk));
+        setToast(null);
+      },
+    );
+    return p.point;
+  };
+
   return (
     <div className={`app ${showNav ? 'has-nav' : ''}`}>
       <MapView
@@ -640,6 +701,7 @@ export default function App() {
         }}
         onLongPress={(at) => placeHere(at)}
         onMapTap={() => setPicked(null)}
+        onAgentDrag={agentDeplace}
       />
 
       <div ref={topZone} className={`top-zone ${bannerShown ? 'has-banner' : ''}${toolsCompact ? ' compact' : ''}`}>
@@ -655,9 +717,25 @@ export default function App() {
           onUseFix={() => acquisition.current?.cancel()}
         />
         {dataError && <div className="toast error">Données indisponibles : {dataError}</div>}
-        {toast && mapShown && (
+        {glisseInfo && mapShown && (
+          <div className="toast glisse" role="status" aria-live="polite">
+            {glisseInfo}
+          </div>
+        )}
+        {toast && mapShown && !glisseInfo && (
           <div className="toast" role="status" onClick={() => setToast(null)}>
             {toast}
+            {annulerToast && (
+              <button
+                className="toast-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  annulerToast();
+                }}
+              >
+                Annuler
+              </button>
+            )}
           </div>
         )}
         <div className="tools-row">

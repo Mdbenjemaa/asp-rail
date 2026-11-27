@@ -3,7 +3,7 @@
  * d'annonce, chaîne d'annonce, et règles sur le rôle de l'ASP.
  */
 import { fmtDist, fmtPk } from '../lib/format';
-import { ROLE_COURT, type Agent, type Chantier, cleSens, newId, SENS_TEXTE } from './chantier';
+import { ROLE_COURT, type Agent, type Chantier, cleSens, newId, SENS_FLECHE, SENS_TEXTE } from './chantier';
 import type { Alerte, Resultat } from './rules';
 
 /** Nom court de chaque agent : ASP, A1, A2, R1, S1… dans l'ordre de la liste. */
@@ -173,4 +173,28 @@ export function surveilleTexteCourt(c: Chantier, a: Agent): string {
     .filter(Boolean);
   if (noms.length) return `surveille ${noms.join(', ')}`;
   return a.role === 'asp' ? '' : 'ne surveille encore rien';
+}
+
+/** Le chantier avec un agent posé à un autre PK. */
+export const avecAgentA = (c: Chantier, id: string, pk: number): Chantier => ({ ...c, agents: c.agents.map((a) => (a.id === id ? { ...a, pk } : a)) });
+
+/**
+ * Pendant qu'on déplace un agent sur la carte : « A1 · PK 28+310 · PA V1 ▲ à 42 m », ou « au-delà du PA V1 ▲ »
+ * (pour chaque sens qu'il surveille).
+ */
+export function infoDeplacement(c: Chantier, r: Resultat, id: string, pk: number): string {
+  const code = codesAgents(c.agents).get(id) ?? 'Agent';
+  const vis = visibilites(avecAgentA(c, id, pk), r).filter((v) => v.agentId === id);
+  const sens = vis.map((v) => (v.auDela ? `au-delà du PA ${v.voie} ${SENS_FLECHE[v.sens]}` : `PA ${v.voie} ${SENS_FLECHE[v.sens]} à ${fmtDist(v.aVoir ?? 0)}`));
+  return [`${code} · PK ${fmtPk(pk)}`, ...sens].join(' · ');
+}
+
+/** Ce qui est apparu à régler ou à vérifier en posant l'agent ailleurs (visibilité à avoir…), le plus grave d'abord. */
+export function nouveauxProblemes(avant: Chantier, apres: Chantier, r: Resultat): string[] {
+  const rang = { stop: 0, attention: 1, info: 2 } as const;
+  const deja = new Set(controlesDispositif(avant, r).map((a) => a.texte));
+  return controlesDispositif(apres, r)
+    .filter((a) => !deja.has(a.texte))
+    .sort((x, y) => rang[x.niveau] - rang[y.niveau])
+    .map((a) => a.texte);
 }

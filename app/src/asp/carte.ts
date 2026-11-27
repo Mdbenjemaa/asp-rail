@@ -66,6 +66,8 @@ export function chantierFeatures(c: Chantier, doc: LineDoc, r: Resultat): Featur
       type: 'Feature',
       properties: {
         role: a.role === 'sentinelle' ? 'sentinelle' : a.role === 'asp' ? 'asp' : 'agent',
+        /** Pour le déplacer à la main sur la carte (appui long puis glisser). */
+        aid: a.id,
         label: codes.get(a.id) ?? '',
         n: `${codes.get(a.id)} · ${ROLE_LABEL[a.role]}${a.nom.trim() ? ` · ${a.nom.trim()}` : ''}`,
         pk: fmtPk(a.pk),

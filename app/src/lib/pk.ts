@@ -1,5 +1,5 @@
 import type { LineDoc } from './data';
-import { distance, type LonLat } from './geo';
+import { closestOnSegment, distance, localProjector, type LonLat } from './geo';
 
 /**
  * Lit un PK saisi à la main. Accepte « 45+200 », « 45,2 », « 45.2 », « PK 45 », « 45 200 »,
@@ -146,4 +146,25 @@ export function lineBetween(doc: LineDoc, pkA: number, pkB: number): [number, nu
     if (cur.length > 1) parts.push(cur);
   }
   return parts;
+}
+
+/**
+ * Le point de la ligne le plus proche d'une position, et son PK (interpolé entre les sommets).
+ * Sert à poser un agent sur la voie là où on le relâche sur la carte.
+ */
+export function pkPres(doc: LineDoc, p: LonLat): { pk: number; point: LonLat; dist: number } | null {
+  const proj = localProjector(p);
+  let best: { pk: number; point: LonLat; dist: number } | null = null;
+  for (const t of doc.troncons) {
+    if (!t.g) continue;
+    const v = decodeGeom(t.g);
+    for (let i = 0; i + 1 < v.length; i++) {
+      const [ax, ay] = proj.toXY([v[i][0], v[i][1]]);
+      const [bx, by] = proj.toXY([v[i + 1][0], v[i + 1][1]]);
+      const hit = closestOnSegment(ax, ay, bx, by);
+      if (best && hit.dist >= best.dist) continue;
+      best = { pk: v[i][2] + (v[i + 1][2] - v[i][2]) * hit.t, point: proj.toLonLat(hit.x, hit.y), dist: hit.dist };
+    }
+  }
+  return best;
 }

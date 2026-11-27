@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { LineDoc } from './data';
 import { distance } from './geo';
-import { parsePk, parsePkQuery, pkRange, positionsAtPk } from './pk';
+import { parsePk, parsePkQuery, pkPres, pkRange, positionsAtPk } from './pk';
 
 const line = (code: string) => JSON.parse(readFileSync(`public/data/lines/${code}.json`, 'utf8')) as LineDoc;
 
@@ -47,5 +47,27 @@ describe('position d’un PK', () => {
     const doc = line('130000');
     const [, hi] = pkRange(doc);
     expect(positionsAtPk(doc, hi + 5)).toEqual([]);
+  });
+});
+
+describe('poser un point sur la ligne (déplacer un agent sur la carte)', () => {
+  it('rend le PK du point de la ligne le plus proche : aller-retour avec la position d’un PK', () => {
+    const doc = line('830000');
+    for (const pk of [28.268, 28.718, 29.218, 47.05]) {
+      const at = positionsAtPk(doc, pk)[0].lonlat;
+      const r = pkPres(doc, at)!;
+      expect(r.pk).toBeCloseTo(pk, 2);
+      expect(r.dist).toBeLessThan(1);
+    }
+  });
+
+  it('un point à côté de la voie est ramené sur la voie', () => {
+    const doc = line('830000');
+    const at = positionsAtPk(doc, 28.5)[0].lonlat;
+    const aCote: [number, number] = [at[0] + 0.0005, at[1] + 0.0003]; // une cinquantaine de mètres
+    const r = pkPres(doc, aCote)!;
+    expect(r.dist).toBeGreaterThan(20);
+    expect(Math.abs(r.pk - 28.5)).toBeLessThan(0.08);
+    expect(pkPres(doc, r.point)!.dist).toBeLessThan(1);
   });
 });

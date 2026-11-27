@@ -170,6 +170,8 @@ button:disabled { cursor: default; }
 .top-zone.compact .tool-btn span { display: none; }
 .toast { margin: 10px 12px 0; padding: 12px 16px; border-radius: var(--r-md); background: var(--warn-bg); color: var(--ink); box-shadow: var(--shadow); font-size: 15px; line-height: 1.4; }
 .toast.error { background: var(--err-bg); }
+.toast.glisse { background: #13305c; color: #fff; font-weight: 800; font-size: 16px; text-align: center; }
+.toast-action { display: block; margin: 8px 0 0 auto; min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-weight: 800; }
 
 /* ---------- Bas : fiche et barre d'actions ---------- */
 .bottom-zone { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; flex-direction: column; pointer-events: none; }

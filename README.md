@@ -29,7 +29,7 @@ suit le téléphone : clair le jour, sombre la nuit (réglable dans le menu).
 | Accueil | « Mon chantier du jour » : délai d'annonce, distance et PK du point d'annonce pour chaque voie et chaque sens (un toucher : y aller sur la carte), état « Prêt » ou « à régler ». Gros bouton « Nouveau chantier ». Cases « en direct » : ligne et PK de l'agent qui suivent ses pas (si la position est déjà autorisée ; le GPS s'arrête dès qu'on quitte l'accueil), distance d'annonce à la vitesse de la ligne là où il est, une règle du mémo qui défile, la progression au quiz ; puis la question du jour et les autres chantiers. |
 | Nouveau chantier, pas à pas | Une question par écran, de gros choix et des valeurs par défaut : lieu (position GPS en un toucher, ou ligne et PK), type et horaire, voies (plateformes types dessinées), vitesses (celle de la ligne proposée), outillage, délai de dégagement, cas particuliers. Puis le résultat : DD + MS = DA, distances, points d'annonce, alertes, et « Placer un annonceur par sens ». |
 | Fiche chantier | Le résultat en haut ; ce qui reste à régler (avec la correction en un toucher quand l'interdiction de circulation est obligatoire) ; le dispositif (ASP, annonceurs, répétiteurs, sentinelles, chacun dans une feuille) ; check-lists ; équipe et notes ; chaque réglage rouvre son étape. En bas : Partager (fiche CADA en PDF, résumé par message) et Carte. |
-| Carte | Le repérage de PK Rail, plus la zone de travail, les points d'annonce et les agents du chantier. |
+| Carte | Le repérage de PK Rail, plus la zone de travail, les points d'annonce et les agents du chantier. **Appui long sur un agent** (ASP, annonceur, répétiteur, sentinelle), puis le glisser : il reste posé sur la voie du chantier, son PK et sa distance au point d'annonce s'affichent en direct ; au relâcher, le PK est enregistré dans la fiche (avec « Annuler ») et ce qu'il doit voir, ou ce qui devient à régler, est signalé. |
 | Calcul | Distance d'annonce selon la vitesse, le dégagement et la marge, avec le tableau complet (30 à 300 km/h, 5 à 60 s). |
 | Réviser | Mémo des règles du support (avec recherche), quiz avec explications (série de 10, par thème, « mes erreurs »), et les 7 exercices « Terrain et CADA » corrigés par le même moteur de calcul. |
 
@@ -177,7 +177,7 @@ le long de la ligne 830 000 à Lieusaint. Repérage : premier lancement, Me rep�
 PK, couches, mes accès, signalements, menu, GPS refusé, petit écran, sans réseau. ASP : code d'accès (refusé,
 accepté, gardé, coupé pendant que l'appli est ouverte, arrivé à sa fin, réseau obligatoire, lien reçu), espace administrateur (durée, sans réseau, en ligne, téléphones), nouveau chantier pas à pas (position, vitesse de la ligne,
 résultat, annonceurs, fiche, modification d'une étape, check-list, résumé, PDF, carte, rechargement), interdiction
-obligatoire corrigée en un toucher, bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
+obligatoire corrigée en un toucher, agent déplacé sur la carte (au doigt dans Chrome, à la souris dans Safari, PK enregistré, Annuler), bouton retour du téléphone, onglets Calcul et Réviser, petit écran. PN et
 LAM / S9 : missions pas à pas, dépêches, journal et PDF, annulation d'une étape, nom en arabe dans le PDF. Planning
 ETF : import d'un faux planning (agents fictifs), choix de sa ligne, semaine, chantier prérempli, plusieurs PDF
 d'un coup, partage depuis Gmail (envoi au service worker, Chrome). Dans

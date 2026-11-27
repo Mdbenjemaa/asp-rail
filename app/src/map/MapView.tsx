@@ -83,7 +83,15 @@ interface Props {
   onFeature: (f: MapGeoJSONFeature, at: LonLat) => void;
   onLongPress: (at: LonLat) => void;
   onMapTap: () => void;
+  /**
+   * Agent du chantier déplacé à la main (appui long dessus, puis glisser) : rend la position posée sur la voie
+   * (ou null pour ne pas bouger). « fin » : le doigt est relâché.
+   */
+  onAgentDrag?: (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin') => LonLat | null;
 }
+
+/** Temps d'appui sur un agent avant de pouvoir le déplacer (plus court que « me placer ici »). */
+const APPUI_AGENT_MS = 400;
 
 /**
  * Marges de la zone de carte vraiment visible : le bandeau du PK en haut, la fiche et la barre d'actions
@@ -139,13 +147,13 @@ function goTo(m: MapLibreMap, f: FocusRequest, animate: boolean) {
 }
 
 export function MapView({
-  basemap, night, filters, me, target, acces, signal = null, asp = null, focus, keepInView, onUserMove, onFeature, onLongPress, onMapTap,
+  basemap, night, filters, me, target, acces, signal = null, asp = null, focus, keepInView, onUserMove, onFeature, onLongPress, onMapTap, onAgentDrag,
   orient = false, northSeq = 0, onUserRotate,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
-  const latest = useRef({ night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate });
-  latest.current = { night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate };
+  const latest = useRef({ night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag });
+  latest.current = { night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag };
   const heading = useRef<number | null>(null);
   const waitingMove = useRef(false);
   /** Mode « direction » quitté par une rotation à deux doigts : la carte reste comme l'agent l'a mise. */
@@ -237,7 +245,90 @@ export function MapView({
         }, 3000);
       });
 
+      // Déplacer un agent du chantier : appui long dessus (il se « soulève »), glisser le long de la voie, relâcher.
+      let glisse: { id: string; fc: FeatureCollection; at: LonLat } | null = null;
+      let appuiAgent: ReturnType<typeof setTimeout> | null = null;
+      let departAgent: { x: number; y: number } | null = null;
+      let sansClic = 0;
+      const agentSous = (pt: { x: number; y: number }): string | null => {
+        if (!latest.current.onAgentDrag || !created.getLayer('u-asp-agent')) return null;
+        const f = created.queryRenderedFeatures(
+          [
+            [pt.x - 18, pt.y - 18],
+            [pt.x + 18, pt.y + 18],
+          ],
+          { layers: ['u-asp-agent'] },
+        )[0];
+        const id = f?.properties?.aid;
+        return typeof id === 'string' ? id : null;
+      };
+      const poser = (id: string, at: LonLat) => {
+        if (!glisse) return;
+        glisse.fc = {
+          ...glisse.fc,
+          features: glisse.fc.features.map((f) => (f.properties?.aid === id && f.geometry.type === 'Point' ? { ...f, geometry: { type: 'Point', coordinates: at } } : f)),
+        };
+        setSource(created, 'asp', glisse.fc);
+      };
+      const annulerAppuiAgent = () => {
+        if (appuiAgent) clearTimeout(appuiAgent);
+        appuiAgent = null;
+      };
+      /** Appui qui commence : sur un agent, on prépare le déplacement. Rend vrai si c'est un agent. */
+      const appuiDebut = (pt: { x: number; y: number }, at: LonLat): boolean => {
+        annulerAppuiAgent();
+        const id = agentSous(pt);
+        if (!id) return false;
+        departAgent = pt;
+        appuiAgent = setTimeout(() => {
+          appuiAgent = null;
+          const fc = latest.current.asp;
+          if (!fc) return;
+          glisse = { id, fc, at };
+          created.dragPan.disable();
+          created.getCanvas().style.cursor = 'grabbing';
+          try {
+            navigator.vibrate?.(25);
+          } catch {
+            /* pas de vibreur */
+          }
+          const p = latest.current.onAgentDrag?.(id, at, 'debut');
+          if (p) poser(id, p);
+        }, APPUI_AGENT_MS);
+        return true;
+      };
+      const appuiBouge = (pt: { x: number; y: number }, at: LonLat, ev?: Event) => {
+        if (glisse) {
+          ev?.preventDefault();
+          glisse.at = at;
+          const p = latest.current.onAgentDrag?.(glisse.id, at, 'move');
+          if (p) poser(glisse.id, p);
+          return;
+        }
+        if (departAgent && Math.hypot(pt.x - departAgent.x, pt.y - departAgent.y) > 10) annulerAppuiAgent();
+      };
+      // Fin de l'appui : l'agent est posé là où le doigt était en dernier (le « touchend » n'a plus de position).
+      const appuiFin = () => {
+        annulerAppuiAgent();
+        departAgent = null;
+        if (!glisse) return;
+        const { id, at } = glisse;
+        glisse = null;
+        created.dragPan.enable();
+        created.getCanvas().style.cursor = '';
+        sansClic = Date.now() + 500; // le relâcher n'ouvre pas la fiche de l'agent
+        latest.current.onAgentDrag?.(id, at, 'fin');
+      };
+      created.on('mousedown', (e) => {
+        if (e.originalEvent.button === 0) appuiDebut(e.point, [e.lngLat.lng, e.lngLat.lat]);
+      });
+      created.on('mousemove', (e) => appuiBouge(e.point, [e.lngLat.lng, e.lngLat.lat], e.originalEvent));
+      created.on('mouseup', () => appuiFin());
+      // Bouton relâché hors de la carte (sur une fiche par-dessus) : on pose quand même l'agent.
+      window.addEventListener('mouseup', () => appuiFin());
+
       created.on('click', (e) => {
+        if (Date.now() < sansClic) return;
         const { x, y } = e.point;
         const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
         const layers = INTERACTIVE_LAYERS.filter((id) => created.getLayer(id));
@@ -254,16 +345,29 @@ export function MapView({
         timer = null;
       };
       created.on('touchstart', (e) => {
-        if (e.points.length !== 1) return cancel();
+        if (e.points.length !== 1) {
+          annulerAppuiAgent();
+          return cancel();
+        }
         startPt = e.point;
         const at: LonLat = [e.lngLat.lng, e.lngLat.lat];
         cancel();
+        // Sur un agent du chantier : l'appui long le déplace (pas de « me placer ici »).
+        if (appuiDebut(e.point, at)) return;
         timer = setTimeout(() => latest.current.onLongPress(at), 650);
       });
       created.on('touchmove', (e) => {
+        appuiBouge(e.point, [e.lngLat.lng, e.lngLat.lat], e.originalEvent);
         if (startPt && Math.hypot(e.point.x - startPt.x, e.point.y - startPt.y) > 10) cancel();
       });
-      created.on('touchend', cancel);
+      created.on('touchend', () => {
+        cancel();
+        appuiFin();
+      });
+      created.on('touchcancel', () => {
+        cancel();
+        appuiFin();
+      });
       created.on('movestart', (e) => {
         if ((e as { originalEvent?: Event }).originalEvent) cancel();
       });
@@ -273,7 +377,14 @@ export function MapView({
       };
       created.on('dragstart', userGesture);
       created.on('zoomstart', userGesture);
-      created.on('contextmenu', (e) => latest.current.onLongPress([e.lngLat.lng, e.lngLat.lat]));
+      // Clic droit, ou appui long sur Android (qui envoie aussi « contextmenu ») : pas sur un agent qu'on déplace.
+      created.on('contextmenu', (e) => {
+        if (glisse || appuiAgent || agentSous(e.point)) {
+          e.preventDefault();
+          return;
+        }
+        latest.current.onLongPress([e.lngLat.lng, e.lngLat.lat]);
+      });
       // Image du faisceau de direction, dessinée à la demande (aussi après un changement de fond).
       created.on('styleimagemissing', (e: { id: string }) => {
         if (e.id === 'asp-faisceau' && !created.hasImage('asp-faisceau')) created.addImage('asp-faisceau', beamImage(), { pixelRatio: 2 });
