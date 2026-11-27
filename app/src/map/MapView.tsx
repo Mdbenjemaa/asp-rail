@@ -87,7 +87,9 @@ interface Props {
    * Agent du chantier déplacé à la main (appui long dessus, puis glisser) : rend la position posée sur la voie
    * (ou null pour ne pas bouger). « fin » : le doigt est relâché.
    */
-  onAgentDrag?: (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin') => LonLat | null;
+  onAgentDrag?: (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin' | 'annule') => LonLat | null;
+  /** Agent à placer (« Déplacer A1 » dans sa fiche) : le prochain toucher ou glisser sur la carte le pose, sans appui long. */
+  placerAgent?: string | null;
 }
 
 /** Temps d'appui sur un agent avant de pouvoir le déplacer (plus court que « me placer ici »). */
@@ -147,13 +149,13 @@ function goTo(m: MapLibreMap, f: FocusRequest, animate: boolean) {
 }
 
 export function MapView({
-  basemap, night, filters, me, target, acces, signal = null, asp = null, focus, keepInView, onUserMove, onFeature, onLongPress, onMapTap, onAgentDrag,
+  basemap, night, filters, me, target, acces, signal = null, asp = null, focus, keepInView, onUserMove, onFeature, onLongPress, onMapTap, onAgentDrag, placerAgent = null,
   orient = false, northSeq = 0, onUserRotate,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
-  const latest = useRef({ night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag });
-  latest.current = { night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag };
+  const latest = useRef({ night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag, placerAgent });
+  latest.current = { night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag, placerAgent };
   const heading = useRef<number | null>(null);
   const waitingMove = useRef(false);
   /** Mode « direction » quitté par une rotation à deux doigts : la carte reste comme l'agent l'a mise. */
@@ -250,17 +252,26 @@ export function MapView({
       let appuiAgent: ReturnType<typeof setTimeout> | null = null;
       let departAgent: { x: number; y: number } | null = null;
       let sansClic = 0;
+      // L'agent sous le doigt : son rond ou son nom (A1…), le plus proche si plusieurs (un doigt est large).
       const agentSous = (pt: { x: number; y: number }): string | null => {
         if (!latest.current.onAgentDrag || !created.getLayer('u-asp-agent')) return null;
-        const f = created.queryRenderedFeatures(
+        const couches = ['u-asp-agent', 'u-asp-agent-label'].filter((l) => created.getLayer(l));
+        const fs = created.queryRenderedFeatures(
           [
-            [pt.x - 18, pt.y - 18],
-            [pt.x + 18, pt.y + 18],
+            [pt.x - 26, pt.y - 26],
+            [pt.x + 26, pt.y + 26],
           ],
-          { layers: ['u-asp-agent'] },
-        )[0];
-        const id = f?.properties?.aid;
-        return typeof id === 'string' ? id : null;
+          { layers: couches },
+        );
+        let best: { id: string; d: number } | null = null;
+        for (const f of fs) {
+          const id = f.properties?.aid;
+          if (typeof id !== 'string' || f.geometry.type !== 'Point') continue;
+          const q = created.project(f.geometry.coordinates as [number, number]);
+          const d = Math.hypot(q.x - pt.x, q.y - pt.y);
+          if (!best || d < best.d) best = { id, d };
+        }
+        return best?.id ?? null;
       };
       const poser = (id: string, at: LonLat) => {
         if (!glisse) return;
@@ -275,25 +286,34 @@ export function MapView({
         appuiAgent = null;
       };
       /** Appui qui commence : sur un agent, on prépare le déplacement. Rend vrai si c'est un agent. */
+      const prendre = (id: string, at: LonLat) => {
+        const fc = latest.current.asp;
+        if (!fc) return;
+        glisse = { id, fc, at };
+        created.dragPan.disable();
+        created.getCanvas().style.cursor = 'grabbing';
+        const p = latest.current.onAgentDrag?.(id, at, 'debut');
+        if (p) poser(id, p);
+      };
       const appuiDebut = (pt: { x: number; y: number }, at: LonLat): boolean => {
         annulerAppuiAgent();
+        // « Déplacer A1 » choisi dans sa fiche : il vient tout de suite sous le doigt.
+        const aPlacer = latest.current.placerAgent;
+        if (aPlacer) {
+          prendre(aPlacer, at);
+          return true;
+        }
         const id = agentSous(pt);
         if (!id) return false;
         departAgent = pt;
         appuiAgent = setTimeout(() => {
           appuiAgent = null;
-          const fc = latest.current.asp;
-          if (!fc) return;
-          glisse = { id, fc, at };
-          created.dragPan.disable();
-          created.getCanvas().style.cursor = 'grabbing';
           try {
             navigator.vibrate?.(25);
           } catch {
-            /* pas de vibreur */
+            /* pas de vibreur (iPhone) */
           }
-          const p = latest.current.onAgentDrag?.(id, at, 'debut');
-          if (p) poser(id, p);
+          prendre(id, at);
         }, APPUI_AGENT_MS);
         return true;
       };
@@ -306,6 +326,18 @@ export function MapView({
           return;
         }
         if (departAgent && Math.hypot(pt.x - departAgent.x, pt.y - departAgent.y) > 10) annulerAppuiAgent();
+      };
+      // Deux doigts pendant qu'on tient un agent (zoomer pour trouver où le poser) : il revient à sa place.
+      const lacher = () => {
+        annulerAppuiAgent();
+        departAgent = null;
+        if (!glisse) return;
+        const { id, at } = glisse;
+        glisse = null;
+        if (latest.current.asp) setSource(created, 'asp', latest.current.asp);
+        created.dragPan.enable();
+        created.getCanvas().style.cursor = '';
+        latest.current.onAgentDrag?.(id, at, 'annule');
       };
       // Fin de l'appui : l'agent est posé là où le doigt était en dernier (le « touchend » n'a plus de position).
       const appuiFin = () => {
@@ -346,7 +378,7 @@ export function MapView({
       };
       created.on('touchstart', (e) => {
         if (e.points.length !== 1) {
-          annulerAppuiAgent();
+          lacher();
           return cancel();
         }
         startPt = e.point;

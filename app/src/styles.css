@@ -79,6 +79,8 @@ button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-c
 button:disabled { cursor: default; }
 :focus-visible { outline: 3px solid #fb923c; outline-offset: 2px; }
 .map { position: absolute; inset: 0; }
+/* iPhone : l'appui long sur la carte ne sélectionne rien et n'ouvre pas la loupe (il sert à déplacer un agent ou se placer). */
+.map, .map canvas { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .ico { flex: none; display: block; }
 
 /* ---------- Haut : bandeau du PK et outils de carte ---------- */
@@ -170,6 +172,7 @@ button:disabled { cursor: default; }
 .top-zone.compact .tool-btn span { display: none; }
 .toast { margin: 10px 12px 0; padding: 12px 16px; border-radius: var(--r-md); background: var(--warn-bg); color: var(--ink); box-shadow: var(--shadow); font-size: 15px; line-height: 1.4; }
 .toast.error { background: var(--err-bg); }
+.toast.glisse .toast-action { background: #fff; color: #13305c; margin-left: auto; margin-right: auto; }
 .toast.glisse { background: #13305c; color: #fff; font-weight: 800; font-size: 16px; text-align: center; }
 .toast-action { display: block; margin: 8px 0 0 auto; min-height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bg); font: inherit; font-weight: 800; }
 

@@ -106,6 +106,8 @@ export default function App() {
   const [annulerToast, setAnnulerToast] = useState<(() => void) | null>(null);
   /** Pendant qu'on déplace un agent du chantier sur la carte : son PK et sa distance aux points d'annonce. */
   const [glisseInfo, setGlisseInfo] = useState<string | null>(null);
+  /** « Déplacer A1 » choisi dans sa fiche : le prochain toucher sur la carte le pose. */
+  const [placer, setPlacer] = useState<{ id: string; code: string } | null>(null);
   const ligneChantier = useRef<LineDoc | null>(null);
   const glisse = useRef<{ c: Chantier; r: Resultat; avant: number | null; pk: number | null } | null>(null);
   /** Suivi : problème en cours (données de la zone indisponibles sans réseau…). */
@@ -501,7 +503,7 @@ export default function App() {
       const vus = loadPref<number>('asp-astuce-glisser', 0);
       if (vus < 3 && c.agents.some((a) => a.pk !== null)) {
         savePref('asp-astuce-glisser', vus + 1);
-        showToast('Astuce : appui long sur un agent (A1, R1…), puis glisse-le le long de la voie. Son PK suit.');
+        showToast('Astuce : appui long sur un agent (A1, R1…), puis glisse-le le long de la voie : son PK suit. Ou touche-le, puis « Déplacer ».');
       }
       if (following) setMapFree(true);
       setFocus((f) => ({ center: [(box[0][0] + box[1][0]) / 2, (box[0][1] + box[1][1]) / 2], bounds: box, seq: (f?.seq ?? 0) + 1 }));
@@ -600,6 +602,15 @@ export default function App() {
         onPlaceHere={placeHere}
         onClose={() => setPicked(null)}
         onChantier={picked.f.layer.id.startsWith('u-asp') && actif ? () => setPile([{ k: 'fiche', id: actif.id }]) : undefined}
+        onDeplacer={
+          /^u-asp-agent/.test(picked.f.layer.id) && typeof picked.f.properties?.aid === 'string' && actif
+            ? () => {
+                const id = picked.f.properties.aid as string;
+                setPicked(null);
+                setPlacer({ id, code: codesAgents(actif.agents).get(id) ?? 'l’agent' });
+              }
+            : undefined
+        }
       />
     );
   } else if (target) {
@@ -641,7 +652,17 @@ export default function App() {
    * Agent du chantier déplacé à la main sur la carte : posé sur la voie du chantier, son PK suit ; au relâcher, il est
    * enregistré (avec « Annuler ») et ce qui devient à régler est signalé.
    */
-  const agentDeplace = (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin'): LonLat | null => {
+  // L'agent à placer n'existe plus (autre chantier, agent retiré) : le mode s'arrête de lui-même.
+  const placerVu = placer && actif?.agents.some((a) => a.id === placer.id) ? placer : null;
+
+  const agentDeplace = (id: string, at: LonLat, phase: 'debut' | 'move' | 'fin' | 'annule'): LonLat | null => {
+    if (phase === 'annule') {
+      // Deux doigts : on zoome, l'agent reste où il était (le mode « placer » continue).
+      setGlisseInfo(null);
+      glisse.current = null;
+      return null;
+    }
+    if (phase === 'fin') setPlacer(null);
     const doc = ligneChantier.current;
     if (!actif || !doc || doc.code !== actif.ligne) return null;
     if (phase === 'debut') glisse.current = { c: actif, r: calculChantier(actif), avant: actif.agents.find((a) => a.id === id)?.pk ?? null, pk: null };
@@ -702,6 +723,7 @@ export default function App() {
         onLongPress={(at) => placeHere(at)}
         onMapTap={() => setPicked(null)}
         onAgentDrag={agentDeplace}
+        placerAgent={placerVu?.id ?? null}
       />
 
       <div ref={topZone} className={`top-zone ${bannerShown ? 'has-banner' : ''}${toolsCompact ? ' compact' : ''}`}>
@@ -722,7 +744,15 @@ export default function App() {
             {glisseInfo}
           </div>
         )}
-        {toast && mapShown && !glisseInfo && (
+        {placerVu && !glisseInfo && mapShown && (
+          <div className="toast glisse" role="status">
+            Touche la voie là où tu veux {placerVu.code}, ou glisse le doigt : il suit. Deux doigts pour zoomer.
+            <button className="toast-action" onClick={() => setPlacer(null)}>
+              Annuler
+            </button>
+          </div>
+        )}
+        {toast && mapShown && !glisseInfo && !placerVu && (
           <div className="toast" role="status" onClick={() => setToast(null)}>
             {toast}
             {annulerToast && (

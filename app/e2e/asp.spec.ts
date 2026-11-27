@@ -407,6 +407,16 @@ test('carte du chantier : appui long sur un annonceur, on le glisse le long de l
   // Annuler : A1 revient au point d'annonce.
   await msg.getByRole('button', { name: 'Annuler' }).click();
   await expect.poll(pkGarde).toBeCloseTo(debut - 0.45, 3);
+
+  // Sans appui long : toucher A1, « Déplacer A1 », puis toucher la voie là où on le veut.
+  await page.touchscreen.tap(depart.x, depart.y);
+  const fiche1 = page.locator('.card').filter({ hasText: 'Dispositif d’annonce' });
+  await expect(fiche1.getByRole('button', { name: 'Me placer ici' })).toHaveCount(0);
+  await fiche1.getByRole('button', { name: 'Déplacer A1' }).click();
+  await expect(page.locator('.toast.glisse')).toContainText('Touche la voie là où tu veux A1');
+  await page.touchscreen.tap(arrivee.x, arrivee.y);
+  await expect(page.locator('.toast').filter({ hasText: 'A1 déplacé au PK' })).toBeVisible();
+  expect(Math.abs((await pkGarde()) - debut)).toBeLessThan(0.02);
 });
 
 test('interdiction obligatoire : signalée, puis réglée en un toucher', async ({ page }) => {

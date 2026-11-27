@@ -468,6 +468,8 @@ export function FeatureCard(p: {
   onClose: () => void;
   /** Élément d'un chantier de l'ASP : ouvrir sa fiche. */
   onChantier?: () => void;
+  /** Agent du chantier : le déplacer sur la carte (toucher ou glisser sur la voie). */
+  onDeplacer?: () => void;
 }) {
   const f = p.feature;
   const pr = f.properties as Record<string, string | undefined>;
@@ -554,14 +556,21 @@ export function FeatureCard(p: {
           <NavLinks at={point} />
         </>
       )}
+      {p.onDeplacer && (
+        <button className="btn primary wide" onClick={p.onDeplacer}>
+          Déplacer {pr.label || 'cet agent'}
+        </button>
+      )}
       {p.onChantier && (
-        <button className="btn primary wide" onClick={p.onChantier}>
+        <button className={`btn ${p.onDeplacer ? '' : 'primary'} wide`} onClick={p.onChantier}>
           Ouvrir le chantier
         </button>
       )}
-      <button className="btn" onClick={() => p.onPlaceHere(point)}>
-        Me placer ici
-      </button>
+      {!p.onDeplacer && (
+        <button className="btn" onClick={() => p.onPlaceHere(point)}>
+          Me placer ici
+        </button>
+      )}
     </section>
   );
 }
