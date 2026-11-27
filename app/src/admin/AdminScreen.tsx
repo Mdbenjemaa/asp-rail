@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { dureeTexte, formatCode, lienCode } from '../access/gate';
-import { sb } from './client';
+import { jetonDuLien, sb } from './client';
 import { Sessions } from './Sessions';
 
 interface Code {
@@ -123,7 +123,13 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
           </p>
         )}
         {etat.k === 'chargement' && <p className="muted">Chargement…</p>}
-        {etat.k === 'connexion' && <Connexion onOk={(email, admin) => setEtat(admin ? { k: 'admin', email } : { k: 'pas-admin', email })} onMsg={setMsg} />}
+        {etat.k === 'connexion' && (
+          <Connexion
+            onOk={(email, admin) => setEtat(admin ? { k: 'admin', email } : { k: 'pas-admin', email })}
+            onRecovery={() => setEtat({ k: 'nouveau-mdp' })}
+            onMsg={setMsg}
+          />
+        )}
         {etat.k === 'nouveau-mdp' && (
           <NouveauMdp
             onDone={() => {
@@ -150,11 +156,22 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
   );
 }
 
-function Connexion({ onOk, onMsg }: { onOk: (email: string, admin: boolean) => void; onMsg: (m: string) => void }) {
+function Connexion({ onOk, onRecovery, onMsg }: { onOk: (email: string, admin: boolean) => void; onRecovery: () => void; onMsg: (m: string) => void }) {
   const [email, setEmail] = useState('');
   const [mdp, setMdp] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [lien, setLien] = useState<string | null>(null);
+  const valider = async () => {
+    const token_hash = jetonDuLien(lien ?? '');
+    if (!token_hash) return setErr('Lien non reconnu : copie le lien du bouton dans le mail (appui long › Copier le lien).');
+    setBusy(true);
+    setErr(null);
+    const { error } = await sb().auth.verifyOtp({ token_hash, type: 'recovery' });
+    setBusy(false);
+    if (error) return setErr('Lien expiré ou déjà utilisé : redemande « Mot de passe oublié ».');
+    onRecovery();
+  };
   const connecter = async () => {
     setBusy(true);
     setErr(null);
@@ -177,6 +194,7 @@ function Connexion({ onOk, onMsg }: { onOk: (email: string, admin: boolean) => v
     const redirectTo = `${location.origin}${import.meta.env.BASE_URL}?admin`;
     const { error } = await sb().auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo });
     onMsg(error ? 'Envoi impossible pour le moment.' : 'Si ce compte existe, un lien pour changer le mot de passe vient d’être envoyé par e-mail.');
+    if (!error) setLien('');
   };
   return (
     <form
@@ -206,6 +224,18 @@ function Connexion({ onOk, onMsg }: { onOk: (email: string, admin: boolean) => v
       <button type="button" className="link-btn" onClick={() => void oubli()}>
         Mot de passe oublié
       </button>
+      {lien !== null && (
+        <div className="admin-lien">
+          <label className="gate-label" htmlFor="adm-lien">
+            Lien reçu par mail
+          </label>
+          <p className="muted small">Dans le mail, appui long sur le bouton › « Copier le lien » (sans l’ouvrir), puis colle-le ici.</p>
+          <input id="adm-lien" className="gate-input admin-input" value={lien} placeholder="https://…supabase.co/auth/v1/verify?token=…" onChange={(e) => setLien(e.target.value)} />
+          <button type="button" className="btn wide" disabled={busy || !lien.trim()} onClick={() => void valider()}>
+            Choisir mon mot de passe
+          </button>
+        </div>
+      )}
     </form>
   );
 }

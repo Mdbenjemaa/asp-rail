@@ -572,3 +572,5 @@ button:disabled { cursor: default; }
 .pt-avertir { font-size: 12.5px; margin: 0; }
 .pt-appeler { margin-bottom: 10px; text-decoration: none; display: flex; justify-content: center; }
 @media (max-width: 360px) { .pt-moi { grid-template-columns: minmax(0, 1fr); } }
+.admin-lien { display: grid; gap: 8px; margin-top: 14px; }
+.admin-lien p { margin: 0; }

@@ -108,6 +108,45 @@ test('sans réseau au premier lancement : message clair', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText(/ne répond pas|Pas de réseau/);
 });
 
+test('espace administrateur : mot de passe oublié, le lien du mail collé sans l’ouvrir, puis nouveau mot de passe', async ({ page }) => {
+  const now = Math.floor(Date.now() / 1000);
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: 'u1', email: 'admin@test.fr', role: 'authenticated', aud: 'authenticated', exp: now + 3600 })}.sig`;
+  const user = { id: 'u1', aud: 'authenticated', role: 'authenticated', email: 'admin@test.fr', app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() };
+  const jeton = 'pkce_e2e0123456789abcdefABCDEF';
+  let verifie: Record<string, unknown> = {};
+  let nouveau = '';
+  await page.route('**/auth/v1/recover**', (route) => route.fulfill({ json: {} }));
+  await page.route('**/auth/v1/verify**', async (route) => {
+    verifie = route.request().postDataJSON() as Record<string, unknown>;
+    if (verifie.token_hash !== jeton) return route.fulfill({ status: 403, json: { code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' } });
+    await route.fulfill({ json: { access_token: jwt, token_type: 'bearer', expires_in: 3600, expires_at: now + 3600, refresh_token: 'r1', user } });
+  });
+  await page.route('**/auth/v1/user**', async (route) => {
+    if (route.request().method() === 'PUT') nouveau = (route.request().postDataJSON() as { password: string }).password;
+    await route.fulfill({ json: user });
+  });
+  await page.route('**/rest/v1/rpc/asp_est_admin', (route) => route.fulfill({ json: true }));
+  await page.route('**/rest/v1/asp_codes**', (route) => route.fulfill({ json: [] }));
+  await page.route('**/rest/v1/asp_appareils**', (route) => route.fulfill({ json: [] }));
+  await openApp(page, { gate: true, path: './#admin' });
+  await page.getByLabel('E-mail').fill('admin@test.fr');
+  await page.getByRole('button', { name: 'Mot de passe oublié' }).click();
+  await expect(page.getByRole('status')).toContainText('un lien pour changer le mot de passe vient d’être envoyé');
+  // Lien copié depuis le mail (enveloppé par la messagerie), sans l'ouvrir.
+  const lien = `https://www.google.com/url?q=${encodeURIComponent(`https://exemple.supabase.co/auth/v1/verify?token=${jeton}&type=recovery&redirect_to=http://localhost:3000`)}`;
+  await page.getByLabel('Lien reçu par mail').fill('https://exemple.supabase.co/auth/v1/verify?token=pkce_mauvais0123456789abcdef&type=recovery');
+  await page.getByRole('button', { name: 'Choisir mon mot de passe' }).click();
+  await expect(page.getByRole('alert')).toContainText('Lien expiré ou déjà utilisé');
+  await page.getByLabel('Lien reçu par mail').fill(lien);
+  await page.getByRole('button', { name: 'Choisir mon mot de passe' }).click();
+  expect(verifie).toMatchObject({ token_hash: jeton, type: 'recovery' });
+  await page.getByLabel('Nouveau mot de passe').fill('mon-nouveau-mdp-1');
+  await page.getByRole('button', { name: /^Enregistrer/ }).click();
+  await expect.poll(() => nouveau).toBe('mon-nouveau-mdp-1');
+  await expect(page.getByRole('tab', { name: 'Chantiers partagés' })).toBeVisible();
+});
+
 test('espace administrateur : connexion, créer un code, le partager, le couper, le réactiver, le supprimer', async ({ page }) => {
   page.on('dialog', (d) => void d.accept());
   await fakeShare(page);
