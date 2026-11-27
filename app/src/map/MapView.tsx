@@ -69,6 +69,8 @@ interface Props {
   signal?: FeatureCollection | null;
   /** Chantier de l'ASP affiché sur la carte. */
   asp?: FeatureCollection | null;
+  /** Chantier partagé : ce que partagent les autres intervenants. */
+  partage?: FeatureCollection | null;
   focus: FocusRequest | null;
   /** Suivi : position à garder visible (la carte ne bouge que si le point va sortir de l'écran). */
   keepInView?: LonLat | null;
@@ -149,13 +151,13 @@ function goTo(m: MapLibreMap, f: FocusRequest, animate: boolean) {
 }
 
 export function MapView({
-  basemap, night, filters, me, target, acces, signal = null, asp = null, focus, keepInView, onUserMove, onFeature, onLongPress, onMapTap, onAgentDrag, placerAgent = null,
+  basemap, night, filters, me, target, acces, signal = null, asp = null, partage = null, focus, keepInView, onUserMove, onFeature, onLongPress, onMapTap, onAgentDrag, placerAgent = null,
   orient = false, northSeq = 0, onUserRotate,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
-  const latest = useRef({ night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag, placerAgent });
-  latest.current = { night, filters, me, target, acces, signal, asp, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag, placerAgent };
+  const latest = useRef({ night, filters, me, target, acces, signal, asp, partage, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag, placerAgent });
+  latest.current = { night, filters, me, target, acces, signal, asp, partage, focus, onFeature, onLongPress, onMapTap, onUserMove, orient, onUserRotate, onAgentDrag, placerAgent };
   const heading = useRef<number | null>(null);
   const waitingMove = useRef(false);
   /** Mode « direction » quitté par une rotation à deux doigts : la carte reste comme l'agent l'a mise. */
@@ -191,6 +193,7 @@ export function MapView({
     acces: latest.current.acces,
     signal: latest.current.signal,
     asp: latest.current.asp,
+    partage: latest.current.partage,
   });
   const syncOverlays = (m: MapLibreMap) => {
     const o = overlays();
@@ -199,6 +202,7 @@ export function MapView({
     setSource(m, 'acces', o.acces);
     setSource(m, 'signal', o.signal);
     setSource(m, 'asp', o.asp);
+    setSource(m, 'partage', o.partage ?? null);
     applyHeading(m);
   };
 
@@ -526,6 +530,7 @@ export function MapView({
   useEffect(() => setSource(map.current, 'acces', acces), [acces]);
   useEffect(() => setSource(map.current, 'signal', signal), [signal]);
   useEffect(() => setSource(map.current, 'asp', asp), [asp]);
+  useEffect(() => setSource(map.current, 'partage', partage), [partage]);
 
   // Recentrage demandé (si la carte n'est pas encore prête, il se fera à son chargement).
   useEffect(() => {

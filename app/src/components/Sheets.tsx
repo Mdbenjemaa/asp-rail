@@ -458,7 +458,16 @@ const LAYER_TITLE: Record<string, string> = {
   'r-voies': 'Voie', 'r-tunnels': 'Tunnel', 'r-lignes': 'Ligne', 'r-lignes-autres': 'Ligne',
   'u-acces': 'Accès (importé)', 'u-target': 'Destination',
   'u-asp-pa': 'Point d’annonce', 'u-asp-agent': 'Dispositif d’annonce', 'u-asp-zone': 'Zone de travail',
+  'u-part-point': 'Chantier partagé', 'u-part-pa': 'Chantier partagé · point d’annonce', 'u-part-zone': 'Chantier partagé · zone de travail',
 };
+
+/** « il y a 3 min » */
+function depuisMaj(t: number): string {
+  const min = Math.floor((Date.now() - t) / 60_000);
+  if (min < 1) return 'à l’instant';
+  if (min < 60) return `il y a ${min} min`;
+  return `il y a ${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
+}
 
 /** Points d'annonce d'un agent, rangés en texte dans la carte (voir asp/carte.ts). */
 function lirePas(json: string | undefined): { t: string; pk: string; e: 'au' | 'voir' | 'audela'; x: string; k: string }[] {
@@ -493,6 +502,8 @@ export function FeatureCard(p: {
   const lineName = pr.c ? p.manifest?.lines[pr.c]?.n : null;
   const point = f.geometry.type === 'Point' ? ((f.geometry as Point).coordinates as LonLat) : p.at;
   const dessin = SIGNAL_ICONS && pr.ic ? pr.ic : null;
+  /** Élément d'un chantier partagé (ce qu'un autre intervenant partage). */
+  const partage = layer.startsWith('u-part');
   const pas = layer === 'u-asp-agent' ? lirePas(pr.pas) : [];
 
   return (
@@ -514,53 +525,84 @@ export function FeatureCard(p: {
           </figcaption>
         </figure>
       )}
-      <dl className="facts">
-        {pr.pk && (
-          <>
-            <dt>PK</dt>
-            <dd>{pr.pk}</dd>
-          </>
-        )}
-        {pr.c && (
-          <>
-            <dt>Ligne</dt>
-            <dd>
-              {fmtLine(pr.c)}
-              {lineName ? ` — ${lineName}` : ''}
-            </dd>
-          </>
-        )}
-        {pr.d && (
-          <>
-            <dt>Détail</dt>
-            <dd>{pr.d}</dd>
-          </>
-        )}
-        {pr.g && (
-          <>
-            <dt>Gare</dt>
-            <dd>{pr.g}</dd>
-          </>
-        )}
-        {layer === 'r-voies' && pr.t && (
-          <>
-            <dt>Type SNCF</dt>
+      {partage ? (
+        <>
+          <dl className="facts">
+            {pr.label && (
+              <>
+                <dt>Point</dt>
+                <dd>{pr.label}</dd>
+              </>
+            )}
+            <dt>Quoi</dt>
             <dd>{pr.t}</dd>
-          </>
-        )}
-        {layer === 'r-gares' && (
-          <>
-            <dt>Service</dt>
-            <dd>{pr.k === 'V' ? 'Voyageurs' : 'Fret / service'}</dd>
-          </>
-        )}
-        {pr.set && (
-          <>
-            <dt>Carte</dt>
-            <dd>{pr.set}</dd>
-          </>
-        )}
-      </dl>
+            <dt>État</dt>
+            <dd className={`pt-etat-fiche ${pr.niv ?? ''}`}>{pr.e}</dd>
+            {pr.d && (
+              <>
+                <dt>Détail</dt>
+                <dd>{pr.d}</dd>
+              </>
+            )}
+            <dt>Mis à jour</dt>
+            <dd>{depuisMaj(Number(pr.maj))}</dd>
+          </dl>
+          {pr.tel && (
+            <a className="btn primary wide pt-appeler" href={`tel:${pr.tel.replace(/[^0-9+]/g, '')}`}>
+              Appeler {pr.n?.split(' · ')[1] ?? ''} · {pr.tel}
+            </a>
+          )}
+          <p className="muted small">Information entre intervenants, à titre indicatif : les dépêches, l’AAn et les annonces font foi.</p>
+        </>
+      ) : (
+        <dl className="facts">
+          {pr.pk && (
+            <>
+              <dt>PK</dt>
+              <dd>{pr.pk}</dd>
+            </>
+          )}
+          {pr.c && (
+            <>
+              <dt>Ligne</dt>
+              <dd>
+                {fmtLine(pr.c)}
+                {lineName ? ` — ${lineName}` : ''}
+              </dd>
+            </>
+          )}
+          {pr.d && (
+            <>
+              <dt>Détail</dt>
+              <dd>{pr.d}</dd>
+            </>
+          )}
+          {pr.g && (
+            <>
+              <dt>Gare</dt>
+              <dd>{pr.g}</dd>
+            </>
+          )}
+          {layer === 'r-voies' && pr.t && (
+            <>
+              <dt>Type SNCF</dt>
+              <dd>{pr.t}</dd>
+            </>
+          )}
+          {layer === 'r-gares' && (
+            <>
+              <dt>Service</dt>
+              <dd>{pr.k === 'V' ? 'Voyageurs' : 'Fret / service'}</dd>
+            </>
+          )}
+          {pr.set && (
+            <>
+              <dt>Carte</dt>
+              <dd>{pr.set}</dd>
+            </>
+          )}
+        </dl>
+      )}
       {layer === 'u-asp-agent' && (pas.length > 0 || pr.sansPa) && (
         <div className="pa-agent">
           <div className="field-label">{pas.length > 1 ? 'Ses points d’annonce' : 'Son point d’annonce'}</div>
@@ -616,6 +658,9 @@ export function MenuSheet(p: {
   located: boolean;
   onClear: () => void;
   onInfo: () => void;
+  /** Chantier partagé : rejoindre avec un code, ou celui en cours (son nom). */
+  onPartage: () => void;
+  partage: string | null;
   /** Nombre de signalements gardés sur le téléphone. */
   signalements: number;
   onSignalements: () => void;
@@ -644,6 +689,11 @@ export function MenuSheet(p: {
           <span>Effacer ma position</span>
         </button>
       )}
+      <button className="menu-row" onClick={p.onPartage}>
+        <Icon name="people" size={20} />
+        <span>{p.partage ? `Chantier partagé : ${p.partage}` : 'Rejoindre un chantier partagé'}</span>
+        <Icon name="right" size={18} />
+      </button>
       <button className="menu-row" onClick={p.onSignaler}>
         <Icon name="alert" size={20} />
         <span>Signaler une anomalie</span>

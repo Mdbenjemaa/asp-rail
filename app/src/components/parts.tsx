@@ -67,6 +67,7 @@ const PATHS: Record<string, ReactNode> = {
   file: <path d="M6.5 3h7.5l4.5 4.5V20a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM13.5 3v5h5M8.5 13h7M8.5 16.5h5" {...STROKE} />,
   message: <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v10a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17h0A1.5 1.5 0 0 1 4 15.5zM8 9h8M8 12.5h5" {...STROKE} />,
   flag: <path d="M5.5 21V3.8M5.5 4.5h11.2l-2.2 4 2.2 4H5.5" {...STROKE} />,
+  phone: <path d="M5 4h3.5l1.6 4.2-2.2 1.4a11 11 0 0 0 6.5 6.5l1.4-2.2L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4z" {...STROKE} />,
   nav: <path d="M12 3.2 19 20.5l-7-4-7 4z" {...STROKE} />,
   go: <path d="M5.5 19.5V14a4.5 4.5 0 0 1 4.5-4.5h9M15 5.5l4 4-4 4" {...STROKE} strokeWidth={2.5} />,
   arrow: <path d="M4 12h15M13.5 6.5 19 12l-5.5 5.5" {...STROKE} strokeWidth={2.5} />,

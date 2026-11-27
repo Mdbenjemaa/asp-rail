@@ -149,7 +149,32 @@ Côté serveur (projet Supabase « repere-rail ») : tables `asp_codes` (avec `e
 `asp_appareils` et `asp_admins` (lecture et écriture réservées aux administrateurs connectés), fonctions
 `asp_verifier_code` (seule ouverte sans compte : répond oui ou non, pourquoi — coupé, fini, inconnu —, le nom du code,
 sa fin et son temps sans réseau ; note le téléphone), `asp_creer_code` et `asp_est_admin`. Les chantiers, missions et
-plannings, eux, ne quittent jamais le téléphone.
+plannings, eux, ne quittent le téléphone que si l'agent les partage sur un chantier partagé (ci-dessous).
+
+## Chantier partagé
+
+L'administrateur crée un **chantier partagé** (onglet « Chantiers partagés » de l'espace administrateur : un nom, une
+durée de 12 heures à 31 jours) et envoie son **code de 6 signes** (`K7P-3QX`, ou le lien `…/asp-rail/#chantier=K7P-3QX`)
+aux intervenants : ASP, agent PN, AP LAM / S9. Seuls ceux qui ont rejoint ce chantier se voient.
+
+Chacun choisit, d'un interrupteur sur l'accueil (ou Menu › Chantier partagé), de partager **son chantier ou sa
+mission**, avec son nom et son téléphone :
+
+- **ASP** : zone de travail, points d'annonce, agents de la chaîne à leur PK, et l'état de l'annonce (« Chaîne
+  d'annonce en place depuis 22:05 · travaux en cours », « levée à 05:05 ») ;
+- **agent PN** : le PN gardé et son état (en poste, arrivée d'un mobile travaux, mise en voie d'un LAM, mission finie) ;
+- **AP LAM / S9** : le lieu, la protection ou le LAM en voie, un passage de train travaux.
+
+Sur la carte, chaque intervenant a sa couleur (ASP bleu canard, agent PN orange, AP LAM / S9 violet ; cerclé de vert
+quand c'est en place) ; en le touchant : qui, quoi, l'état, l'heure de mise à jour et **Appeler**. L'accueil liste les
+intervenants avec « Voir sur la carte » et « Appeler ». L'appli lit le chantier toutes les 30 secondes et renvoie ce
+qu'elle partage dès que ça change (au moins toutes les 2 minutes) ; un partage sans nouvelle depuis 12 heures n'est
+plus montré. Information entre intervenants, à titre indicatif : les dépêches, l'AAn et les annonces font foi.
+
+Côté serveur : tables `asp_sessions` et `asp_partages` (lisibles seulement par l'administrateur), fonctions
+`asp_creer_session` (administrateur), `asp_rejoindre_session`, `asp_partager` et `asp_voir_session` (chacune vérifie
+le code d'accès et que le chantier partagé est ouvert ; 40 intervenants et 24 ko par partage au plus). Un chantier
+arrêté ou fini disparaît des téléphones ; il est effacé 7 jours après.
 
 ## Développement
 

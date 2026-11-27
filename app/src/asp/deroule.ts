@@ -27,7 +27,7 @@ export const JALONS: Jalon[] = [
   { id: 'leve', titre: 'Dispositif levé', bouton: 'Dispositif levé : fin de l’intervention', aide: 'Quand le dispositif est levé : le compte rendu sera prêt à envoyer.' },
 ];
 
-export interface TrainAnnonce {
+interface TrainAnnonce {
   t: number;
   /** Voie et sens (« idVoie:croissant »), si l'annonce a été notée sur une voie. */
   cle: string | null;
@@ -73,7 +73,6 @@ export function prochainJalon(d: Deroule): Jalon | null {
   return JALONS[dernier + 1] ?? null;
 }
 
-export const commencee = (d: Deroule) => JALONS.some((j) => d.jalons[j.id]);
 export const finie = (d: Deroule) => !!d.jalons.leve;
 
 export function noterJalon(d: Deroule, id: JalonId, t: number): Deroule {

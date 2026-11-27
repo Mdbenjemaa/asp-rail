@@ -1,6 +1,7 @@
 /** Filtres de la carte, avec les types d'éléments de la liste « autour de moi » qu'ils commandent. */
 export type FilterKey =
   | 'chantier'
+  | 'partage'
   | 'signalements'
   | 'acces'
   | 'pk'
@@ -35,6 +36,10 @@ export const FILTERS: FilterDef[] = [
   {
     key: 'chantier', label: 'Mon chantier', hint: 'Zone de travail, points d’annonce, dispositif et ce que chaque annonceur doit voir', group: 'Mes données', on: true,
     layers: ['u-asp-zone', 'u-asp-equipe', 'u-asp-vue', 'u-asp-vue-label', 'u-asp-pa', 'u-asp-pa-label', 'u-asp-agent', 'u-asp-agent-label'], kinds: [],
+  },
+  {
+    key: 'partage', label: 'Chantier partagé', hint: 'Ce que partagent les autres intervenants du chantier partagé (ASP, agent PN, AP LAM / S9)', group: 'Mes données', on: true,
+    layers: ['u-part-zone', 'u-part-pa', 'u-part-point', 'u-part-label'], kinds: [],
   },
   { key: 'signalements', label: 'Mes signalements', hint: 'Anomalies signalées depuis ce téléphone', group: 'Mes données', on: true, layers: ['u-signal', 'u-signal-label'], kinds: [] },
   { key: 'acces', label: 'Mes accès (importés)', hint: 'Carte d’accès importée sur ce téléphone', group: 'Mes données', on: true, layers: ['u-acces', 'u-acces-label'], kinds: ['acces'] },

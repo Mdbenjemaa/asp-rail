@@ -259,6 +259,8 @@ button:disabled { cursor: default; }
 .screen-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(var(--bottom) + 28px); }
 .seg { flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 12px 12px 0; padding: 4px; border-radius: var(--r-lg); background: var(--surface-3); }
 .seg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 6px; }
+.seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-onglets { margin: 0 0 14px; }
 .seg-btn { height: 44px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--muted); font-size: 16px; font-weight: 800; }
 .seg-btn.on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(11, 18, 32, 0.18); }
 .type-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -12px 2px; padding: 0 12px 10px; }
@@ -545,3 +547,28 @@ button:disabled { cursor: default; }
 .cr-rapide .ds-status { justify-self: start; }
 .ds-row-ico.danger { background: var(--err-bg); color: var(--err-ink); }
 .ds-sheet-body .facts { margin: 0 0 16px; }
+
+/* Chantier partagé : rejoindre, partager, voir les autres intervenants. */
+.pt-carte { display: grid; gap: 12px; margin-bottom: 4px; }
+.pt-session, .pt-rejoindre { display: grid; gap: 12px; }
+.pt-tete h2 { margin: 2px 0 0; font-size: 21px; line-height: 1.2; }
+.pt-tete small { color: var(--muted); }
+.pt-code { font-size: 24px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.pt-moi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.pt-liste { display: grid; gap: 8px; }
+.pt-autre { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: var(--surface-2, rgba(15, 23, 42, 0.04)); border-left: 4px solid var(--muted); }
+.pt-autre.en-place { border-left-color: #16a34a; }
+.pt-autre.fini { opacity: 0.7; }
+.pt-texte { display: grid; gap: 2px; min-width: 0; }
+.pt-texte b { font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+.pt-texte small { color: var(--muted); font-size: 12.5px; }
+.pt-etat { font-size: 14px; font-weight: 700; }
+.pt-autre.en-place .pt-etat, .pt-etat-fiche.en-place { color: #15803d; }
+.pt-badge { display: inline-grid; place-items: center; min-width: 44px; height: 30px; padding: 0 8px; border-radius: 10px; font-size: 12.5px; font-weight: 900; color: #fff; background: #0e7490; }
+.pt-badge.pn { background: #ea580c; }
+.pt-badge.lam { background: #7c3aed; }
+.pt-actions { display: flex; gap: 6px; }
+.pt-actions .ds-btn { min-height: 44px; width: 44px; padding: 0; }
+.pt-avertir { font-size: 12.5px; margin: 0; }
+.pt-appeler { margin-bottom: 10px; text-decoration: none; display: flex; justify-content: center; }
+@media (max-width: 360px) { .pt-moi { grid-template-columns: minmax(0, 1fr); } }

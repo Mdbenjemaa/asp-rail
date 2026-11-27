@@ -3,10 +3,10 @@
  * d'accès : créer un code nommé (durée de vie, temps hors ligne), le partager, le couper ou le réactiver, le supprimer ;
  * voir qui est en ligne et sur quels téléphones chaque code est utilisé.
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useMemo, useState } from 'react';
 import { dureeTexte, formatCode, lienCode } from '../access/gate';
-import { SB_KEY, SB_URL } from '../lib/server';
+import { sb } from './client';
+import { Sessions } from './Sessions';
 
 interface Code {
   id: string;
@@ -52,12 +52,6 @@ const quand = (iso: string) =>
 
 type Etat = { k: 'chargement' } | { k: 'connexion' } | { k: 'nouveau-mdp' } | { k: 'pas-admin'; email: string } | { k: 'admin'; email: string };
 
-let client: SupabaseClient | null = null;
-function sb(): SupabaseClient {
-  // Session à part (clé propre) : ASP Rail et les autres applis du même site ne se mélangent pas.
-  client ??= createClient(SB_URL, SB_KEY, { auth: { storageKey: 'asp-admin-auth', persistSession: true, detectSessionInUrl: true, flowType: 'implicit' } });
-  return client;
-}
 
 /** Session en cours sur ce téléphone : administrateur, autre compte, ou pas connecté. */
 async function etatSession(): Promise<Etat> {
@@ -147,7 +141,7 @@ export default function AdminScreen({ onExit }: { onExit: () => void }) {
             </button>
           </>
         )}
-        {etat.k === 'admin' && <Codes email={etat.email} onMsg={setMsg} onLogout={() => void deconnexion()} />}
+        {etat.k === 'admin' && <Admin email={etat.email} onMsg={setMsg} onLogout={() => void deconnexion()} />}
         <button className="link-btn admin-exit" onClick={onExit}>
           ← Revenir à l’appli
         </button>
@@ -241,6 +235,28 @@ function NouveauMdp({ onDone, onMsg }: { onDone: () => void; onMsg: (m: string) 
         Enregistrer
       </button>
     </form>
+  );
+}
+
+/** Deux onglets : les codes d'accès, et les chantiers partagés. */
+function Admin(p: { email: string; onMsg: (m: string) => void; onLogout: () => void }) {
+  const [onglet, setOnglet] = useState<'codes' | 'chantiers'>('codes');
+  return (
+    <>
+      <div className="seg seg-2 admin-onglets" role="tablist" aria-label="Administration">
+        {(
+          [
+            ['codes', 'Codes d’accès'],
+            ['chantiers', 'Chantiers partagés'],
+          ] as const
+        ).map(([v, l]) => (
+          <button key={v} role="tab" aria-selected={onglet === v} className={`seg-btn ${onglet === v ? 'on' : ''}`} onClick={() => setOnglet(v)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {onglet === 'codes' ? <Codes {...p} /> : <Sessions onMsg={p.onMsg} />}
+    </>
   );
 }
 

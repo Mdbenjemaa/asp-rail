@@ -49,6 +49,8 @@ export interface Ctx {
   onGoPk: (code: string, pk: number) => void;
   /** Montrer le chantier sur la carte. */
   onShowMap: (c: Chantier) => void;
+  /** Montrer un point sur la carte (un intervenant d'un chantier partagé). */
+  onVoirPoint?: (at: [number, number]) => void;
   /** Ouvrir un écran par-dessus. */
   open: (v: Vue) => void;
   /** Fermer l'écran du dessus. */

@@ -20,6 +20,8 @@ import { Annonce, Bascule, Etat } from './kit';
 import { CaseCalcul, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from './Widgets';
 import { enregistrer, useActif, useChantiers } from './store';
 import { InterventionRapide } from './Deroule';
+import { PanneauPartage } from '../partage/Panneau';
+import { useSession } from '../partage/session';
 
 export function Accueil(p: {
   ctx: Ctx;
@@ -33,6 +35,7 @@ export function Accueil(p: {
   onNewMissionLam: () => void;
 }) {
   const activite = useActivite();
+  const sessionPartage = useSession();
   const list = useChantiers();
   const direct = usePositionDirecte(!p.couvert && !PREVIEW);
   const actif = useActif();
@@ -78,6 +81,11 @@ export function Accueil(p: {
         onChange={choisirActivite}
       />
       <div className="ds-activite-gap" />
+      {sessionPartage && (
+        <section className="ds-card pt-carte" aria-label="Chantier partagé">
+          <PanneauPartage ctx={p.ctx} activite={activite} onVoir={p.ctx.onVoirPoint} />
+        </section>
+      )}
 
       {activite === 'pn' ? (
         <AccueilPn ctx={p.ctx} direct={direct} onNew={p.onNewMission} onWhere={p.onWhere} />

@@ -176,7 +176,7 @@ function railLayers(basemap: Basemap, filters: Filters, night = false): LayerSpe
 }
 
 export const INTERACTIVE_LAYERS = [
-  'u-target', 'u-asp-pa', 'u-asp-agent', 'u-signal', 'u-acces', 'u-asp-zone',
+  'u-target', 'u-part-point', 'u-part-pa', 'u-asp-pa', 'u-asp-agent', 'u-signal', 'u-acces', 'u-part-zone', 'u-asp-zone',
   'r-gares', 'r-pn', 'r-sst', 'r-ouvrages', 'r-pk-km', 'r-pk-hm',
   'r-sig-carre-ic', 'r-sig-avert-ic', 'r-sig-vitesse-ic', 'r-sig-elec-ic', 'r-sig-autre-ic',
   'r-sig-carre', 'r-sig-avert', 'r-sig-vitesse', 'r-sig-elec', 'r-sig-autre',
@@ -191,13 +191,28 @@ export interface Overlays {
   signal: FeatureCollection | null;
   /** Chantier de l'ASP : zone de travail, points d'annonce, agents du dispositif. */
   asp: FeatureCollection | null;
+  /** Chantier partagé : ce que partagent les autres intervenants (ASP, agent PN, AP LAM / S9). */
+  partage?: FeatureCollection | null;
 }
 
 function overlayLayers(filters: Filters, photo: boolean, night: boolean): LayerSpecification[] {
   const dark = photo || night;
   const halo = dark ? '#000000' : '#ffffff';
   const asp = filters.chantier ? 'visible' : 'none';
+  const part = filters.partage ? 'visible' : 'none';
+  // Couleur de chaque intervenant d'un chantier partagé : ASP (bleu canard), agent PN (orange), AP LAM / S9 (violet).
+  const couleurAct: ExpressionSpecification = ['match', ['get', 'act'], 'pn', '#ea580c', 'lam', '#7c3aed', '#0e7490'];
   return [
+    // Chantier partagé : zones des autres ASP (pointillés), plus pâles une fois la chaîne levée.
+    {
+      id: 'u-part-zone', type: 'line', source: 'partage', filter: ['==', ['get', 'r'], 'zone'], layout: { visibility: part, 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': couleurAct,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 10],
+        'line-dasharray': [1.2, 0.8],
+        'line-opacity': ['match', ['get', 'niv'], 'fini', 0.35, 0.9],
+      },
+    },
     // Chantier de l'ASP : zone de travail (jaune), portion sous annonce d'un chantier mobile (rouge).
     {
       id: 'u-asp-zone', type: 'line', source: 'asp', filter: ['==', ['get', 'role'], 'zone'], layout: { visibility: asp, 'line-cap': 'round', 'line-join': 'round' },
@@ -264,6 +279,25 @@ function overlayLayers(filters: Filters, photo: boolean, night: boolean): LayerS
       paint: { 'text-color': dark ? '#99f6e4' : '#115e59', 'text-halo-color': halo, 'text-halo-width': 2 },
     },
     {
+      id: 'u-part-pa', type: 'circle', source: 'partage', filter: ['==', ['get', 'r'], 'pa'], layout: { visibility: part },
+      paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9], 'circle-color': '#db2777', 'circle-stroke-color': couleurAct, 'circle-stroke-width': 3, 'circle-opacity': ['match', ['get', 'niv'], 'fini', 0.4, 1] },
+    },
+    {
+      id: 'u-part-point', type: 'circle', source: 'partage', filter: ['in', ['get', 'r'], ['literal', ['agent', 'pn', 'lam']]], layout: { visibility: part },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, ['match', ['get', 'r'], 'agent', 5, 7], 16, ['match', ['get', 'r'], 'agent', 9, 12]],
+        'circle-color': couleurAct,
+        'circle-stroke-color': ['match', ['get', 'niv'], 'en-place', '#16a34a', '#ffffff'],
+        'circle-stroke-width': 3,
+        'circle-opacity': ['match', ['get', 'niv'], 'fini', 0.45, 1],
+      },
+    },
+    {
+      id: 'u-part-label', type: 'symbol', source: 'partage', filter: ['in', ['get', 'r'], ['literal', ['pa', 'agent', 'pn', 'lam']]], minzoom: 11,
+      layout: { visibility: part, 'text-field': ['get', 'label'], 'text-font': BOLD, 'text-size': 12.5, 'text-offset': [0, -1.25], 'text-anchor': 'bottom', 'text-optional': true },
+      paint: { 'text-color': dark ? '#e0f2fe' : '#164e63', 'text-halo-color': halo, 'text-halo-width': 2 },
+    },
+    {
       id: 'u-target', type: 'circle', source: 'target',
       paint: { 'circle-radius': 11, 'circle-color': '#ea580c', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 },
     },
@@ -301,6 +335,7 @@ export async function buildStyle(basemap: Basemap, filters: Filters, o: Overlays
     acces: { type: 'geojson', data: o.acces ?? emptyFC() },
     signal: { type: 'geojson', data: o.signal ?? emptyFC() },
     asp: { type: 'geojson', data: o.asp ?? emptyFC() },
+    partage: { type: 'geojson', data: o.partage ?? emptyFC() },
   };
   let baseLayers: LayerSpecification[] = [{ id: 'fond', type: 'background', paint: { 'background-color': basemap === 'photo' ? '#1f2937' : '#eef0ec' } }];
   let sprite: StyleSpecification['sprite'];

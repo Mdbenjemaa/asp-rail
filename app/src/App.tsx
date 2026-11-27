@@ -7,7 +7,11 @@ import { Banner } from './components/Banner';
 import { AroundCard, ErrorCard, HintCard, NextCard } from './components/Cards';
 import { Icon } from './components/parts';
 import { SearchScreen } from './components/SearchScreen';
-import { AccesSheet, Disclaimer, FeatureCard, FilterSheet, InfoSheet, MenuSheet } from './components/Sheets';
+import { AccesSheet, Disclaimer, FeatureCard, FilterSheet, InfoSheet, MenuSheet, Modal } from './components/Sheets';
+import { partagesFeatures } from './partage/donnees';
+import { PanneauPartage } from './partage/Panneau';
+import { monAppareil, usePartages, useSession } from './partage/session';
+import { useChantierPartage } from './partage/suivi';
 import type { LocateState } from './components/state';
 import { TargetSheet, type Origin, type TargetState } from './components/TargetSheet';
 import { InstallBanner } from './components/Install';
@@ -54,7 +58,7 @@ import { BottomNav, type Onglet } from './components/BottomNav';
 import { useActivite } from './asp/activite';
 import { useRetour } from './lib/back';
 
-type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements';
+type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements' | 'partage';
 
 /** ASP Rail : se repérer sur le réseau (ligne et PK) et préparer son dispositif d'annonce (chantiers, calculs, mémo). */
 export default function App() {
@@ -463,6 +467,11 @@ export default function App() {
     };
   }, [target]);
   const accesFC = useMemo(() => accesFeatures(acces), [acces]);
+  // Chantier partagé : lecture et envoi tant que l'appli est ouverte ; ce que partagent les autres, sur la carte.
+  useChantierPartage(true);
+  const sessionPartage = useSession();
+  const { partages } = usePartages();
+  const partageFC = useMemo(() => (sessionPartage ? partagesFeatures(partages, monAppareil()) : null), [sessionPartage, partages]);
 
   // Chantier affiché sur la carte : zone de travail, points d'annonce et agents, recalculés à chaque modification.
   useEffect(() => {
@@ -575,6 +584,11 @@ export default function App() {
     onShowMap: (c) => {
       toMap();
       void showChantier(c);
+    },
+    onVoirPoint: (at) => {
+      setPanel('none');
+      toMap();
+      focusOn(at, 15);
     },
     open: (v) => setPile((s) => [...s, v]),
     back: () => setPile((s) => s.slice(0, -1)),
@@ -722,6 +736,7 @@ export default function App() {
         onUserRotate={() => setOrient(false)}
         signal={signalFC}
         asp={aspFC}
+        partage={partageFC}
         onUserMove={() => {
           if (stopFollow.current) setMapFree(true);
         }}
@@ -892,6 +907,11 @@ export default function App() {
           onClose={() => setPanel('none')}
         />
       )}
+      {panel === 'partage' && (
+        <Modal title="Chantier partagé" onClose={() => setPanel('none')}>
+          <PanneauPartage ctx={ctx} activite={activite} onVoir={ctx.onVoirPoint} />
+        </Modal>
+      )}
       {panel === 'menu' && (
         <MenuSheet
           theme={theme}
@@ -902,6 +922,8 @@ export default function App() {
             setPanel('none');
           }}
           onInfo={() => setPanel('info')}
+          onPartage={() => setPanel('partage')}
+          partage={sessionPartage?.nom ?? null}
           signalements={signals.length}
           onSignalements={() => {
             setTab('carte');

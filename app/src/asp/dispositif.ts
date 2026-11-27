@@ -219,7 +219,7 @@ export interface PaAgent {
 }
 
 /** Comment le point d'annonce d'une voie est obtenu : « 160 km/h × 20 s (dégagement 5 s + marge 15 s) = 890 m avant le chantier (PK 28+718) ». */
-export function calculPa(v: ResultatVoie, r: Resultat): string {
+function calculPa(v: ResultatVoie, r: Resultat): string {
   const dd = r.dd.retenu;
   const detail = v.note ? ' (minimum au-delà de 160 km/h)' : dd !== null ? ` (dégagement ${dd} s + marge ${r.ms.valeur} s)` : '';
   const amont = v.limiteAmont !== null ? ` (PK ${fmtPk(v.limiteAmont)})` : '';
