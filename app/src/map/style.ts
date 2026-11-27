@@ -176,7 +176,8 @@ function railLayers(basemap: Basemap, filters: Filters, night = false): LayerSpe
 }
 
 export const INTERACTIVE_LAYERS = [
-  'u-target', 'u-part-point', 'u-part-pa', 'u-asp-pa', 'u-asp-agent', 'u-signal', 'u-acces', 'u-part-zone', 'u-asp-zone',
+  // Du plus prioritaire au moins prioritaire quand plusieurs sont sous le doigt.
+  'u-target', 'u-asp-agent', 'u-part-point', 'u-asp-pa', 'u-part-pa', 'u-signal', 'u-acces', 'u-asp-zone', 'u-part-zone',
   'r-gares', 'r-pn', 'r-sst', 'r-ouvrages', 'r-pk-km', 'r-pk-hm',
   'r-sig-carre-ic', 'r-sig-avert-ic', 'r-sig-vitesse-ic', 'r-sig-elec-ic', 'r-sig-autre-ic',
   'r-sig-carre', 'r-sig-avert', 'r-sig-vitesse', 'r-sig-elec', 'r-sig-autre',

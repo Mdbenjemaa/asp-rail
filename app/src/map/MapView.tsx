@@ -370,7 +370,10 @@ export function MapView({
         const { x, y } = e.point;
         const box: [[number, number], [number, number]] = [[x - 12, y - 12], [x + 12, y + 12]];
         const layers = INTERACTIVE_LAYERS.filter((id) => created.getLayer(id));
-        const hits = created.queryRenderedFeatures(box, { layers });
+        // Plusieurs éléments de l'appli sous le doigt : l'ordre des couches touchables décide (un agent avant le point
+        // d'annonce où il est posé) ; ceux de la carte gardent l'ordre de dessin (le plus haut d'abord).
+        const rang = (id: string) => (id.startsWith('u-') ? layers.indexOf(id) : layers.length);
+        const hits = created.queryRenderedFeatures(box, { layers }).sort((f, g) => rang(f.layer.id) - rang(g.layer.id));
         if (hits.length) latest.current.onFeature(hits[0], [e.lngLat.lng, e.lngLat.lat]);
         else latest.current.onMapTap();
       });

@@ -496,8 +496,28 @@ test('carte du chantier : appui long sur un annonceur, on le glisse le long de l
   await expect.poll(pkGarde).toBeCloseTo(debut - 0.45, 3);
 
   // Sans appui long : toucher A1, « Déplacer A1 », puis toucher la voie là où on le veut.
-  await page.touchscreen.tap(depart.x, depart.y);
+  // (On attend qu'A1 soit redessiné à son point d'annonce.)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ([x, y]) => {
+          const m = (window as unknown as { __aspMap: M }).__aspMap;
+          const f = m.queryRenderedFeatures({ layers: ['u-asp-agent'] }).find((g) => g.properties?.label === 'A1');
+          if (!f) return 999;
+          const q = m.project((f.geometry as GeoJSON.Point).coordinates as [number, number]);
+          const r = m.getContainer().getBoundingClientRect();
+          return Math.hypot(r.x + q.x - x, r.y + q.y - y);
+        },
+        [depart.x, depart.y] as const,
+      ),
+    )
+    .toBeLessThan(4);
   const fiche1 = page.locator('.card').filter({ hasText: 'Dispositif d’annonce' });
+  // Le toucher simulé de WebKit se perd parfois : on retouche tant que la fiche d'A1 n'est pas ouverte.
+  await expect(async () => {
+    if (!(await fiche1.isVisible())) await page.touchscreen.tap(depart.x, depart.y);
+    await expect(fiche1).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
   await expect(fiche1.getByRole('button', { name: 'Me placer ici' })).toHaveCount(0);
   await fiche1.getByRole('button', { name: 'Déplacer A1' }).click();
   await expect(page.locator('.toast.glisse')).toContainText('Touche la voie là où tu veux A1');
