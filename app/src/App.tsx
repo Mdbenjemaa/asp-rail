@@ -12,6 +12,10 @@ import { partagesFeatures } from './partage/donnees';
 import { PanneauPartage } from './partage/Panneau';
 import { monAppareil, usePartages, useSession } from './partage/session';
 import { useChantierPartage } from './partage/suivi';
+import { posteFeatures } from './chaine/carte';
+import { useCote } from './chaine/cote';
+import { useSuiviPoste } from './chaine/lien';
+import { posteDuJour, usePostes } from './chaine/poste';
 import type { LocateState } from './components/state';
 import { TargetSheet, type Origin, type TargetState } from './components/TargetSheet';
 import { InstallBanner } from './components/Install';
@@ -473,8 +477,28 @@ export default function App() {
   const { partages } = usePartages();
   const partageFC = useMemo(() => (sessionPartage ? partagesFeatures(partages, monAppareil()) : null), [sessionPartage, partages]);
 
+  // Agent de la chaîne d'annonce : son poste (et ce qu'il doit voir) sur la carte, à la place du chantier de l'ASP.
+  const activiteCarte = useActivite();
+  const coteAnnonce = useCote();
+  const postes = usePostes();
+  const posteCarte = activiteCarte === 'asp' && coteAnnonce === 'chaine' ? posteDuJour(postes) : null;
+  useSuiviPoste(showToast);
+  useEffect(() => {
+    if (!posteCarte) return;
+    let cancel = false;
+    // Sans ligne : rien à dessiner.
+    (posteCarte.ligne ? loadLine(posteCarte.ligne) : Promise.reject(new Error('sans ligne'))).then(
+      (doc) => !cancel && setAspFC(posteFeatures(posteCarte, doc)),
+      () => !cancel && setAspFC(null),
+    );
+    return () => {
+      cancel = true;
+    };
+  }, [posteCarte]);
+
   // Chantier affiché sur la carte : zone de travail, points d'annonce et agents, recalculés à chaque modification.
   useEffect(() => {
+    if (posteCarte) return;
     if (!actif || !actif.ligne) {
       setAspFC(null);
       return;
@@ -491,7 +515,7 @@ export default function App() {
     return () => {
       cancel = true;
     };
-  }, [actif]);
+  }, [actif, posteCarte]);
 
   /** Montre un chantier sur la carte : zone, points d'annonce et dispositif, cadrés à l'écran. */
   const showChantier = async (c: Chantier) => {
@@ -617,7 +641,13 @@ export default function App() {
         manifest={manifest}
         onPlaceHere={placeHere}
         onClose={() => setPicked(null)}
-        onChantier={picked.f.layer.id.startsWith('u-asp') && actif ? () => setPile([{ k: 'fiche', id: actif.id }]) : undefined}
+        onChantier={
+          typeof picked.f.properties?.poste === 'string'
+            ? () => setPile([{ k: 'poste', id: picked.f.properties.poste as string }])
+            : picked.f.layer.id.startsWith('u-asp') && actif
+              ? () => setPile([{ k: 'fiche', id: actif.id }])
+              : undefined
+        }
         onDeplacer={
           /^u-asp-agent/.test(picked.f.layer.id) && typeof picked.f.properties?.aid === 'string' && actif
             ? () => {

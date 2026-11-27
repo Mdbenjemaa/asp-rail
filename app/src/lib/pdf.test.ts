@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculChantier, nouveauChantier } from '../asp/chantier';
 import { compteRenduPdf, fichePdf } from '../asp/pdf';
+import { compteRenduPostePdf } from '../chaine/pdf';
+import { ajouterEvenementPoste, ajouterTrainPoste, nouveauPoste } from '../chaine/poste';
 import { ajouterEvenementCr, ajouterTrain, noterJalon } from '../asp/deroule';
 import { annonceurParSens } from '../asp/dispositif';
 import { journalLamPdf } from '../lam/pdf';
@@ -140,6 +142,18 @@ describe('PDF', () => {
     ])
       expect(txt, x).toContain(x);
     // Deux signatures au doigt : deux images.
+    expect(txt.match(/\/Subtype \/Image/g)?.length).toBe(2);
+  });
+
+  it('compte rendu de poste (annonceur) : poste, horaires, trains, incidents, deux signatures', async () => {
+    const t = (h: number, m: number, j = 25) => new Date(2026, 10, j, h, m).getTime();
+    let p = nouveauPoste({ role: 'annonceur', code: 'A1', chantier: 'Remplacement traverses', ligne: '830000', pk: 47.1, date: '2026-11-25', horaire: 'nuit', surveille: 'V1 ▲', pas: [{ titre: 'PA V1 ▲', pk: 46.65 }], asp: 'Moo', prise: t(22, 5), fin: t(5, 10, 26) });
+    p = ajouterTrainPoste(ajouterTrainPoste(p, null, t(22, 31)), null, t(23, 2));
+    p = ajouterEvenementPoste(p, 'incident', 'Perdu la vue de S1 pendant 2 min', t(23, 15));
+    const f = compteRenduPostePdf(p, { ...info, second: { nom: 'Moo', signature: PNG, signeA: t(5, 12, 26) } });
+    expect(f.name).toMatch(/^Compte-rendu-poste-Annonceur-A1-Remplacement-traverses-2026-11-25-1025\.pdf$/);
+    const txt = await contenu(f);
+    for (const x of ['Compte rendu de poste', 'Annonceur A1', '22:05', '7 h 05', 'Trains annonc', '23:02', 'Perdu la vue de S1', '450 m', 'ASP']) expect(txt, x).toContain(x);
     expect(txt.match(/\/Subtype \/Image/g)?.length).toBe(2);
   });
 });

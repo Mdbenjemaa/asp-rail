@@ -567,6 +567,7 @@ button:disabled { cursor: default; }
 .pt-badge { display: inline-grid; place-items: center; min-width: 44px; height: 30px; padding: 0 8px; border-radius: 10px; font-size: 12.5px; font-weight: 900; color: #fff; background: #0e7490; }
 .pt-badge.pn { background: #ea580c; }
 .pt-badge.lam { background: #7c3aed; }
+.pt-badge.chaine { background: #0369a1; }
 .pt-actions { display: flex; gap: 6px; }
 .pt-actions .ds-btn { min-height: 44px; width: 44px; padding: 0; }
 .pt-avertir { font-size: 12.5px; margin: 0; }
@@ -595,3 +596,24 @@ button:disabled { cursor: default; }
 .ac-mission.en-place { border-color: #16a34a; }
 .ac-retour { margin-right: -4px; }
 .ds-page-head .ac-retour + div { flex: 1; min-width: 0; }
+
+/* Annonce, côté chaîne : annonceur, répétiteur, sentinelle. */
+.ch-cote { display: grid; gap: 6px; margin-bottom: 14px; }
+.ch-cote small { color: var(--muted); font-size: 13.5px; padding-left: 4px; }
+.ch-hero.en-place { box-shadow: inset 0 0 0 2px #16a34a, var(--elev); }
+.ch-voir, .ch-ou, .ch-lies { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; font-size: 15px; line-height: 1.35; font-weight: 650; }
+.ch-voir .ico, .ch-ou .ico, .ch-lies .ico { flex: none; margin-top: 1px; }
+.ch-ou { font-weight: 600; color: var(--muted); }
+.ch-ou.ok { color: #15803d; }
+.ch-ou.loin { color: #b45309; }
+.ch-lies { font-size: 14px; color: var(--muted); }
+.ch-service { padding: 12px 0 0; }
+.ch-service .cr-compte { display: flex; align-items: center; gap: 8px; }
+.ch-service .cr-compte .ds-btn.text { margin-left: auto; min-height: 36px; }
+.ch-appeler { margin: 8px 16px 12px; width: auto; text-decoration: none; display: flex; justify-content: center; }
+.ch-gestes { margin: 0; padding: 12px 18px 14px 34px; display: grid; gap: 10px; font-size: 15.5px; line-height: 1.45; }
+.ch-gestes.important { background: rgba(220, 38, 38, 0.06); border-left: 4px solid #dc2626; }
+
+.ch-chaines { text-align: left; margin: 4px 0 12px; }
+.ch-chaines-titre { margin: 4px 0 6px !important; font-weight: 700; color: var(--ink) !important; }
+.ch-service .cr-compte { justify-content: flex-start; } .ch-service .cr-compte .ds-btn.text { margin-left: auto; }

@@ -1,6 +1,7 @@
 /** Ce que la carte et le GPS prêtent aux écrans de l'ASP, et la liste des écrans qu'on peut ouvrir. */
 import type { Manifest } from '../lib/data';
 import type { Chantier } from './chantier';
+import type { RoleChaine } from '../chaine/poste';
 
 /** Où est l'agent (dernier repérage) : pour remplir la ligne et le PK d'un chantier. */
 export interface Here {
@@ -33,7 +34,10 @@ export type Vue =
   | { k: 'lam-ordre' }
   | { k: 'lam-missions' }
   | { k: 'lam-dsh' }
-  | { k: 'planning'; partage?: boolean };
+  | { k: 'planning'; partage?: boolean }
+  | { k: 'poste'; id: string }
+  | { k: 'poste-edit'; id: string; nouveau?: boolean }
+  | { k: 'gestes'; role?: RoleChaine };
 
 export type EtapePn = 'role' | 'pn' | 'equipement' | 'chantier';
 export type EtapeLam = 'type' | 'lieu' | 'detail' | 'chantier';

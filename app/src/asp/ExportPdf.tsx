@@ -35,6 +35,9 @@ function chargerPolice(): Promise<string | null> {
 
 const quand = (t: number) => `${new Date(t).toLocaleDateString('fr-FR')} à ${new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
 
+/** « Responsable du chantier » → « responsable du chantier » ; « ASP » reste « ASP ». */
+const minuscule = (t: string) => (/^[A-ZÀ-Ý][a-zà-ÿ]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t);
+
 /** Signature retenue pour l'export : celle déjà gardée, ou un nouveau trait (gardé au moment de l'export). */
 interface SigChoisie {
   png: string;
@@ -168,9 +171,9 @@ export function FeuilleExportPdf(p: {
       {p.second && (
         <>
           <div className="ds-fields" style={{ marginTop: 16 }}>
-            <Champ label={`Nom : ${p.second.titre.toLowerCase()}`} value={nom2} placeholder="Prénom NOM" onChange={setNom2} />
+            <Champ label={`Nom : ${minuscule(p.second.titre)}`} value={nom2} placeholder="Prénom NOM" onChange={setNom2} />
           </div>
-          <BlocSignature titre={`Signature : ${p.second.titre.toLowerCase()} (facultatif)`} cle={cle2} onChange={setSig2} />
+          <BlocSignature titre={`Signature : ${minuscule(p.second.titre)} (facultatif)`} cle={cle2} onChange={setSig2} />
         </>
       )}
       {erreur && <p className="ds-hint error">{erreur}</p>}

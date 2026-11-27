@@ -21,11 +21,15 @@ import { usePositionDirecte } from './direct';
 import { AccueilLam } from '../lam/AccueilLam';
 import { AccueilPn } from '../pn/AccueilPn';
 import { CartePlanning, type ActivitePlanning } from '../planning/Planning';
-import { Annonce, Etat } from './kit';
+import { Annonce, Bascule, Etat } from './kit';
 import { CaseCalcul, CaseMemo, CaseOu, CaseQuiz, QuestionDuJour } from './Widgets';
 import { enregistrer, useActif, useChantiers } from './store';
 import { InterventionRapide } from './Deroule';
 import { PanneauPartage } from '../partage/Panneau';
+import { AccueilChaine } from '../chaine/AccueilChaine';
+import { choisirCote, useCote } from '../chaine/cote';
+import { useMaillonsLies } from '../chaine/lien';
+import { etatPoste, posteDuJour, titrePoste, usePostes } from '../chaine/poste';
 import { useSession } from '../partage/session';
 
 interface AccueilProps {
@@ -82,7 +86,10 @@ function useEnCours(): Record<Activite, { titre: string; etat: string; niveau: s
   const actif = useActif();
   const missions = useMissions();
   const lams = useMissionsLam();
+  const postes = usePostes();
+  const cote = useCote();
   return useMemo(() => {
+    const poste = cote === 'chaine' ? posteDuJour(postes) : null;
     const c = chantierDuJour(list, actif);
     const m = missionDuJour(missions);
     const l = missionLamDuJour(lams);
@@ -90,11 +97,15 @@ function useEnCours(): Record<Activite, { titre: string; etat: string; niveau: s
     const dp = m ? donneesPn(m, null) : null;
     const dl = l ? donneesLam(l, null) : null;
     return {
-      asp: d && c ? { titre: `${c.date === today() ? 'Aujourd’hui' : jourTexte(c.date)} · ${d.titre}`, etat: d.etat, niveau: d.niveau } : null,
+      asp: poste
+        ? { titre: `Mon poste · ${titrePoste(poste)}`, etat: etatPoste(poste).texte, niveau: etatPoste(poste).niveau }
+        : d && c
+          ? { titre: `${c.date === today() ? 'Aujourd’hui' : jourTexte(c.date)} · ${d.titre}`, etat: d.etat, niveau: d.niveau }
+          : null,
       pn: dp ? { titre: dp.titre, etat: dp.etat, niveau: dp.niveau } : null,
       lam: dl ? { titre: dl.titre, etat: dl.etat, niveau: dl.niveau } : null,
     };
-  }, [list, actif, missions, lams]);
+  }, [list, actif, missions, lams, postes, cote]);
 }
 
 /** Accueil général : bonjour, mon planning, et le choix de la mission. */
@@ -156,16 +167,35 @@ function AccueilMission(p: AccueilProps) {
   const c = chantierDuJour(list, actif);
   const r = useMemo(() => (c ? calculChantier(c) : null), [c]);
   const autres = list.filter((x) => x.id !== c?.id);
+  const cote = useCote();
+  const chaine = activite === 'asp' && cote === 'chaine';
+  const lies = useMaillonsLies();
   return (
     <main className="ds-page" aria-label={`Accueil : ${NOM_MISSION[activite]}`}>
       <Bonjour titre={NOM_MISSION[activite]} sous={MISSIONS.find((m) => m.a === activite)!.sous} onMenu={p.onMenu} onRetour={fermerMission} />
+      {activite === 'asp' && (
+        <div className="ch-cote">
+          <Bascule
+            label="Dans l’annonce, je suis"
+            value={cote}
+            options={[
+              ['asp', 'ASP', 'vest'],
+              ['chaine', 'Dans la chaîne', 'flag'],
+            ]}
+            onChange={choisirCote}
+          />
+          <small>{chaine ? 'Annonceur, répétiteur ou sentinelle : mon poste' : 'Je prépare le chantier et le dispositif'}</small>
+        </div>
+      )}
       {sessionPartage && (
         <section className="ds-card pt-carte" aria-label="Chantier partagé">
-          <PanneauPartage ctx={p.ctx} activite={activite} onVoir={p.ctx.onVoirPoint} />
+          <PanneauPartage ctx={p.ctx} activite={chaine ? 'chaine' : activite} onVoir={p.ctx.onVoirPoint} />
         </section>
       )}
 
-      {activite === 'pn' ? (
+      {chaine ? (
+        <AccueilChaine ctx={p.ctx} direct={direct} onWhere={p.onWhere} />
+      ) : activite === 'pn' ? (
         <AccueilPn ctx={p.ctx} direct={direct} onNew={p.onNewMission} onWhere={p.onWhere} />
       ) : activite === 'lam' ? (
         <AccueilLam ctx={p.ctx} direct={direct} onNew={p.onNewMissionLam} onWhere={p.onWhere} />
@@ -192,6 +222,12 @@ function AccueilMission(p: AccueilProps) {
                 }}
                 onCompteRendu={() => p.ctx.open({ k: 'fiche', id: c.id, ouvrir: 'compte-rendu' })}
               />
+            )}
+            {lies.size > 0 && (
+              <p className="ch-lies">
+                <Icon name="people" size={18} />
+                {[...lies.entries()].map(([code, x]) => `${code} ${x.nom || ''} : ${x.donnees.etat.toLowerCase()}`).join(' · ')}
+              </p>
             )}
             <div className="ds-hero-actions">
               <button className="ds-btn primary" onClick={() => p.ctx.open({ k: 'fiche', id: c.id })}>

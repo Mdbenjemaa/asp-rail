@@ -10,7 +10,8 @@ import { loadPref, savePref } from '../lib/me';
 import { SB_KEY, SB_URL } from '../lib/server';
 import type { Donnees } from './donnees';
 
-export type Activite = 'asp' | 'pn' | 'lam';
+/** asp : chantier de l'ASP ; chaine : poste d'un annonceur, répétiteur ou sentinelle. */
+export type Activite = 'asp' | 'pn' | 'lam' | 'chaine';
 
 interface Session {
   /** Code de la session, 6 signes (« K7P3QX »). */

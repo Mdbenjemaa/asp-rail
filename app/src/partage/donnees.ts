@@ -13,6 +13,9 @@ import { chantierFeatures } from '../asp/carte';
 import { SENS_FLECHE, titreChantier, zoneTexte, type Chantier } from '../asp/chantier';
 import { codesAgents } from '../asp/dispositif';
 import type { Resultat } from '../asp/rules';
+import { pointsAnnonceAgent } from '../asp/dispositif';
+import { surveilleTexte } from '../asp/partage';
+import { etatPoste, ROLE_CHAINE, titrePoste, type Poste, type RoleChaine } from '../chaine/poste';
 import { avancementLam, OUTIL_COURT, titreMissionLam, TYPE_MISSION, type MissionLam } from '../lam/mission';
 import { avancement, PROCEDURE_TITRE, ROLE_PN, titreMission, type Mission } from '../pn/mission';
 import type { Activite, Partage } from './session';
@@ -29,9 +32,22 @@ export interface Donnees {
   details: string[];
   /** Traits et points : propriétés r (zone, pa, agent, pn, lam) et label. */
   geo: Feature[];
+  /** ASP : sa chaîne d'annonce, pour que chaque agent y prenne son poste. */
+  chaine?: Maillon[];
+  /** Agent de la chaîne : le poste qu'il tient dans la chaîne d'un ASP (son téléphone et le code). */
+  lien?: { asp: string; code: string };
 }
 
-export const ACTIVITE_LABEL: Record<Activite, string> = { asp: 'ASP', pn: 'Agent PN', lam: 'AP LAM / S9' };
+/** Un poste de la chaîne de l'ASP. */
+export interface Maillon {
+  code: string;
+  role: RoleChaine;
+  pk: number | null;
+  surveille: string;
+  pas: { titre: string; pk: number }[];
+}
+
+export const ACTIVITE_LABEL: Record<Activite, string> = { asp: 'ASP', pn: 'Agent PN', lam: 'AP LAM / S9', chaine: 'Chaîne d’annonce' };
 
 /** Coordonnées au mètre près : assez pour la carte, léger à envoyer. */
 const arrondi = (c: number[]) => [Math.round(c[0] * 1e5) / 1e5, Math.round(c[1] * 1e5) / 1e5];
@@ -88,7 +104,36 @@ export function donneesChantier(c: Chantier, r: Resultat, doc: LineDoc | null): 
       if (geometry) geo.push({ type: 'Feature', properties: { r: r2, label: String(f.properties?.label ?? '') }, geometry });
     }
   }
-  return { v: 1, titre: titreChantier(c), etat, niveau, ligne: c.ligne, details, geo };
+  const chaine: Maillon[] = c.agents
+    .filter((a): a is typeof a & { role: RoleChaine } => a.role !== 'asp')
+    .map((a) => ({
+      code: codes.get(a.id) ?? '',
+      role: a.role,
+      pk: a.pk,
+      surveille: surveilleTexte(c, a.surveille),
+      pas: pointsAnnonceAgent(c, r, a.id).map((p) => ({ titre: p.titre, pk: p.pk })),
+    }));
+  return { v: 1, titre: titreChantier(c), etat, niveau, ligne: c.ligne, details, geo, chaine };
+}
+
+/** Poste d'un agent de la chaîne : où il est et s'il est en place. Relié à la chaîne d'un ASP, son point est déjà sur la carte de l'ASP. */
+export function donneesPoste(p: Poste, doc: LineDoc | null): Donnees {
+  const e = etatPoste(p);
+  const details = [
+    `${ROLE_CHAINE[p.role]} ${p.code}${p.pk !== null ? ` · PK ${fmtPk(p.pk)}` : ''}${p.ligne ? ` · ligne ${fmtLine(p.ligne)}` : ''}`,
+    p.surveille ? `Surveille ${p.surveille}` : null,
+    p.trains.length ? `Trains annoncés : ${p.trains.length}` : null,
+  ].filter((x): x is string => !!x);
+  return {
+    v: 1,
+    titre: titrePoste(p),
+    etat: e.texte.replace(/ \(.*\)$/, ''),
+    niveau: e.niveau,
+    ligne: p.ligne,
+    details,
+    geo: p.lien ? [] : point(doc, p.pk, 'agent', p.code),
+    ...(p.lien ? { lien: { asp: p.lien.asp, code: p.code } } : {}),
+  };
 }
 
 /** Mission de l'agent PN : le PN gardé et son état. */

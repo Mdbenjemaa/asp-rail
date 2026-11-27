@@ -29,6 +29,7 @@ import { FeuilleExportPdf } from './ExportPdf';
 import { derouleVide } from './deroule';
 import { compteRenduTexte, messageEnvoi, partagerTexte, resumeTexte, type Envoi } from './partage';
 import { FeuilleFinie, SectionIntervention } from './Deroule';
+import { useMaillonsLies } from '../chaine/lien';
 import { loadLine } from '../lib/data';
 import type { Resultat } from './rules';
 import { chantierParId, definirActif, enregistrer, supprimer, useActif, useChantiers } from './store';
@@ -73,6 +74,7 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx; ouvrir?: 'com
   const { doc } = useLigne(c?.ligne ?? null);
   const [feuille, setFeuille] = useState<FeuilleOuverte>(p.ouvrir === 'compte-rendu' ? { k: 'cr' } : p.ouvrir === 'fin' ? { k: 'finie' } : null);
   const [rappels, setRappels] = useState(false);
+  const lies = useMaillonsLies();
 
   if (!c || !r) {
     return (
@@ -182,13 +184,22 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx; ouvrir?: 'com
       >
         {c.agents.map((a) => {
           const code = codes.get(a.id) ?? '';
+          // Agent qui a pris ce poste dans ma chaîne (chantier partagé) : son nom et s'il est en place.
+          const lie = lies.get(code);
           return (
             <Ligne
               key={a.id}
               badge={code}
               badgeClass={a.role === 'asp' ? 'navy' : a.role === 'annonceur' ? 'brand' : ''}
-              title={`${ROLE_LABEL[a.role]}${a.nom ? ` · ${a.nom}` : ''}`}
-              sub={[a.pk !== null ? `PK ${fmtPk(a.pk)}` : a.role === 'asp' ? 'Au chantier' : 'Place à indiquer', surveilleTexteCourt(c, a)].filter(Boolean).join(' · ')}
+              title={`${ROLE_LABEL[a.role]}${a.nom ? ` · ${a.nom}` : lie?.nom ? ` · ${lie.nom}` : ''}`}
+              sub={[
+                a.pk !== null ? `PK ${fmtPk(a.pk)}` : a.role === 'asp' ? 'Au chantier' : 'Place à indiquer',
+                surveilleTexteCourt(c, a),
+                lie ? lie.donnees.etat : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              end={lie ? <span className={`ds-status ${lie.donnees.niveau === 'en-place' ? 'ok' : 'todo'}`}>{lie.donnees.niveau === 'en-place' ? 'En place' : lie.donnees.niveau === 'fini' ? 'Fini' : 'Pas en place'}</span> : undefined}
               onClick={() => setFeuille({ k: 'agent', id: a.id })}
               label={`${code} : ${ROLE_LABEL[a.role]}`}
             />

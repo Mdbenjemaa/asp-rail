@@ -9,7 +9,8 @@ import { useChantiers } from '../asp/store';
 import { useMissionsLam } from '../lam/mission';
 import { loadLine } from '../lib/data';
 import { useMissions } from '../pn/mission';
-import { donneesChantier, donneesLam, donneesPn, type Donnees } from './donnees';
+import { posteParId, usePostes } from '../chaine/poste';
+import { donneesChantier, donneesLam, donneesPn, donneesPoste, type Donnees } from './donnees';
 import { envoyer, magasin, RAISON_TEXTE, rafraichir, rejoindre, sessionFromHash, useMonPartage, useSession } from './session';
 
 const LECTURE_MS = 30_000;
@@ -25,7 +26,8 @@ function useMesDonnees(): (() => Promise<Donnees | null>) | null {
   const chantiers = useChantiers();
   const missions = useMissions();
   const lams = useMissionsLam();
-  return useMemo(() => construireMes(moi, chantiers, missions, lams), [moi, chantiers, missions, lams]);
+  const postes = usePostes();
+  return useMemo(() => construireMes(moi, chantiers, missions, lams, postes), [moi, chantiers, missions, lams, postes]);
 }
 
 function construireMes(
@@ -33,8 +35,14 @@ function construireMes(
   chantiers: ReturnType<typeof useChantiers>,
   missions: ReturnType<typeof useMissions>,
   lams: ReturnType<typeof useMissionsLam>,
+  postes: ReturnType<typeof usePostes>,
 ): (() => Promise<Donnees | null>) | null {
   if (!moi?.actif) return null;
+  if (moi.activite === 'chaine') {
+    const p = postes.find((x) => x.id === moi.id) ?? posteParId(moi.id);
+    if (!p) return null;
+    return async () => donneesPoste(p, p.ligne ? await loadLine(p.ligne).catch(() => null) : null);
+  }
   if (moi.activite === 'asp') {
     const c = chantiers.find((x) => x.id === moi.id);
     if (!c) return null;

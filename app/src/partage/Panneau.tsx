@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import { loadAccess } from '../access/gate';
 import { chantierDuJour } from '../asp/etat';
-import type { Activite as ActiviteAccueil } from '../asp/activite';
 import { titreChantier } from '../asp/chantier';
 import type { Ctx } from '../asp/contexte';
 import { useActif, useChantiers } from '../asp/store';
@@ -15,6 +14,7 @@ import { missionLamDuJour, titreMissionLam, useMissionsLam } from '../lam/missio
 import { nomAgent } from '../lib/signature';
 import { useHorloge } from '../pn/horloge';
 import { missionDuJour, titreMission, useMissions } from '../pn/mission';
+import { posteDuJour, titrePoste, usePostes } from '../chaine/poste';
 import { ACTIVITE_LABEL, centreDe, depuis } from './donnees';
 import {
   cleanSession,
@@ -32,7 +32,7 @@ import {
 } from './session';
 import { useEnvoi } from './suivi';
 
-const CE_QUE: Record<Activite, string> = { asp: 'mon chantier', pn: 'ma mission PN', lam: 'ma mission LAM / S9' };
+const CE_QUE: Record<Activite, string> = { asp: 'mon chantier', pn: 'ma mission PN', lam: 'ma mission LAM / S9', chaine: 'mon poste' };
 
 /** Le chantier ou la mission que ce téléphone peut partager, pour l'activité choisie. */
 function useAPartager(activite: Activite): { id: string; titre: string } | null {
@@ -40,6 +40,11 @@ function useAPartager(activite: Activite): { id: string; titre: string } | null 
   const actif = useActif();
   const missions = useMissions();
   const lams = useMissionsLam();
+  const postes = usePostes();
+  if (activite === 'chaine') {
+    const p = posteDuJour(postes);
+    return p ? { id: p.id, titre: titrePoste(p) } : null;
+  }
   if (activite === 'asp') {
     const c = chantierDuJour(chantiers, actif);
     return c ? { id: c.id, titre: titreChantier(c) } : null;
@@ -58,7 +63,12 @@ function useTitrePartage(): string | null {
   const chantiers = useChantiers();
   const missions = useMissions();
   const lams = useMissionsLam();
+  const postes = usePostes();
   if (!moi?.actif) return null;
+  if (moi.activite === 'chaine') {
+    const p = postes.find((x) => x.id === moi.id);
+    return p ? titrePoste(p) : null;
+  }
   if (moi.activite === 'asp') {
     const c = chantiers.find((x) => x.id === moi.id);
     return c ? titreChantier(c) : null;
@@ -71,7 +81,7 @@ function useTitrePartage(): string | null {
   return m ? titreMissionLam(m) : null;
 }
 
-export function PanneauPartage(p: { ctx: Ctx; activite: ActiviteAccueil; onVoir?: (at: [number, number]) => void }) {
+export function PanneauPartage(p: { ctx: Ctx; activite: Activite; onVoir?: (at: [number, number]) => void }) {
   const session = useSession();
   return session ? <Session ctx={p.ctx} activite={p.activite} onVoir={p.onVoir} /> : <Rejoindre ctx={p.ctx} />;
 }
@@ -131,7 +141,7 @@ function Rejoindre({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function Session({ ctx, activite, onVoir }: { ctx: Ctx; activite: ActiviteAccueil; onVoir?: (at: [number, number]) => void }) {
+function Session({ ctx, activite, onVoir }: { ctx: Ctx; activite: Activite; onVoir?: (at: [number, number]) => void }) {
   const session = useSession()!;
   const moi = useMonPartage();
   const { partages, lu, erreur } = usePartages();
@@ -195,7 +205,7 @@ function Session({ ctx, activite, onVoir }: { ctx: Ctx; activite: ActiviteAccuei
       ) : aPartager ? (
         <Interrupteur checked={false} onChange={basculer} label={`Partager ${CE_QUE[activite]}`} hint={`${aPartager.titre} : visible par les intervenants de ce chantier`} />
       ) : (
-        <p className="ds-hint">Crée d’abord {CE_QUE[activite]} pour pouvoir le partager.</p>
+        <p className="ds-hint">{activite === 'chaine' ? 'Prends d’abord ton poste (ci-dessous) pour le partager.' : `Crée d’abord ${CE_QUE[activite].replace(/^mon /, 'ton ').replace(/^ma /, 'ta ')} pour pouvoir la partager.`.replace(/ton (chantier) pour pouvoir la/, 'ton $1 pour pouvoir le')}</p>
       )}
 
       <div className="pt-liste" aria-label="Intervenants qui partagent">
@@ -204,7 +214,7 @@ function Session({ ctx, activite, onVoir }: { ctx: Ctx; activite: ActiviteAccuei
           const centre = centreDe(x);
           return (
             <div key={x.appareil} className={`pt-autre ${x.donnees.niveau}`}>
-              <span className={`pt-badge ${x.activite}`}>{x.activite === 'asp' ? 'ASP' : x.activite === 'pn' ? 'PN' : 'LAM'}</span>
+              <span className={`pt-badge ${x.activite}`}>{x.activite === 'asp' ? 'ASP' : x.activite === 'pn' ? 'PN' : x.activite === 'lam' ? 'LAM' : (x.donnees.lien?.code ?? 'Chaîne')}</span>
               <div className="pt-texte">
                 <b>
                   {x.nom || 'Sans nom'} · {x.donnees.titre}

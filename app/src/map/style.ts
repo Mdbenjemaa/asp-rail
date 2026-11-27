@@ -202,7 +202,7 @@ function overlayLayers(filters: Filters, photo: boolean, night: boolean): LayerS
   const asp = filters.chantier ? 'visible' : 'none';
   const part = filters.partage ? 'visible' : 'none';
   // Couleur de chaque intervenant d'un chantier partagé : ASP (bleu canard), agent PN (orange), AP LAM / S9 (violet).
-  const couleurAct: ExpressionSpecification = ['match', ['get', 'act'], 'pn', '#ea580c', 'lam', '#7c3aed', '#0e7490'];
+  const couleurAct: ExpressionSpecification = ['match', ['get', 'act'], 'pn', '#ea580c', 'lam', '#7c3aed', 'chaine', '#0369a1', '#0e7490'];
   return [
     // Chantier partagé : zones des autres ASP (pointillés), plus pâles une fois la chaîne levée.
     {

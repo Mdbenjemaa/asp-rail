@@ -26,6 +26,7 @@ import { MissionScreen, MissionsScreen, ProcedureScreen } from '../pn/MissionScr
 import { NouvelleMission } from '../pn/NouvelleMission';
 import { OrdreScreen } from '../pn/OrdreScreen';
 import { PlanningScreen } from '../planning/Planning';
+import { GestesScreen, PosteEdit, PosteScreen } from '../chaine/PosteScreen';
 
 export function Couche(p: {
   tab: Onglet;
@@ -98,6 +99,12 @@ export function Couche(p: {
             return <ControleDsh key={key} ctx={ctx} hidden={hidden} />;
           case 'planning':
             return <PlanningScreen key={key} ctx={ctx} hidden={hidden} partage={v.partage} />;
+          case 'poste':
+            return <PosteScreen key={key} id={v.id} hidden={hidden} ctx={ctx} />;
+          case 'poste-edit':
+            return <PosteEdit key={key} id={v.id} nouveau={v.nouveau} hidden={hidden} ctx={ctx} />;
+          case 'gestes':
+            return <GestesScreen key={key} role={v.role} hidden={hidden} ctx={ctx} />;
           case 'cas':
             return (
               <CasScreen
