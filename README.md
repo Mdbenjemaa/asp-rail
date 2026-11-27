@@ -36,9 +36,13 @@ suit le téléphone : clair le jour, sombre la nuit (réglable dans le menu).
 
 ### Trois activités : Annonce (TES M), Agent PN (TES F), LAM / S9
 
-En haut de l'accueil, la bascule **Annonce / Agent PN / LAM / S9** choisit l'activité du jour (gardée sur le
-téléphone). L'accueil, les cases en direct, le 3e onglet (Calcul, Dérangement ou Urgences) et « Réviser » suivent
-l'activité.
+À chaque ouverture, l'**accueil général** : bonjour, « Mon planning ETF » (prochain service, ma semaine,
+« Préparer » qui ouvre la bonne mission préremplie), puis **« Choisis ta mission »** : trois grosses cartes
+**Annonce** (ASP · TES M), **Agent PN** (passage à niveau · TES F) et **AP LAM / S9**, chacune avec ce qui est prévu
+ou en cours aujourd'hui (« Aujourd'hui · Traverses — Chaîne d'annonce en place depuis 22:05 », « PN 26 — PN gardé :
+agent en poste »…) et l'étiquette « Dernière » sur la dernière choisie. La carte touchée ouvre l'accueil de la
+mission (son nom en titre, la flèche en haut à gauche revient à l'accueil général). L'accueil de la mission, les
+cases en direct, le 3e onglet (Calcul, Dérangement ou Urgences) et « Réviser » suivent la mission choisie.
 
 | Écran (activité PN) | Ce qu'il fait |
 | --- | --- |

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { EXERCICES_ORDRE } from '../src/pn/ordre';
-import { exporterPdf, expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
+import { changerMission, choisirMission, exporterPdf, expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -25,8 +25,7 @@ async function avancer(ecran: Locator, stop: Locator, depeches: string[]) {
 test('activité PN : bascule sur l’accueil, PN le plus proche en direct, mission pas à pas, mobile travaux, dérangement et journal', async ({ page }) => {
   await fakeShare(page);
   await openApp(page, { home: true, gps: PRES_PN26 });
-  const activite = page.getByRole('radiogroup', { name: 'Activité' });
-  await activite.getByRole('radio', { name: 'Agent PN' }).click();
+  await changerMission(page, 'pn');
   await expect(page.getByRole('region', { name: 'Première mission PN' })).toBeVisible();
   await expect(nav(page).getByRole('button', { name: 'Dérangement' })).toBeVisible();
   await expect(nav(page).getByRole('button', { name: 'Calcul' })).toHaveCount(0);
@@ -120,7 +119,11 @@ test('activité PN : bascule sur l’accueil, PN le plus proche en direct, missi
   // L'appli retire son entrée d'historique juste après la fermeture : on attend avant de recharger.
   await expect.poll(() => page.evaluate(() => !(history.state as { aspRetour?: boolean } | null)?.aspRetour)).toBe(true);
   await page.reload();
-  await expect(page.getByRole('radiogroup', { name: 'Activité' }).getByRole('radio', { name: 'Agent PN' })).toHaveAttribute('aria-checked', 'true');
+  // À la réouverture : l'accueil général, la mission PN en cours sur sa carte (la dernière choisie).
+  const carte = page.getByRole('main', { name: 'Accueil' }).getByRole('button', { name: /^Agent PN :/ });
+  await expect(carte).toContainText('PN 26');
+  await expect(carte).toContainText('Dernière');
+  await choisirMission(page, 'pn');
   await expect(page.getByRole('region', { name: 'Ma mission PN' })).toContainText('PN 26');
 });
 
@@ -159,7 +162,7 @@ test('activité PN : onglets Dérangement et Réviser (mémo PN, quiz PN, cas pr
 
   // Retour à l'activité annonce : l'onglet Calcul revient.
   await nav(page).getByRole('button', { name: 'Accueil' }).click();
-  await page.getByRole('radiogroup', { name: 'Activité' }).getByRole('radio', { name: 'Annonce' }).click();
+  await changerMission(page, 'asp');
   await expect(nav(page).getByRole('button', { name: 'Calcul' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Nouveau chantier' }).first()).toBeVisible();
 });
@@ -204,7 +207,7 @@ test('activité PN sur petit écran (320 × 568) : rien ne déborde', async ({ p
 test('mission PN : une étape cochée par erreur s’annule sans effacer sa trace, et la dernière étape seule ne termine rien', async ({ page }) => {
   await fakeShare(page);
   await openApp(page, { home: true, gps: PRES_PN26 });
-  await page.getByRole('radiogroup', { name: 'Activité' }).getByRole('radio', { name: 'Agent PN' }).click();
+  await changerMission(page, 'pn');
   await page.getByRole('button', { name: 'Nouvelle mission PN' }).first().click();
   const assistant = page.getByRole('dialog', { name: 'Nouvelle mission PN' });
   await assistant.getByRole('button', { name: 'Continuer' }).click();

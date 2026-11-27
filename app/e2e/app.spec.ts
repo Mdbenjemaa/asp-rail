@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { expect, LIEUSAINT, lineBounds, locate, mapReady, openApp, pkValue, placeAt, pointAtPk, test, toCarte } from './helpers';
+import { choisirMission, expect, LIEUSAINT, lineBounds, locate, mapReady, openApp, pkValue, placeAt, pointAtPk, test, toCarte } from './helpers';
 
 const KML = fileURLToPath(new URL('./fixtures/acces-test.kml', import.meta.url));
 const PHOTO = fileURLToPath(new URL('./fixtures/photo-vegetation.jpg', import.meta.url));
@@ -12,13 +12,16 @@ test('premier lancement : avertissement, puis accueil et carte', async ({ page }
   await expect(accept).toBeVisible();
   await expect(page.getByText('Aide à la préparation, jamais une référence de sécurité.')).toBeVisible();
   await accept.click();
+  // Accueil général : on choisit sa mission du jour.
+  await expect(page.getByRole('heading', { name: 'Choisis ta mission' })).toBeVisible();
+  await choisirMission(page, 'asp');
   await expect(page.getByRole('heading', { name: 'Prépare ton chantier' })).toBeVisible();
   await toCarte(page);
   await expect(page.locator('.hint-card')).toContainText('Me repérer');
   await expect(page.getByRole('button', { name: 'Suivre le PK' })).toBeVisible();
-  // Accepté une fois pour toutes ; l'appli rouvre sur l'accueil.
+  // Accepté une fois pour toutes ; l'appli rouvre sur l'accueil général.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Prépare ton chantier' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choisis ta mission' })).toBeVisible();
   await expect(accept).toBeHidden();
 });
 

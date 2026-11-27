@@ -11,7 +11,7 @@ async function importer(ou: Page | Locator, nom: string, pdf: Buffer) {
 }
 
 test('planning ETF : import du PDF, choix de ma ligne, ma semaine, puis chantier prérempli', async ({ page }) => {
-  await openApp(page, { home: true });
+  await openApp(page, { home: true, general: true });
   const accueil = page.getByRole('main', { name: 'Accueil' });
   const carte = accueil.getByRole('region', { name: 'Mon planning ETF' });
   await expect(carte).toContainText('Importe le PDF reçu par mail');
@@ -69,7 +69,7 @@ test('planning ETF : import du PDF, choix de ma ligne, ma semaine, puis chantier
 });
 
 test('planning ETF : les imports suivants retrouvent ma ligne seuls, et préviennent si elle n’y est pas', async ({ page }) => {
-  await openApp(page, { home: true, storage: { 'asp-planning-nom': JSON.stringify('MARTIN Paul') } });
+  await openApp(page, { home: true, general: true, storage: { 'asp-planning-nom': JSON.stringify('MARTIN Paul') } });
   await importer(page, 'Planning S48.pdf', fauxPlanning(AGENTS()));
   await expect(page.locator('.ds-snack')).toContainText(/Importé : semaine \d+, 6 jours de travail/, { timeout: 20_000 });
   await expect(page.getByRole('dialog', { name: 'Qui es-tu dans ce planning ?' })).toHaveCount(0);

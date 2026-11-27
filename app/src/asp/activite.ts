@@ -14,7 +14,7 @@ function lire(): Activite {
   }
 }
 
-export function choisirActivite(a: Activite) {
+function choisirActivite(a: Activite) {
   try {
     localStorage.setItem(KEY, a);
   } catch {
@@ -34,4 +34,37 @@ function subscribe(cb: () => void) {
 
 export function useActivite(): Activite {
   return useSyncExternalStore(subscribe, lire);
+}
+
+/**
+ * Mission ouverte depuis l'accueil général. Pas gardée : à chaque ouverture de l'appli, on repart de l'accueil
+ * général et on choisit sa mission du jour.
+ */
+let ouverte = false;
+const abonnesMission = new Set<() => void>();
+const prevenir = () => abonnesMission.forEach((f) => f());
+
+/** Ouvre une mission (annonce, agent PN, AP LAM / S9) : elle devient aussi l'activité du jour. */
+export function ouvrirMission(a: Activite) {
+  choisirActivite(a);
+  if (ouverte) return;
+  ouverte = true;
+  prevenir();
+}
+
+/** Revient à l'accueil général. */
+export function fermerMission() {
+  if (!ouverte) return;
+  ouverte = false;
+  prevenir();
+}
+
+export function useMissionOuverte(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      abonnesMission.add(cb);
+      return () => abonnesMission.delete(cb);
+    },
+    () => ouverte,
+  );
 }

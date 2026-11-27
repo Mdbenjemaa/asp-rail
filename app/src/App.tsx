@@ -55,7 +55,7 @@ import { avecAgentA, codesAgents, infoDeplacement, nouveauxProblemes } from './a
 import type { Resultat } from './asp/rules';
 import type { LineDoc } from './lib/data';
 import { BottomNav, type Onglet } from './components/BottomNav';
-import { useActivite } from './asp/activite';
+import { useActivite, ouvrirMission } from './asp/activite';
 import { useRetour } from './lib/back';
 
 type Panel = 'none' | 'filters' | 'info' | 'menu' | 'search' | 'autour' | 'acces' | 'signaler' | 'signalements' | 'partage';
@@ -527,6 +527,8 @@ export default function App() {
     setTab('carte');
   };
   const ouvrirCreation = (quoi: 'chantier' | 'pn' | 'lam') => {
+    // Créer, c'est aussi entrer dans la mission : on y revient en fermant l'écran de création.
+    ouvrirMission(quoi === 'chantier' ? 'asp' : quoi);
     const r = creer(quoi);
     setPile((s) => [...s, r.vue]);
     if (r.prerempli) showToast(`Prérempli depuis ton planning ETF : ${r.prerempli}. Modifie si besoin.`);

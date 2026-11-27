@@ -117,8 +117,25 @@ export interface AppOptions {
   gate?: boolean;
   /** Adresse ouverte (par défaut l'accueil), par exemple « ./#code=ABCD-EF23 ». */
   path?: string;
-  /** Rester sur l'accueil (sinon on passe sur l'onglet Carte, pour les tests du repérage). */
+  /** Rester sur l'accueil (sinon on passe sur l'onglet Carte, pour les tests du repérage) : la mission de « asp-activite » est ouverte. */
   home?: boolean;
+  /** Avec `home` : rester sur l'accueil général, sans ouvrir de mission. */
+  general?: boolean;
+}
+
+type Mission = 'asp' | 'pn' | 'lam';
+const CARTE_MISSION: Record<Mission, RegExp> = { asp: /^Annonce :/, pn: /^Agent PN :/, lam: /^AP LAM \/ S9 :/ };
+
+/** Sur l'accueil général, touche la carte d'une mission. */
+export async function choisirMission(page: Page, m: Mission) {
+  await page.getByRole('main', { name: 'Accueil' }).getByRole('button', { name: CARTE_MISSION[m] }).click();
+  await expect(page.getByRole('main', { name: /^Accueil : / })).toBeVisible();
+}
+
+/** Depuis l'accueil d'une mission, revient à l'accueil général et en choisit une autre. */
+export async function changerMission(page: Page, m: Mission) {
+  await page.getByRole('button', { name: 'Revenir à l’accueil (changer de mission)' }).click();
+  await choisirMission(page, m);
 }
 
 /** Onglet « Carte » de la barre du bas. */
@@ -155,6 +172,7 @@ export async function openApp(page: Page, opts: AppOptions = {}) {
   await page.goto(opts.path ?? './');
   if (!opts.gate) await expect(page.locator('.map canvas')).toBeVisible();
   if (!opts.gate && !opts.firstRun && !opts.home) await toCarte(page);
+  if (opts.home && !opts.general && !opts.gate && !opts.firstRun) await choisirMission(page, (opts.storage?.['asp-activite'] as Mission | undefined) ?? 'asp');
 }
 
 /** « Me repérer » puis « Utiliser cette position » dès la première mesure. */

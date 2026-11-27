@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { EXERCICES_LAM } from '../src/lam/ordre';
-import { exporterPdf, expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
+import { changerMission, exporterPdf, expect, fakeShare, openApp, pointAtPk, shot, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -37,7 +37,7 @@ async function avancer(page: Page, ecran: Locator, stop: Locator, numeros: strin
 test('AP S9 : contrôle DSh en direct, bouclage par dépêches, passage d’un train travaux, aléa et journal', async ({ page }) => {
   await fakeShare(page);
   await openApp(page, { home: true, gps: PRES_SEMAPHORE });
-  await page.getByRole('radiogroup', { name: 'Activité' }).getByRole('radio', { name: 'LAM / S9' }).click();
+  await changerMission(page, 'lam');
   await expect(page.getByRole('region', { name: 'Première mission LAM / S9' })).toBeVisible();
   await expect(nav(page).getByRole('button', { name: 'Urgences' })).toBeVisible();
 

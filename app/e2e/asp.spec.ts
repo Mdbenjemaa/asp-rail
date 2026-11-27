@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { exporterPdf, expect, fakeShare, fmtPkTest, openApp, pkValue, pointAtPk, shot, showPoint, test } from './helpers';
+import { choisirMission, expect, exporterPdf, fakeShare, fmtPkTest, openApp, pkValue, pointAtPk, shot, showPoint, test } from './helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -373,6 +373,7 @@ test('nouveau chantier pas à pas : position, vitesse de la ligne, résultat, an
 
   // Gardé sur le téléphone : après rechargement, l'accueil le montre, la case cochée est là.
   await page.reload();
+  await choisirMission(page, 'asp');
   await page.getByRole('region', { name: 'Mon chantier' }).getByRole('button', { name: 'Ouvrir la fiche' }).click();
   await page.getByRole('button', { name: /^Check-lists/ }).click();
   await expect(page.locator('.ds-check input').first()).toBeChecked();
@@ -703,6 +704,39 @@ test('petit écran (320 × 568) : accueil, parcours, fiche et onglets ne débord
   }
 });
 
+test('accueil général : bonjour, mon planning, choix de la mission avec ce qui est en cours, puis retour', async ({ page }) => {
+  const d = new Date();
+  const jour = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const chantier = { id: 'c-jour', created: Date.now(), updated: Date.now(), nom: 'Traverses', date: jour, ligne: '830000', pkDebut: 28.718, pkFin: 28.768 };
+  await openApp(page, { home: true, general: true, storage: { 'asp-chantiers-v1': [chantier] } });
+  const accueil = page.getByRole('main', { name: 'Accueil' });
+  await expect(accueil.getByRole('heading', { level: 1 })).toHaveText(/^Bon(jour|soir) Tests$/);
+  await expect(accueil.getByRole('region', { name: 'Mon planning ETF' })).toBeVisible();
+  await expect(accueil.getByRole('heading', { name: 'Choisis ta mission' })).toBeVisible();
+  const cartes = accueil.locator('.ac-mission');
+  await expect(cartes).toHaveCount(3);
+  await expect(cartes.nth(0)).toContainText('Annonce');
+  await expect(cartes.nth(0)).toContainText('Dernière');
+  // Le chantier du jour et où en est l'annonce, sur la carte de l'annonce.
+  await expect(cartes.nth(0)).toContainText('Aujourd’hui · Traverses');
+  await expect(cartes.nth(0)).toContainText('Chaîne d’annonce pas encore en place');
+  await expect(cartes.nth(1)).toContainText('Rien de prévu aujourd’hui');
+  await shot(page, '00-accueil-general');
+
+  // Agent PN : son accueil, avec le nom de la mission en titre ; la barre du bas suit.
+  await choisirMission(page, 'pn');
+  const mission = page.getByRole('main', { name: 'Accueil : Agent PN' });
+  await expect(mission.getByRole('heading', { level: 1 })).toHaveText('Agent PN');
+  await shot(page, '00b-accueil-mission');
+  await expect(mission.getByRole('button', { name: /Nouvelle mission/ }).first()).toBeVisible();
+  // Retour à l'accueil général : l'Agent PN est maintenant la dernière mission.
+  await page.getByRole('button', { name: 'Revenir à l’accueil (changer de mission)' }).click();
+  await expect(accueil.locator('.ac-mission').nth(1)).toContainText('Dernière');
+  // L'annonce : le chantier du jour, comme avant.
+  await choisirMission(page, 'asp');
+  await expect(page.getByRole('region', { name: 'Mon chantier' })).toContainText('Traverses');
+});
+
 test('accueil en direct : position qui suit l’agent, distance à la vitesse de la ligne, mémo, quiz et question du jour', async ({ page }) => {
   await openApp(page, { home: true });
   // GPS déjà autorisé : la case se remplit toute seule, sans rien toucher.
@@ -731,6 +765,7 @@ test('accueil en direct : position qui suit l’agent, distance à la vitesse de
   await expect(quiz).toContainText(juste ? /1\/\d+ sues/ : '1 erreur à revoir');
   await expect(qdj.locator('.ds-qdj-expl')).toBeVisible();
   await page.reload();
+  await choisirMission(page, 'asp');
   await expect(page.getByRole('region', { name: 'Question du jour' }).locator('.ds-status')).toHaveText(juste ? 'Bonne réponse' : 'À revoir');
 
   // Un écran ouvert par-dessus : le GPS de l'accueil s'arrête (il reprend au retour).
