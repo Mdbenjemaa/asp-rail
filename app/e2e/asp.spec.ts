@@ -20,6 +20,16 @@ async function fakeCodeServer(page: Page, etat: () => 'actif' | 'coupe' | 'fin' 
   return Object.assign(appels, { appareils });
 }
 
+/** Recharge la page ; une fois de plus si l'appli se rechargeait déjà elle-même (mise à jour du service worker). */
+async function recharger(page: Page) {
+  try {
+    await page.reload();
+  } catch {
+    await page.waitForLoadState();
+    await page.reload();
+  }
+}
+
 test('code d’accès : mauvais code refusé, bon code gardé sur le téléphone, puis code coupé', async ({ page }) => {
   let actif = true;
   const appels = await fakeCodeServer(page, () => (actif ? 'actif' : 'coupe'));
@@ -41,7 +51,7 @@ test('code d’accès : mauvais code refusé, bon code gardé sur le téléphone
   await expect(page.locator('.map canvas')).toBeVisible();
 
   // Gardé : l'appli s'ouvre directement, et revérifie le code en arrière-plan.
-  await page.reload();
+  await recharger(page);
   await expect(page.locator('.map canvas')).toBeVisible();
   await expect.poll(() => appels.filter((c) => c === 'ABCDEF23').length).toBeGreaterThanOrEqual(3);
   await expect(page.getByRole('heading', { name: /Équipe/ })).toBeVisible();
@@ -56,7 +66,7 @@ test('code d’accès : mauvais code refusé, bon code gardé sur le téléphone
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(page.getByText('Ton code n’est plus actif')).toBeVisible();
   await expect(page.locator('.map canvas')).toHaveCount(0);
-  await page.reload();
+  await recharger(page);
   await expect(page.getByText('Accès réservé')).toBeVisible();
 });
 

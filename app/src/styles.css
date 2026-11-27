@@ -536,7 +536,8 @@ button:disabled { cursor: default; }
 .cr-compte { flex: 1 0 100%; font-size: 14px; }
 .cr-compte b { font-size: 20px; margin-right: 4px; }
 .cr-noter { gap: 8px; }
-.cr-noter .ds-btn { flex: 1; }
+.cr-noter .ds-btn { flex: 1 1 0; min-width: 0; padding: 0 10px; gap: 6px; }
+@media (max-width: 360px) { .cr-noter .ds-btn .ico { display: none; } }
 .cr-texte { white-space: pre-wrap; font-size: 16px; line-height: 1.4; margin: 0 0 14px; }
 .cr-heure { font-size: 28px; font-weight: 800; padding: 8px 12px; border-radius: 12px; border: 1.5px solid var(--line, #cbd5e1); width: 100%; box-sizing: border-box; background: transparent; color: inherit; }
 .cr-fait { display: contents; }
