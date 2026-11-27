@@ -203,7 +203,7 @@ test('espace administrateur : connexion, créer un code, le partager, le couper,
   await page.getByRole('combobox', { name: 'Durée du code' }).selectOption({ label: '1 jour' });
   await page.getByRole('combobox', { name: 'Utilisation sans réseau' }).selectOption({ label: 'Réseau obligatoire' });
   await page.getByRole('button', { name: 'Créer le code' }).click();
-  expect(creation).toEqual({ p_nom: 'Karim B.', p_duree_h: 24, p_hors_ligne_h: 0 });
+  await expect.poll(() => creation).toEqual({ p_nom: 'Karim B.', p_duree_h: 24, p_hors_ligne_h: 0 });
   const item = page.locator('.admin-codes > li').first();
   await expect(item).toContainText('Karim B.');
   await expect(item).toContainText('KM7P-Q2XZ');
