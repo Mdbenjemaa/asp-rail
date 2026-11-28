@@ -228,6 +228,9 @@
 .admin-lien-pret { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--warn-bg); display: grid; gap: 8px; }
 .admin-lien-pret p { margin: 0; }
 .admin-suppr-ent { margin-top: 12px; }
+.admin-cherche { width: 100%; box-sizing: border-box; margin: 0 0 10px; height: 46px; font-size: 16px; }
+.admin-mois { margin: 14px 0 8px; font-size: 15px; color: var(--muted); }
+.admin-type { flex: none; padding: 2px 8px; border-radius: 8px; background: var(--warn-bg); font-size: 12px; font-weight: 800; }
 .admin-invit li { flex-direction: column; gap: 2px; }
 .admin-invit li small { white-space: normal; }
 .admin-invite p { margin: 0 0 4px; }

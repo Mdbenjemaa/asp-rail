@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { calculChantier, nouveauChantier } from '../asp/chantier';
-import { compteRenduPdf, fichePdf } from '../asp/pdf';
+import { compteRenduPdf, dossierChantierPdf, fichePdf } from '../asp/pdf';
 import { compteRenduPostePdf } from '../chaine/pdf';
 import { ajouterEvenementPoste, ajouterTrainPoste, nouveauPoste } from '../chaine/poste';
 import { ajouterEvenementCr, ajouterTrain, noterJalon } from '../asp/deroule';
@@ -170,5 +170,26 @@ describe('PDF', () => {
     const webp = await contenu(compteRenduPostePdf(p, { ...info, signature: null, entreprise: { nom: 'Exemple Rail', logo: 'data:image/webp;base64,AAAA' } }));
     expect(webp).toContain('Exemple Rail');
     expect(webp.match(/\/Subtype \/Image/g)).toBeNull();
+  });
+
+  it('dossier de fin de mission (ASP) : compte rendu et fiche CADA dans un seul PDF, avec la clôture', async () => {
+    const t = (h: number, m: number) => new Date(2026, 10, 25, h, m).getTime();
+    let c = { ...nouveauChantier(), nom: 'Traverses', date: '2026-11-25', ligne: '830000', pkDebut: 47.4, pkFin: 47.5, responsable: 'M. Durand' };
+    c = { ...c, deroule: ajouterTrain(noterJalon(noterJalon(c.deroule, 'arrivee', t(21, 40)), 'leve', t(5, 5)), null, t(22, 31)) };
+    const f = dossierChantierPdf(c, calculChantier(c), { ...info, cloture: t(5, 20) }, doc);
+    expect(f.name).toMatch(/^Dossier-Traverses-2026-11-25-1025\.pdf$/);
+    const txt = await contenu(f);
+    for (const x of ['Dossier de fin de mission', 'Dossier de fin de mission', 'cl', 'Horaires', 'Trains annonc', 'Plateforme', 'Check-lists', 'Plan de situation', 'Responsable du chantier', 'Dossier de cl']) expect(txt, x).toContain(x);
+    expect(txt).toContain('25/11/2026 ');
+  });
+
+  it('journal PN en dossier de clôture : bandeau « clôturé le »', async () => {
+    const m = nouvelleMission({ date: '2026-11-25' });
+    const sans = await contenu(journalPnPdf(m, info, null));
+    expect(sans).not.toContain('Dossier de fin de mission');
+    const avec = await contenu(journalPnPdf(m, { ...info, cloture: new Date(2026, 10, 25, 6, 10).getTime() }, null));
+    expect(avec).toContain('Dossier de fin de mission');
+    expect(avec).toContain('25/11/2026 ');
+    expect(avec).toContain('06:10');
   });
 });

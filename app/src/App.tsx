@@ -60,6 +60,7 @@ import type { Resultat } from './asp/rules';
 import type { LineDoc } from './lib/data';
 import { BottomNav, type Onglet } from './components/BottomNav';
 import { entreprise, reviserVisible, useModules } from './access/entreprise';
+import { useEnvoiDossiers } from './archive/envoi';
 import { useActivite, ouvrirMission } from './asp/activite';
 import { useRetour } from './lib/back';
 
@@ -95,6 +96,8 @@ export default function App() {
   /** Onglet ouvert (l'appli s'ouvre sur l'accueil) et écrans ouverts par-dessus. */
   const [tabChoisi, setTab] = useState<Onglet>('accueil');
   const modules = useModules();
+  // Dossiers de fin de mission pas encore reçus par l'entreprise : ils partent dès qu'il y a du réseau.
+  useEnvoiDossiers();
   // Sans mémo ni quiz pour l'entreprise, l'onglet « Réviser » n'existe pas.
   const tab: Onglet = tabChoisi === 'reviser' && !reviserVisible(modules) ? 'accueil' : tabChoisi;
   // PDF partagé depuis Gmail (Android) : l'appli s'ouvre sur « Mon planning », qui l'importe.

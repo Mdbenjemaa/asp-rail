@@ -15,6 +15,8 @@ export interface InfoExport {
   signature: string | null;
   signeA: number | null;
   cree: Date;
+  /** Dossier de clôture de fin de mission : heure de la clôture (ms), écrite en tête et au pied. */
+  cloture?: number;
   /** Entreprise de l'agent (nom et logo en data URL PNG ou JPEG), en tête du document. */
   entreprise?: { nom: string; logo: string | null };
   /** Deuxième signataire (responsable du chantier), quand le document en demande un. */
@@ -203,6 +205,23 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
   }
   doc.setTextColor(...INK);
   y = 42;
+  if (e.info.cloture) {
+    // Bandeau de clôture : ce document est le dossier archivé de la mission.
+    doc.setFillColor(...SOFT);
+    doc.setDrawColor(...YELLOW);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(M, 37, W - 2 * M, 10, 1.5, 1.5, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...NAVY);
+    doc.text(pdfText(`Dossier de fin de mission · clôturé le ${fmtCree(new Date(e.info.cloture))}`), M + 3, 41.3);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(pdfText('Mission archivée : elle ne peut plus être modifiée dans l’appli.'), M + 3, 45.2);
+    doc.setTextColor(...INK);
+    y = 54;
+  }
 
   const saut = (place: number) => {
     if (y + place > BAS) {
@@ -351,7 +370,8 @@ export function creerPdf(e: { titre: string; sousTitre: string; ligne3?: string;
         doc.setTextColor(...MUTED);
         const nomEnt = e.info.entreprise?.nom.trim();
         const agent = e.info.agent.trim() ? ` par ${e.info.agent.trim()}${nomEnt ? ` (${nomEnt})` : ''}` : nomEnt ? ` pour ${nomEnt}` : '';
-        doc.text(ecrit(`Créé le ${cree}${agent} avec ASP Rail, sur le téléphone. ${e.pied}`), M, H - 8.5, { maxWidth: W - 2 * M - 18 });
+        const debut = e.info.cloture ? `Dossier de clôture créé le ${cree}${agent} avec ASP Rail.` : `Créé le ${cree}${agent} avec ASP Rail, sur le téléphone.`;
+        doc.text(ecrit(`${debut} ${e.pied}`), M, H - 8.5, { maxWidth: W - 2 * M - 18 });
         doc.setFont('helvetica', 'normal');
         doc.text(`${i}/${pages}`, W - M, H - 8.5, { align: 'right' });
       }

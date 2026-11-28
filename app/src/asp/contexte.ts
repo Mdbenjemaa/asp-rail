@@ -2,6 +2,7 @@
 import type { Manifest } from '../lib/data';
 import type { Chantier } from './chantier';
 import type { RoleChaine } from '../chaine/poste';
+import type { TypeMission } from '../archive/cloture';
 
 /** Où est l'agent (dernier repérage) : pour remplir la ligne et le PK d'un chantier. */
 export interface Here {
@@ -37,7 +38,10 @@ export type Vue =
   | { k: 'planning'; partage?: boolean }
   | { k: 'poste'; id: string }
   | { k: 'poste-edit'; id: string; nouveau?: boolean }
-  | { k: 'gestes'; role?: RoleChaine };
+  | { k: 'gestes'; role?: RoleChaine }
+  | { k: 'cloture'; type: TypeMission; id: string }
+  | { k: 'archive'; type: TypeMission; id: string }
+  | { k: 'archives' };
 
 export type EtapePn = 'role' | 'pn' | 'equipement' | 'chantier';
 export type EtapeLam = 'type' | 'lieu' | 'detail' | 'chantier';

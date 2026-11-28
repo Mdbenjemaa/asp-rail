@@ -156,6 +156,31 @@ Côté serveur (projet Supabase « repere-rail ») : tables `asp_codes` (avec `e
 sa fin, son temps sans réseau et son entreprise ; note le téléphone), `asp_logo` et `asp_creer_code`. Les chantiers,
 missions et plannings, eux, ne quittent le téléphone que si l'agent les partage sur un chantier partagé (ci-dessous).
 
+## Fin de mission : clôture et archives
+
+À la fin de chaque mission — chantier de l'ASP, mission d'agent PN, mission AP LAM / S9, poste d'annonceur, de
+répétiteur ou de sentinelle — l'agent **clôture** :
+
+1. **un dossier PDF complet**, créé sur le téléphone, avec son nom et sa signature (et celle du responsable du chantier
+   ou de l'ASP) : pour l'ASP, le compte rendu de l'intervention, le plan et toute la fiche CADA ; pour les autres, le
+   journal ou le compte rendu complet. Un bandeau « Dossier de fin de mission · clôturé le … » est en tête ;
+2. **téléchargé** par le partage du téléphone (Enregistrer dans Fichiers, mail, WhatsApp…) ;
+3. **archivé et verrouillé** : la mission quitte les listes, plus rien ne la modifie (même un écran resté ouvert), et
+   elle s'ouvre en lecture seule ; le dossier reste dans « Mes archives » (accueil), prêt à être retéléchargé ;
+4. **envoyé à l'entreprise** de l'agent (celle de son code d'accès) : sans réseau, il attend et repart tout seul
+   (ouverture de l'appli, retour du réseau, toutes les 5 minutes), ou par « Renvoyer ».
+
+Tant qu'une mission finie (ou d'un jour passé, depuis moins de 14 jours) n'est pas clôturée, l'accueil le rappelle
+(« Une mission à clôturer »). On clôture aussi depuis la fiche du chantier (« Fin de mission »), la feuille
+« Intervention finie », l'écran d'une mission PN ou LAM / S9 (et son menu « Plus d'actions »), ou « Mon poste ».
+
+Côté entreprise : onglet **Archives** de l'espace administrateur — les dossiers reçus, par mois, à chercher (chantier,
+agent) et filtrer (ASP, PN, LAM / S9, chaîne), à télécharger ou supprimer. Côté serveur : table `asp_archives` et
+espace de stockage privé `asp-archives` (`<entreprise>/<AAAA-MM>/<réf>.pdf`), lisibles et supprimables seulement par
+les administrateurs de l'entreprise ; fonction serveur `asp-archive` (`supabase/functions/asp-archive`), qui vérifie le
+code d'accès, refuse ce qui n'est pas un PDF (10 Mo au plus, 40 dossiers par code et par jour) et ignore un envoi
+répété. Les dossiers contiennent des noms et des signatures : l'entreprise décide combien de temps elle les garde.
+
 ## Espace par entreprise
 
 Chaque entreprise cliente a son espace : **ses codes d'accès, ses chantiers partagés, ses administrateurs, son nom et

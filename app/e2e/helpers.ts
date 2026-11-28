@@ -236,7 +236,7 @@ export { expect };
  */
 export async function exporterPdf(
   page: Page,
-  opts: { nom?: string; signer?: boolean; partage?: number; responsable?: string; signerResponsable?: boolean } = {},
+  opts: { nom?: string; signer?: boolean; partage?: number; responsable?: string; signerResponsable?: boolean; bouton?: string } = {},
 ) {
   const feuille = page.getByRole('dialog', { name: 'Exporter en PDF' });
   await expect(feuille).toBeVisible();
@@ -267,7 +267,7 @@ export async function exporterPdf(
   };
   if (opts.signer) await signer(0);
   if (opts.signerResponsable) await signer(opts.signer ? 1 : 0);
-  const bouton = feuille.getByRole('button', { name: 'Créer le PDF et partager' });
+  const bouton = feuille.getByRole('button', { name: opts.bouton ?? 'Créer le PDF et partager' });
   await expect(bouton).toBeEnabled({ timeout: 15_000 });
   await bouton.click();
   await expect(feuille).toHaveCount(0);

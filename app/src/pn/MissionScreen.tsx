@@ -9,6 +9,7 @@ import { fmtLine, fmtPk } from '../lib/format';
 import type { Ctx } from '../asp/contexte';
 import { Feuille } from '../asp/Fiche';
 import { Ecran, Ligne, Section } from '../asp/kit';
+import { LigneCloturer } from '../archive/Cloture';
 import { FeuilleExportPdf } from '../asp/ExportPdf';
 import { confirmerAnnulation } from '../asp/confirmer';
 import { messageEnvoi, partagerTexte } from '../asp/partage';
@@ -167,6 +168,11 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
           </div>
         )}
       </section>
+      {m.fin && (
+        <div className="ds-list cl-fin">
+          <LigneCloturer ctx={p.ctx} type="pn" id={m.id} />
+        </div>
+      )}
 
       {phases(m).map((ph) => (
         <Section key={ph.id} title={`${ph.titre}${ph.lieu ? ` · ${ph.lieu}` : ''}`}>
@@ -296,6 +302,7 @@ export function MissionScreen(p: { id: string; hidden?: boolean; ctx: Ctx }) {
               }}
             />
           )}
+          <LigneCloturer ctx={p.ctx} type="pn" id={m.id} />
           <Ligne
             icon="file"
             title="Journal en PDF"

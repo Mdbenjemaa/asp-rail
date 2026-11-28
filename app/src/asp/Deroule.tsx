@@ -238,7 +238,7 @@ function FeuilleEvenement(p: { type: EvenementCr['type']; onClose: () => void; o
 }
 
 /** Le dispositif est levé : ce qu'il s'est passé, et le compte rendu. */
-export function FeuilleFinie(p: { c: Chantier; r: Resultat; onPdf: () => void; onTexte: () => void; onClose: () => void }) {
+export function FeuilleFinie(p: { c: Chantier; r: Resultat; onPdf: () => void; onTexte: () => void; onClose: () => void; onCloturer?: () => void }) {
   const d = p.c.deroule;
   const parSens = trainsParSens(p.c, p.r, d);
   const incidents = d.evenements.filter((e) => e.type === 'incident').length;
@@ -260,7 +260,13 @@ export function FeuilleFinie(p: { c: Chantier; r: Resultat; onPdf: () => void; o
           <dd>{incidents || 'Aucun'}</dd>
         </div>
       </dl>
-      <button className="ds-btn primary big wide" onClick={p.onPdf}>
+      {p.onCloturer && (
+        <button className="ds-btn primary big wide" onClick={p.onCloturer}>
+          <Icon name="check" size={22} />
+          Clôturer la mission
+        </button>
+      )}
+      <button className={`ds-btn ${p.onCloturer ? '' : 'primary big '}wide`} onClick={p.onPdf}>
         <Icon name="file" size={22} />
         Compte rendu en PDF
       </button>

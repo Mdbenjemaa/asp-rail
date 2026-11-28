@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { dureeTexte, formatCode, lienCode } from '../access/gate';
 import { loadPref, savePref } from '../lib/me';
 import { entrepriseChoisie, invitationDuHash, jetonDuLien, lireRole, sb, type Role } from './client';
+import { Archives } from './Archives';
 import { EntrepriseOnglet } from './Entreprise';
 import { Invitation } from './Invitation';
 import { Sessions } from './Sessions';
@@ -333,9 +334,9 @@ function NouveauMdp({ onDone, onMsg }: { onDone: () => void; onMsg: (m: string) 
 /** Dernière entreprise choisie dans l'espace administrateur. */
 const CHOIX = 'asp-admin-entreprise';
 
-/** Trois onglets pour l'entreprise choisie : codes d'accès, chantiers partagés, l'entreprise elle-même. */
+/** Quatre onglets pour l'entreprise choisie : codes d'accès, chantiers partagés, dossiers de fin de mission, l'entreprise. */
 function Admin(p: { role: Role; onMsg: (m: string) => void; onLogout: () => void; onRole: (choisir?: string | null) => void }) {
-  const [onglet, setOnglet] = useState<'codes' | 'chantiers' | 'entreprise'>('codes');
+  const [onglet, setOnglet] = useState<'codes' | 'chantiers' | 'archives' | 'entreprise'>('codes');
   const [gardee, setGardee] = useState(() => loadPref<string | null>(CHOIX, null));
   const id = entrepriseChoisie(p.role, gardee);
   const ent = p.role.entreprises.find((e) => e.id === id) ?? null;
@@ -368,11 +369,12 @@ function Admin(p: { role: Role; onMsg: (m: string) => void; onLogout: () => void
         <p className="muted">Aucune entreprise pour le moment.</p>
       ) : (
         <>
-          <div className="seg seg-3 admin-onglets" role="tablist" aria-label="Administration">
+          <div className="seg seg-4 admin-onglets" role="tablist" aria-label="Administration">
             {(
               [
                 ['codes', 'Codes'],
                 ['chantiers', 'Chantiers'],
+                ['archives', 'Archives'],
                 ['entreprise', 'Entreprise'],
               ] as const
             ).map(([v, l]) => (
@@ -383,6 +385,7 @@ function Admin(p: { role: Role; onMsg: (m: string) => void; onLogout: () => void
           </div>
           {onglet === 'codes' && <Codes key={ent.id} entreprise={ent} onMsg={p.onMsg} />}
           {onglet === 'chantiers' && <Sessions key={ent.id} entreprise={ent} onMsg={p.onMsg} />}
+          {onglet === 'archives' && <Archives key={ent.id} entreprise={ent} onMsg={p.onMsg} />}
           {onglet === 'entreprise' && (
             <EntrepriseOnglet
               key={ent.id}

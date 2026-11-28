@@ -217,3 +217,56 @@ test('lien d’invitation déjà utilisé : message clair et retour à la connex
   await page.getByRole('button', { name: 'Aller à la connexion' }).click();
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible();
 });
+
+test('administrateur : onglet Archives, chercher, télécharger, supprimer un dossier de fin de mission', async ({ page }) => {
+  page.on('dialog', (d) => void d.accept());
+  await fakeShare(page);
+  await fakeAuth(page, 'chef@exemple.fr');
+  await fakeEntreprises(page, 'chef@exemple.fr', false, [{ id: 'e2', nom: 'Exemple Rail', modules: { planning: false, memo: false, quiz: false }, logo_v: 0, admins: ['chef@exemple.fr'], invitations: [] }]);
+  const iso = new Date().toISOString();
+  const archives = [
+    { id: 'a1', type: 'asp', titre: 'Traverses', date_mission: '2026-11-27', agent: 'Moo Test', code_nom: 'Équipe nuit', nom_fichier: 'Dossier-Traverses-2026-11-28-0610.pdf', taille: 210_000, chemin: 'e2/2026-11/r1.pdf', cloture_le: iso, recu_le: iso },
+    { id: 'a2', type: 'pn', titre: 'PN 26 · ligne 830 000', date_mission: '2026-11-27', agent: 'Lou Test', code_nom: 'Lou Test', nom_fichier: 'Dossier-Journal-PN-26.pdf', taille: 90_000, chemin: 'e2/2026-11/r2.pdf', cloture_le: iso, recu_le: iso },
+  ];
+  const supprime: string[] = [];
+  await page.route('**/rest/v1/asp_archives**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'GET') return route.fulfill({ json: archives });
+    const id = /id=eq\.([^&]+)/.exec(req.url())?.[1];
+    archives.splice(
+      archives.findIndex((a) => a.id === id),
+      1,
+    );
+    supprime.push(`ligne ${id}`);
+    await route.fulfill({ status: 204, body: '' });
+  });
+  await page.route('**/storage/v1/object/asp-archives**', async (route) => {
+    const req = route.request();
+    if (req.method() === 'DELETE') {
+      supprime.push(`fichier ${(req.postDataJSON() as { prefixes: string[] }).prefixes.join(',')}`);
+      return route.fulfill({ json: [] });
+    }
+    await route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4 essai' });
+  });
+  await openApp(page, { gate: true, path: './#admin' });
+  await page.getByRole('textbox', { name: 'E-mail' }).fill('chef@exemple.fr');
+  await page.getByLabel('Mot de passe', { exact: true }).fill('son-mot-de-passe');
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  await page.getByRole('tab', { name: 'Archives' }).click();
+  await expect(page.locator('.admin-resume')).toHaveText('2 dossiers');
+  await page.getByRole('searchbox', { name: 'Chercher un dossier' }).fill('lou');
+  await expect(page.locator('.admin-resume')).toHaveText('1 dossier');
+  await expect(page.locator('.admin-codes > li')).toContainText('PN 26');
+  await page.getByRole('searchbox', { name: 'Chercher un dossier' }).fill('');
+  await page.getByRole('radio', { name: 'ASP' }).click();
+  const item = page.locator('.admin-codes > li');
+  await expect(item).toHaveCount(1);
+  await expect(item).toContainText('Traverses');
+  await expect(item).toContainText('Moo Test (code Équipe nuit)');
+  await shot(page, '52-admin-archives');
+  await item.getByRole('button', { name: 'Télécharger' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __partages: ShareData[] }).__partages.at(-1)?.files?.[0]?.name)).toBe('Dossier-Traverses-2026-11-28-0610.pdf');
+  await item.getByRole('button', { name: 'Supprimer' }).click();
+  await expect.poll(() => supprime).toEqual(['fichier e2/2026-11/r1.pdf', 'ligne a1']);
+  await expect(page.getByText('Aucun dossier ne correspond.')).toBeVisible();
+});

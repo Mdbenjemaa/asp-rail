@@ -3,6 +3,8 @@
  * dépêches (numéro reçu, numéro donné, heure), passages de train travaux et journal horodaté, gardés sur le téléphone.
  * La consigne LAM, la fiche de travail, la situation géographique et les textes en vigueur priment toujours.
  */
+import { useMemo } from 'react';
+import type { Cloture } from '../archive/cloture';
 import { creerCollection, newId } from '../lib/collection';
 import type { LinePoint } from '../lib/data';
 import { fmtLine, fmtPk } from '../lib/format';
@@ -87,6 +89,8 @@ export interface MissionLam {
   fin: number | null;
   /** Créée par « Nouvelle mission » et pas encore remplie. */
   brouillon?: boolean;
+  /** Clôture de fin de mission : archivée et verrouillée. */
+  cloture?: Cloture | null;
 }
 
 export interface EtapeLam {
@@ -439,7 +443,13 @@ const missions = creerCollection<MissionLam>('asp-missions-lam-v1', (m) => ({ ..
 export const enregistrerMissionLam = (m: MissionLam) => missions.enregistrer(avecFinLam(m));
 export const supprimerMissionLam = missions.supprimer;
 export const missionLamParId = missions.parId;
-export const useMissionsLam = missions.useListe;
+/** Missions en cours ou à clôturer (les archivées sont dans « Mes archives »). */
+export function useMissionsLam(): MissionLam[] {
+  const l = missions.useListe();
+  return useMemo(() => l.filter((m) => !m.cloture), [l]);
+}
+/** Toutes les missions, archivées comprises. */
+export const useToutesMissionsLam = missions.useListe;
 
 /** La mission à mettre en avant : celle du jour en cours, sinon la plus récente non terminée. */
 export function missionLamDuJour(list: MissionLam[]): MissionLam | null {

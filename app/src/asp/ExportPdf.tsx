@@ -114,6 +114,12 @@ export function FeuilleExportPdf(p: {
   second?: { titre: string; defautNom: string };
   /** Texte d'aide au-dessus du formulaire. */
   intro?: string;
+  /** Texte du bouton (par défaut « Créer le PDF et partager »). */
+  bouton?: string;
+  /** Dossier de clôture : l'heure de la clôture est écrite sur le PDF. */
+  cloture?: boolean;
+  /** Après le partage (sauf s'il est annulé) : le fichier créé, l'agent et l'heure, pour l'archiver. */
+  onFichier?: (file: File, x: { agent: string; t: number }) => Promise<void>;
 }) {
   const [nom, setNom] = useState(() => nomAgent() || p.defautNom || '');
   const [sig, setSig] = useState(() => dejaGardee(p.docId));
@@ -150,10 +156,13 @@ export function FeuilleExportPdf(p: {
         signature: s1?.png ?? null,
         signeA: s1?.t ?? null,
         cree: new Date(t),
+        cloture: p.cloture ? t : undefined,
         entreprise: entreprisePdf(),
         second: p.second ? { nom: nom2.trim(), signature: s2?.png ?? null, signeA: s2?.t ?? null } : undefined,
       });
-      p.onFini(await partagerFichier(file, p.titre));
+      const e = await partagerFichier(file, p.titre);
+      if (p.onFichier && e !== 'annule') await p.onFichier(file, { agent: nom.trim(), t });
+      p.onFini(e);
     } catch (e) {
       setErreur(e instanceof Error ? `PDF impossible : ${e.message}` : 'PDF impossible.');
     } finally {
@@ -181,7 +190,7 @@ export function FeuilleExportPdf(p: {
       {erreur && <p className="ds-hint error">{erreur}</p>}
       <button className="ds-btn primary big wide" style={{ marginTop: 16 }} disabled={!construire || envoi} onClick={() => void exporter()}>
         <Icon name="file" size={22} />
-        {!construire && !erreur ? 'Préparation du PDF…' : envoi ? 'Envoi…' : 'Créer le PDF et partager'}
+        {!construire && !erreur ? 'Préparation du PDF…' : envoi ? 'Envoi…' : (p.bouton ?? 'Créer le PDF et partager')}
       </button>
     </Modal>
   );

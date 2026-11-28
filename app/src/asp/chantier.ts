@@ -2,6 +2,7 @@
  * Un chantier préparé par l'ASP : identification, zone de travail, plateforme, travaux, dispositif d'annonce et
  * check-lists. Gardé uniquement sur le téléphone (voir store.ts).
  */
+import type { Cloture } from '../archive/cloture';
 import { fmtLine, fmtPk } from '../lib/format';
 import { derouleVide, lireDeroule, type Deroule } from './deroule';
 import {
@@ -70,6 +71,8 @@ export interface Chantier {
   notes: string;
   /** Le jour de l'intervention : heures notées, trains annoncés, incidents et observations. */
   deroule: Deroule;
+  /** Clôture de fin de mission : le chantier est archivé et verrouillé. */
+  cloture?: Cloture | null;
 }
 
 export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;

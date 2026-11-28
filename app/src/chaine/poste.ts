@@ -4,6 +4,8 @@
  * trains annoncés, incidents et observations). Gardé sur le téléphone ; relié, si l'agent le choisit, à la chaîne
  * que l'ASP partage sur un chantier partagé.
  */
+import { useMemo } from 'react';
+import type { Cloture } from '../archive/cloture';
 import { creerCollection, newId } from '../lib/collection';
 import { duree, heureDans } from '../lib/temps';
 
@@ -67,6 +69,8 @@ export interface Poste {
   trains: TrainPoste[];
   evenements: EvenementPoste[];
   notes: string;
+  /** Clôture de fin de poste : archivé et verrouillé. */
+  cloture?: Cloture | null;
 }
 
 export function nouveauPoste(init: Partial<Poste> = {}): Poste {
@@ -101,7 +105,13 @@ const postes = creerCollection<Poste>('asp-postes-v1', (p) => ({ ...nouveauPoste
 export const enregistrerPoste = (p: Poste) => postes.enregistrer({ ...p, updated: Date.now() });
 export const supprimerPoste = postes.supprimer;
 export const posteParId = postes.parId;
-export const usePostes = postes.useListe;
+/** Postes en cours ou à clôturer (les archivés sont dans « Mes archives »). */
+export function usePostes(): Poste[] {
+  const l = postes.useListe();
+  return useMemo(() => l.filter((p) => !p.cloture), [l]);
+}
+/** Tous les postes, archivés compris. */
+export const useTousLesPostes = postes.useListe;
 
 /** Le poste à mettre en avant : celui pas encore fini, le plus récent. */
 export function posteDuJour(list: Poste[]): Poste | null {

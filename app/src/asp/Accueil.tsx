@@ -32,6 +32,7 @@ import { choisirCote, useCote } from '../chaine/cote';
 import { useMaillonsLies } from '../chaine/lien';
 import { etatPoste, posteDuJour, titrePoste, usePostes } from '../chaine/poste';
 import { useSession } from '../partage/session';
+import { LienArchives, RappelCloture } from '../archive/Cloture';
 
 interface AccueilProps {
   ctx: Ctx;
@@ -138,6 +139,7 @@ function AccueilGeneral(p: AccueilProps) {
     <main className="ds-page" aria-label="Accueil">
       <Bonjour onMenu={p.onMenu} />
       <BandeauEntreprise />
+      <RappelCloture ctx={p.ctx} />
       {modules.planning && <CartePlanning ctx={p.ctx} activite={derniere} onPreparer={preparer} />}
       <h2 className="ds-section-title">Choisis ta mission</h2>
       <div className="ac-missions">
@@ -168,6 +170,7 @@ function AccueilGeneral(p: AccueilProps) {
           );
         })}
       </div>
+      <LienArchives ctx={p.ctx} />
       <p className="ds-foot">Aide à la préparation, jamais une référence de sécurité : le carnet CADA, l’AAn, les dépêches et les consignes locales priment.</p>
     </main>
   );
@@ -190,6 +193,7 @@ function AccueilMission(p: AccueilProps) {
   return (
     <main className="ds-page" aria-label={`Accueil : ${NOM_MISSION[activite]}`}>
       <Bonjour titre={NOM_MISSION[activite]} sous={MISSIONS.find((m) => m.a === activite)!.sous} onMenu={p.onMenu} onRetour={fermerMission} />
+      <RappelCloture ctx={p.ctx} types={activite === 'asp' ? ['asp', 'chaine'] : [activite]} />
       {activite === 'asp' && (
         <div className="ch-cote">
           <Bascule

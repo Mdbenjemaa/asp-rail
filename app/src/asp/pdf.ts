@@ -50,35 +50,9 @@ function planChantier(k: Kit, c: Chantier, r: Resultat, ligne: LineDoc | null) {
   }
 }
 
-export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
-  const z = zoneAnnonce(c);
-  const k = creerPdf({
-    titre: 'Fiche CADA',
-    sousTitre: titreChantier(c),
-    ligne3: [c.ligne ? `Ligne ${fmtLine(c.ligne)}` : null, zoneTexte(c), `${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`].filter(Boolean).join(' · '),
-    info,
-    pied: 'Aide à la préparation : ne remplace ni le carnet CADA, ni l’AAn, ni les textes et consignes en vigueur. PK et vitesses à vérifier sur le terrain.',
-  });
-
-  // Chantier.
-  k.titre('Chantier');
-  k.kv([
-    ['Ligne', c.ligne ? `${fmtLine(c.ligne)}${c.ligneNom ? ` · ${c.ligneNom}` : ''}` : 'À préciser'],
-    ['Zone de travail', zoneTexte(c)],
-    ...(c.type === 'mobile' && z.debut !== null ? ([['Zone sous annonce', `PK ${fmtPk(z.debut)} -> ${fmtPk(z.fin)} (${c.longueurAnnonce ?? '?'} m)`]] as [string, string][]) : []),
-    ['Type de chantier', c.type === 'fixe' ? 'Fixe' : c.type === 'mobile' ? 'Mobile' : 'Itinérant'],
-    ['Date', `${fmtDate(c.date)} · ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`],
-    ['Entreprise', c.entreprise || '—'],
-    ['ASP', c.asp || '—'],
-    ['Responsable du chantier', c.responsable || '—'],
-    ['Effectif travaux', c.effectif === null ? '—' : String(c.effectif)],
-    ['Effectif annonce', effectifAnnonce(c)],
-  ]);
-
-  // Plan de situation : zone de travail, points d'annonce et agents placés.
+/** Fiche CADA, après le plan : plateforme, délais, points d'annonce, dispositif, points à régler, check-lists. */
+function corpsCada(k: Kit, c: Chantier, r: Resultat) {
   const codes = codesAgents(c.agents);
-  planChantier(k, c, r, ligne);
-
   // Plateforme.
   k.titre('Plateforme');
   const place = { travail: 'Voie de travail', contigue: 'Contiguë', traversee: 'À traverser', hors: 'Hors annonce' } as const;
@@ -141,6 +115,37 @@ export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: Line
     CHECKLISTS.flatMap((l) => [[l.title, ''], ...l.items.map((i) => [c.checks[i.id] ? '[x]' : '[ ]', i.text])]),
     { widths: { 0: 14 } },
   );
+}
+
+export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
+  const z = zoneAnnonce(c);
+  const k = creerPdf({
+    titre: 'Fiche CADA',
+    sousTitre: titreChantier(c),
+    ligne3: [c.ligne ? `Ligne ${fmtLine(c.ligne)}` : null, zoneTexte(c), `${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`].filter(Boolean).join(' · '),
+    info,
+    pied: 'Aide à la préparation : ne remplace ni le carnet CADA, ni l’AAn, ni les textes et consignes en vigueur. PK et vitesses à vérifier sur le terrain.',
+  });
+
+  // Chantier.
+  k.titre('Chantier');
+  k.kv([
+    ['Ligne', c.ligne ? `${fmtLine(c.ligne)}${c.ligneNom ? ` · ${c.ligneNom}` : ''}` : 'À préciser'],
+    ['Zone de travail', zoneTexte(c)],
+    ...(c.type === 'mobile' && z.debut !== null ? ([['Zone sous annonce', `PK ${fmtPk(z.debut)} -> ${fmtPk(z.fin)} (${c.longueurAnnonce ?? '?'} m)`]] as [string, string][]) : []),
+    ['Type de chantier', c.type === 'fixe' ? 'Fixe' : c.type === 'mobile' ? 'Mobile' : 'Itinérant'],
+    ['Date', `${fmtDate(c.date)} · ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`],
+    ['Entreprise', c.entreprise || '—'],
+    ['ASP', c.asp || '—'],
+    ['Responsable du chantier', c.responsable || '—'],
+    ['Effectif travaux', c.effectif === null ? '—' : String(c.effectif)],
+    ['Effectif annonce', effectifAnnonce(c)],
+  ]);
+
+  // Plan de situation : zone de travail, points d'annonce et agents placés.
+  planChantier(k, c, r, ligne);
+
+  corpsCada(k, c, r);
 
   if (c.notes.trim()) {
     k.titre('Notes');
@@ -163,20 +168,8 @@ export function fichePdf(c: Chantier, r: Resultat, info: InfoExport, ligne: Line
 
 const signeLe = (t: number | null) => (t ? dateHeure(t) : null);
 
-/** Compte rendu d'intervention : ce qui s'est passé, d'après les heures notées sur place. */
-export function compteRenduPdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
-  const d = c.deroule;
-  const h = (t: number) => heureDans(t, c.date);
-  const codes = codesAgents(c.agents);
-  const k = creerPdf({
-    titre: 'Compte rendu d’intervention',
-    sousTitre: titreChantier(c),
-    ligne3: [c.ligne ? `Ligne ${fmtLine(c.ligne)}` : null, zoneTexte(c), `${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`].filter(Boolean).join(' · '),
-    info,
-    pied: 'Compte rendu établi sur le téléphone de l’ASP avec les heures notées pendant l’intervention. Le carnet CADA et l’AAn font foi.',
-  });
-
-  // L'intervention.
+/** Le chantier et les personnes, en tête du compte rendu et du dossier. */
+function blocIntervention(k: Kit, c: Chantier, info: InfoExport) {
   k.titre('Intervention');
   k.kv([
     ['Ligne', c.ligne ? `${fmtLine(c.ligne)}${c.ligneNom ? ` · ${c.ligneNom}` : ''}` : 'À préciser'],
@@ -189,7 +182,12 @@ export function compteRenduPdf(c: Chantier, r: Resultat, info: InfoExport, ligne
     ['Effectif travaux', c.effectif === null ? '—' : String(c.effectif)],
     ['Effectif annonce', effectifAnnonce(c)],
   ]);
+}
 
+/** Ce qui s'est passé pendant l'intervention : horaires, durées, trains annoncés, incidents et observations. */
+function corpsDeroule(k: Kit, c: Chantier, r: Resultat) {
+  const d = c.deroule;
+  const h = (t: number) => heureDans(t, c.date);
   // Horaires.
   k.titre('Horaires');
   k.table(
@@ -226,6 +224,23 @@ export function compteRenduPdf(c: Chantier, r: Resultat, info: InfoExport, ligne
   } else {
     k.note('Aucun incident ni observation noté.');
   }
+}
+
+/** Compte rendu d'intervention : ce qui s'est passé, d'après les heures notées sur place. */
+export function compteRenduPdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
+  const codes = codesAgents(c.agents);
+  const k = creerPdf({
+    titre: 'Compte rendu d’intervention',
+    sousTitre: titreChantier(c),
+    ligne3: [c.ligne ? `Ligne ${fmtLine(c.ligne)}` : null, zoneTexte(c), `${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`].filter(Boolean).join(' · '),
+    info,
+    pied: 'Compte rendu établi sur le téléphone de l’ASP avec les heures notées pendant l’intervention. Le carnet CADA et l’AAn font foi.',
+  });
+
+  // L'intervention.
+  blocIntervention(k, c, info);
+
+  corpsDeroule(k, c, r);
 
   // Le dispositif en place : plan, points d'annonce, agents.
   planChantier(k, c, r, ligne);
@@ -265,4 +280,32 @@ export function compteRenduPdf(c: Chantier, r: Resultat, info: InfoExport, ligne
   ]);
 
   return k.fichier(nomPdf('Compte-rendu', titreChantier(c), info.cree));
+}
+
+/**
+ * Dossier de fin de mission (clôture) : tout le chantier dans un seul PDF. Le compte rendu de l'intervention, le plan,
+ * puis la fiche CADA (plateforme, délais, points d'annonce, dispositif, check-lists), les notes et les signatures.
+ */
+export function dossierChantierPdf(c: Chantier, r: Resultat, info: InfoExport, ligne: LineDoc | null): File {
+  const k = creerPdf({
+    titre: 'Dossier de fin de mission',
+    sousTitre: `Annonce · ${titreChantier(c)}`,
+    ligne3: [c.ligne ? `Ligne ${fmtLine(c.ligne)}` : null, zoneTexte(c), `${fmtDate(c.date)} ${c.horaire === 'nuit' ? 'de nuit' : 'de jour'}`].filter(Boolean).join(' · '),
+    info,
+    pied: 'Dossier établi sur le téléphone de l’ASP à la clôture de la mission. Le carnet CADA et l’AAn font foi.',
+  });
+  blocIntervention(k, c, info);
+  corpsDeroule(k, c, r);
+  planChantier(k, c, r, ligne);
+  corpsCada(k, c, r);
+  if (c.notes.trim()) {
+    k.titre('Notes');
+    k.note(c.notes.trim());
+  }
+  k.titre('Signatures', 56);
+  k.signatures([
+    { titre: 'ASP', nom: info.agent || c.asp, png: info.signature, quand: signeLe(info.signeA) },
+    { titre: 'Responsable du chantier', nom: info.second?.nom || c.responsable, png: info.second?.signature ?? null, quand: signeLe(info.second?.signeA ?? null) },
+  ]);
+  return k.fichier(nomPdf('Dossier', titreChantier(c), info.cree));
 }

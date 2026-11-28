@@ -29,6 +29,8 @@ import { NouvelleMission } from '../pn/NouvelleMission';
 import { OrdreScreen } from '../pn/OrdreScreen';
 import { PlanningScreen } from '../planning/Planning';
 import { GestesScreen, PosteEdit, PosteScreen } from '../chaine/PosteScreen';
+import { ArchiveEcran, ArchivesScreen, FeuilleCloture } from '../archive/Cloture';
+import { useArchivees } from '../archive/missions';
 
 /** Écrans dont le contenu dépend de ce que l'entreprise a dans l'appli. */
 function permis(v: Vue, m: Modules): boolean {
@@ -52,6 +54,7 @@ export function Couche(p: {
   const { ctx } = p;
   const activite = useActivite();
   const modules = useModules();
+  const archivees = useArchivees();
   const top = p.pile.length - 1;
   return (
     <>
@@ -63,6 +66,10 @@ export function Couche(p: {
       {p.pile.map((v, k) => {
         const hidden = k < top;
         const key = `${k}-${v.k}-${'id' in v ? v.id : ''}`;
+        // Mission clôturée : son archive (lecture seule) s'ouvre à la place de l'écran de saisie.
+        const idVue = v.k !== 'cloture' && v.k !== 'archive' && 'id' in v && typeof v.id === 'string' ? v.id : null;
+        const archivee = idVue ? archivees.get(idVue) : undefined;
+        if (idVue && archivee) return <ArchiveEcran key={key} type={archivee} id={idVue} ctx={ctx} hidden={hidden} />;
         if (!permis(v, modules))
           return (
             <Ecran key={key} label="Contenu non inclus" title="Non inclus" onBack={ctx.back} hidden={hidden}>
@@ -122,6 +129,12 @@ export function Couche(p: {
             return <PosteEdit key={key} id={v.id} nouveau={v.nouveau} hidden={hidden} ctx={ctx} />;
           case 'gestes':
             return <GestesScreen key={key} role={v.role} hidden={hidden} ctx={ctx} />;
+          case 'cloture':
+            return <FeuilleCloture key={key} type={v.type} id={v.id} ctx={ctx} onClose={ctx.back} />;
+          case 'archive':
+            return <ArchiveEcran key={key} type={v.type} id={v.id} ctx={ctx} hidden={hidden} />;
+          case 'archives':
+            return <ArchivesScreen key={key} ctx={ctx} hidden={hidden} />;
           case 'cas':
             return (
               <CasScreen

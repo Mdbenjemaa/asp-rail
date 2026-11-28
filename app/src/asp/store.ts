@@ -51,6 +51,8 @@ function abonner(f: () => void) {
 export function enregistrer(c: Chantier): boolean {
   const next = { ...c, updated: Date.now() };
   const i = chantiers.findIndex((x) => x.id === c.id);
+  // Archivé : verrouillé, on n'enregistre plus rien (un écran resté ouvert ne peut pas le rouvrir).
+  if (i !== -1 && chantiers[i].cloture) return true;
   chantiers = i === -1 ? [next, ...chantiers] : chantiers.map((x) => (x.id === c.id ? next : x));
   let ok = true;
   try {
@@ -74,6 +76,9 @@ export function chantierParId(id: string | null): Chantier | null {
   return id ? (chantiers.find((c) => c.id === id) ?? null) : null;
 }
 
+/** Identifiant du chantier affiché sur la carte. */
+export const chantierActifId = () => actif;
+
 /** Chantier affiché sur la carte (un seul à la fois), ou null. */
 export function definirActif(id: string | null) {
   actif = id;
@@ -81,7 +86,17 @@ export function definirActif(id: string | null) {
   prevenir();
 }
 
+/** Chantiers en cours ou à clôturer (les archivés sont dans « Mes archives »). */
+let enCours: { de: Chantier[]; liste: Chantier[] } = { de: [], liste: [] };
+const chantiersEnCours = () => {
+  if (enCours.de !== chantiers) enCours = { de: chantiers, liste: chantiers.filter((c) => !c.cloture) };
+  return enCours.liste;
+};
 export function useChantiers(): Chantier[] {
+  return useSyncExternalStore(abonner, chantiersEnCours);
+}
+/** Tous les chantiers, archivés compris. */
+export function useTousLesChantiers(): Chantier[] {
   return useSyncExternalStore(abonner, () => chantiers);
 }
 

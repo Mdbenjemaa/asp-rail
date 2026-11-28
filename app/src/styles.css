@@ -260,6 +260,9 @@ button:disabled { cursor: default; }
 .seg { flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin: 12px 12px 0; padding: 4px; border-radius: var(--r-lg); background: var(--surface-3); }
 .seg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 6px; }
 .seg-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.seg-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.seg-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.seg-4 .seg-btn, .seg-5 .seg-btn { padding-left: 1px; padding-right: 1px; font-size: 13px; letter-spacing: -0.2px; }
 .admin-onglets { margin: 0 0 14px; }
 .seg-btn { height: 44px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--muted); font-size: 16px; font-weight: 800; }
 .seg-btn.on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(11, 18, 32, 0.18); }
@@ -580,6 +583,19 @@ button:disabled { cursor: default; }
 .ac-entreprise { display: flex; align-items: center; gap: 10px; margin: -4px 0 14px; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--bg); font-weight: 800; font-size: 15px; }
 .ac-entreprise img { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; background: #fff; padding: 2px; }
 .ac-entreprise span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-rappel { margin: 0 0 16px; border: 2px solid var(--warn-ink, #b45309); }
+.cl-rappel-tete { display: flex; align-items: center; gap: 8px; color: var(--warn-ink, #b45309); font-size: 16px; }
+.cl-rappel-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.cl-rappel-ligne span { display: flex; flex-direction: column; min-width: 0; }
+.cl-rappel-ligne b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-rappel-ligne small { color: var(--muted); }
+.cl-rappel-ligne .ds-btn { flex: none; }
+.cl-fin { margin-top: 14px; }
+.cl-archive { margin-top: 4px; }
+.cl-envoi { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; font-weight: 700; line-height: 1.35; }
+.cl-envoi.ok { background: var(--ok-bg); color: var(--ok-ink); }
+.cl-envoi.todo { background: var(--warn-bg); color: var(--warn-ink); }
+.cl-envoi.stop { background: var(--err-bg); color: var(--err-ink); }
 .ac-missions { display: grid; gap: 12px; margin-bottom: 18px; }
 .ac-mission { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; min-height: 108px; padding: 16px 14px 16px 16px; border: 1.5px solid var(--line); border-radius: 22px; background: var(--bg); color: var(--ink); box-shadow: var(--elev); text-align: left; font: inherit; cursor: pointer; }
 .ac-mission:active { transform: scale(0.99); }

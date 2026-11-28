@@ -31,6 +31,8 @@ export interface Element {
   updated: number;
   /** Créé par « Nouvelle… » et jamais rempli : retiré au prochain lancement s'il traîne encore. */
   brouillon?: boolean;
+  /** Clôturé (archivé) : plus aucune modification n'est enregistrée. */
+  cloture?: unknown;
 }
 
 export interface Collection<T extends Element> {
@@ -107,6 +109,8 @@ export function creerCollection<T extends Element>(cle: string, normaliser: (bru
       const list = lire();
       const next = { ...x, updated: Date.now() };
       const i = list.findIndex((y) => y.id === x.id);
+      // Archivé : verrouillé, on n'enregistre plus rien (un écran resté ouvert ne peut pas le rouvrir).
+      if (i >= 0 && list[i].cloture) return true;
       return ecrire(i >= 0 ? list.map((y) => (y.id === x.id ? next : y)) : [next, ...list]);
     },
     supprimer(id) {

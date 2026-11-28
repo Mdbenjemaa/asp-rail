@@ -29,6 +29,7 @@ import { FeuilleExportPdf } from './ExportPdf';
 import { derouleVide } from './deroule';
 import { compteRenduTexte, messageEnvoi, partagerTexte, resumeTexte, type Envoi } from './partage';
 import { FeuilleFinie, SectionIntervention } from './Deroule';
+import { LigneCloturer } from '../archive/Cloture';
 import { useMaillonsLies } from '../chaine/lien';
 import { loadLine } from '../lib/data';
 import type { Resultat } from './rules';
@@ -172,6 +173,10 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx; ouvrir?: 'com
         }}
         onCompteRendu={() => setFeuille({ k: 'cr' })}
       />
+
+      <Section title="Fin de mission">
+        <LigneCloturer ctx={p.ctx} type="asp" id={c.id} />
+      </Section>
 
       <Section
         title={`Dispositif · 1 + ${autres.length}`}
@@ -322,6 +327,10 @@ export function Fiche(p: { id: string; hidden?: boolean; ctx: Ctx; ouvrir?: 'com
         <FeuilleFinie
           c={c}
           r={r}
+          onCloturer={() => {
+            setFeuille(null);
+            p.ctx.open({ k: 'cloture', type: 'asp', id: c.id });
+          }}
           onClose={() => setFeuille(null)}
           onPdf={() => setFeuille({ k: 'cr' })}
           onTexte={() =>

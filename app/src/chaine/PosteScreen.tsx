@@ -13,6 +13,7 @@ import { usePositionDirecte } from '../asp/direct';
 import { FeuilleExportPdf } from '../asp/ExportPdf';
 import { Feuille } from '../asp/Fiche';
 import { Ecran, Ligne, Pastilles, Section } from '../asp/kit';
+import { LigneCloturer } from '../archive/Cloture';
 import { messageEnvoi } from '../asp/partage';
 import { Champ, PkInput } from '../asp/ui';
 import { definirMonPartage, envoyer, useMonPartage } from '../partage/session';
@@ -257,6 +258,7 @@ export function PosteScreen({ id, hidden, ctx }: { id: string; hidden?: boolean;
         <Ligne icon="flag" title="Fin de poste" end={p.fin ? heureDans(p.fin, p.date) : '—'} chevron={false} />
         <Ligne icon="train" title={`Trains annoncés : ${p.trains.length}`} sub={parPa.map((x) => `${x.nom} : ${x.heures.length}`).join(' · ') || undefined} chevron={false} />
         <Ligne icon="file" title="Compte rendu de poste en PDF" sub="Poste, horaires, trains, incidents, signatures" onClick={() => setPdf(true)} />
+        <LigneCloturer ctx={ctx} type="chaine" id={p.id} />
       </Section>
 
       <Section title="Pour m’aider">

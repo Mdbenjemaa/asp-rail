@@ -3,6 +3,8 @@
  * Les étapes reprennent l'ordre du support ; la fiche de travail, la consigne PN et le livret de service priment.
  * Chaque étape faite garde son heure : c'est le journal de la mission.
  */
+import { useMemo } from 'react';
+import type { Cloture } from '../archive/cloture';
 import { creerCollection, newId } from '../lib/collection';
 import type { LinePoint } from '../lib/data';
 import { fmtLine, fmtPk } from '../lib/format';
@@ -82,6 +84,8 @@ export interface Mission {
   fin: number | null;
   /** Créée par « Nouvelle mission » et pas encore remplie. */
   brouillon?: boolean;
+  /** Clôture de fin de mission : archivée et verrouillée. */
+  cloture?: Cloture | null;
 }
 
 export interface Etape {
@@ -395,7 +399,13 @@ const missions = creerCollection<Mission>('asp-missions-pn-v1', (m) => ({ ...nou
 export const enregistrerMission = (m: Mission) => missions.enregistrer(avecFin(m));
 export const supprimerMission = missions.supprimer;
 export const missionParId = missions.parId;
-export const useMissions = missions.useListe;
+/** Missions en cours ou à clôturer (les archivées sont dans « Mes archives »). */
+export function useMissions(): Mission[] {
+  const l = missions.useListe();
+  return useMemo(() => l.filter((m) => !m.cloture), [l]);
+}
+/** Toutes les missions, archivées comprises. */
+export const useToutesMissions = missions.useListe;
 
 /** Mission à montrer en grand : la dernière en cours, sinon la plus récente. */
 export function missionDuJour(list: Mission[]): Mission | null {
